@@ -1,0 +1,110 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const { loadConfig } = require('../../src/config');
+
+const base = {
+  DATABASE_URL: 'postgresql://u:p@localhost:5432/db',
+  JWT_SECRET: 'x'.repeat(32),
+  ANTHROPIC_API_KEY: 'sk-ant-test',
+};
+
+test('valid development env loads with defaults', () => {
+  const c = loadConfig({ ...base });
+  assert.equal(c.port, 3000);
+  assert.equal(c.origin, 'http://localhost:3000');
+  assert.equal(c.nodeEnv, 'development');
+  assert.equal(c.trustProxy, 0);
+  assert.equal(c.isProd, false);
+  assert.equal(c.databaseUrl, base.DATABASE_URL);
+  assert.equal(c.jwtSecret, base.JWT_SECRET);
+  assert.equal(c.anthropicApiKey, 'sk-ant-test');
+  assert.equal(c.databaseCa, undefined);
+});
+
+test('JWT_SECRET of 31 chars throws and names JWT_SECRET', () => {
+  assert.throws(
+    () => loadConfig({ ...base, JWT_SECRET: 'x'.repeat(31) }),
+    (e) => e instanceof Error && e.message.includes('JWT_SECRET')
+  );
+});
+
+test('missing JWT_SECRET throws', () => {
+  const env = { ...base };
+  delete env.JWT_SECRET;
+  assert.throws(() => loadConfig(env), /JWT_SECRET/);
+});
+
+test('missing DATABASE_URL throws', () => {
+  const env = { ...base };
+  delete env.DATABASE_URL;
+  assert.throws(() => loadConfig(env), /DATABASE_URL/);
+});
+
+test('production without ORIGIN throws', () => {
+  assert.throws(() => loadConfig({ ...base, NODE_ENV: 'production' }), /ORIGIN/);
+});
+
+test('production without ANTHROPIC_API_KEY throws', () => {
+  const env = { ...base, NODE_ENV: 'production', ORIGIN: 'https://app.example.com' };
+  delete env.ANTHROPIC_API_KEY;
+  assert.throws(() => loadConfig(env), /ANTHROPIC_API_KEY/);
+});
+
+test('NODE_ENV=test without ANTHROPIC_API_KEY is valid', () => {
+  const env = { ...base, NODE_ENV: 'test' };
+  delete env.ANTHROPIC_API_KEY;
+  const c = loadConfig(env);
+  assert.equal(c.nodeEnv, 'test');
+  assert.equal(c.anthropicApiKey, undefined);
+});
+
+test('development without ANTHROPIC_API_KEY is valid', () => {
+  const env = { ...base };
+  delete env.ANTHROPIC_API_KEY;
+  assert.doesNotThrow(() => loadConfig(env));
+});
+
+test('production defaults: trustProxy 1, isProd true, origin from env', () => {
+  const c = loadConfig({ ...base, NODE_ENV: 'production', ORIGIN: 'https://app.example.com' });
+  assert.equal(c.trustProxy, 1);
+  assert.equal(c.isProd, true);
+  assert.equal(c.origin, 'https://app.example.com');
+});
+
+test('explicit TRUST_PROXY wins and is a number', () => {
+  const c = loadConfig({ ...base, TRUST_PROXY: '2' });
+  assert.equal(c.trustProxy, 2);
+  const p = loadConfig({ ...base, NODE_ENV: 'production', ORIGIN: 'https://a.example', TRUST_PROXY: '0' });
+  assert.equal(p.trustProxy, 0);
+});
+
+test('PORT is parsed as a number', () => {
+  assert.equal(loadConfig({ ...base, PORT: '8080' }).port, 8080);
+});
+
+test('invalid PORT, TRUST_PROXY and NODE_ENV are rejected', () => {
+  assert.throws(() => loadConfig({ ...base, PORT: 'abc' }), /PORT/);
+  assert.throws(() => loadConfig({ ...base, TRUST_PROXY: '-1' }), /TRUST_PROXY/);
+  assert.throws(() => loadConfig({ ...base, TRUST_PROXY: 'x' }), /TRUST_PROXY/);
+  assert.throws(() => loadConfig({ ...base, NODE_ENV: 'staging' }), /NODE_ENV/);
+});
+
+test('DATABASE_CA is passed through when set', () => {
+  const pem = '-----BEGIN CERTIFICATE-----\nabc\n-----END CERTIFICATE-----';
+  assert.equal(loadConfig({ ...base, DATABASE_CA: pem }).databaseCa, pem);
+});
+
+test('result is frozen', () => {
+  const c = loadConfig({ ...base });
+  assert.ok(Object.isFrozen(c));
+});
+
+test('multiple problems are all reported in one error', () => {
+  assert.throws(
+    () => loadConfig({ NODE_ENV: 'production', JWT_SECRET: 'short' }),
+    (e) =>
+      ['DATABASE_URL', 'JWT_SECRET', 'ORIGIN', 'ANTHROPIC_API_KEY'].every((n) =>
+        e.message.includes(n)
+      )
+  );
+});
