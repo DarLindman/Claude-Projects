@@ -5,6 +5,7 @@ const { loadConfig } = require('../../src/config');
 const { migrate } = require('../../src/db/migrate');
 const { createApp } = require('../../src/app');
 const { createTestPool, resetDb } = require('./db');
+const { fakeAnthropic } = require('./fakeAnthropic');
 
 const PASSWORD = 'correct-horse-1';
 
@@ -18,8 +19,7 @@ async function buildTestApp(overrides = {}) {
   });
   await migrate(pool);
   await resetDb(pool);
-  // Minimal stub; Task 4 replaces it with a proper fake.
-  const anthropic = { messages: { create: async () => { throw new Error('anthropic stub: not configured'); } } };
+  const anthropic = fakeAnthropic();
   const { limits = {}, ...rest } = overrides;
   const app = createApp({ config, pool, anthropic, limits: { loginPerMin: 1000, ...limits }, ...rest });
   return { app, pool, config, anthropic };
