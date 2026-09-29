@@ -1,0 +1,118 @@
+/* ── Background FX ───────────────────────────── */
+#bg-fx {
+  position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
+}
+.bg-mesh { position: absolute; inset: 0; }
+.bg-mesh::before {
+  content: ''; position: absolute;
+  width: 75%; height: 75%; top: -20%; right: -20%;
+  background: radial-gradient(circle, rgba(232,112,58,0.14) 0%, rgba(232,112,58,0.04) 50%, transparent 80%);
+  border-radius: 50%;
+  filter: blur(40px);
+  animation: meshBlob1 22s ease-in-out infinite; will-change: transform;
+}
+.bg-mesh::after {
+  content: ''; position: absolute;
+  width: 80%; height: 70%; bottom: -25%; left: -20%;
+  background: radial-gradient(circle, rgba(139,30,0,0.13) 0%, rgba(139,30,0,0.04) 50%, transparent 80%);
+  border-radius: 50%;
+  filter: blur(50px);
+  animation: meshBlob2 28s ease-in-out infinite; will-change: transform;
+}
+@keyframes meshBlob1 {
+  0%,100% { transform: translate(0,0) scale(1); }
+  35%     { transform: translate(-6%,10%) scale(1.08); }
+  70%     { transform: translate(9%,-5%) scale(0.96); }
+}
+@keyframes meshBlob2 {
+  0%,100% { transform: translate(0,0) scale(1); }
+  40%     { transform: translate(11%,-9%) scale(1.06); }
+  75%     { transform: translate(-4%,8%) scale(0.93); }
+}
+.bg-glow {
+  position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 130%; height: 55%;
+  background: radial-gradient(ellipse 70% 100% at 50% 100%, rgba(232,112,58,0.22) 0%, rgba(180,50,0,0.10) 35%, transparent 70%);
+  animation: glowBreathe 8s ease-in-out infinite; will-change: opacity, transform;
+}
+@keyframes glowBreathe {
+  0%,100% { opacity: 0.82; transform: translateX(-50%) scaleY(1); }
+  50%     { opacity: 1;    transform: translateX(-50%) scaleY(1.06); }
+}
+.bg-ember {
+  position: absolute; bottom: 12%; left: var(--x, 50%);
+  width: 2px; height: 2px;
+  background: rgba(232,145,58,0.85); border-radius: 50%;
+  box-shadow: 0 0 4px rgba(232,112,58,0.7);
+  animation: emberRise var(--dur,16s) ease-in var(--delay,0s) infinite;
+  will-change: transform, opacity;
+}
+@keyframes emberRise {
+  0%   { transform: translateY(0) translateX(0);      opacity: 0.85; }
+  25%  { transform: translateY(-20vh) translateX(6px); opacity: 0.65; }
+  60%  { transform: translateY(-50vh) translateX(-8px);opacity: 0.25; }
+  100% { transform: translateY(-78vh) translateX(10px);opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bg-mesh::before, .bg-mesh::after, .bg-glow, .bg-ember { animation: none !important; }
+  .bg-ember { display: none; }
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+html { background: #0F0A07; }
+body {
+  font-family: 'DM Sans', -apple-system, sans-serif;
+  background: transparent;
+  color: var(--text);
+  min-height: 100dvh;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Grain texture overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.032;
+  pointer-events: none;
+  z-index: 9998;
+}
+
+/* ── Screens ── */
+.screen { display: none; flex-direction: column; min-height: 100dvh; padding-bottom: var(--nav-h); }
+#screen-dashboard { overflow-x: hidden; overflow-y: auto; }
+#screen-settings { overflow-x: hidden; }
+#screen-settings .page { overflow-y: auto; }
+
+@keyframes screenEnter {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.screen.active {
+  display: flex;
+  animation: screenEnter var(--dur-mid) var(--ease-out) both;
+}
+@keyframes screenSlideInRight {
+  from { transform: translateX(28px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+@keyframes screenSlideInLeft {
+  from { transform: translateX(-28px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+.screen-enter-right {
+  animation: screenSlideInRight 250ms var(--ease-out) both;
+}
+.screen-enter-left {
+  animation: screenSlideInLeft 250ms var(--ease-out) both;
+}
+
