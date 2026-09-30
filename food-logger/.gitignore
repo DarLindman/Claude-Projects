@@ -4,3 +4,6 @@ node_modules/
 remotion/node_modules/
 test-results/
 playwright-report/
+
+# Naming evaluation: photos, results and report (never committed)
+/eval/
