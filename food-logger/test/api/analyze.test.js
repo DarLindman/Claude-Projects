@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const request = require('supertest');
 const { buildTestApp, signedIn, csrfHeaders } = require('../helpers/app');
 const { MODEL } = require('../../src/lib/anthropic');
-const { IMAGE_SYSTEM_PROMPT, TEXT_SYSTEM_PROMPT } = require('../../src/lib/analysis');
+const { IMAGE_SYSTEM_PROMPT, IMAGE_USER_MESSAGE, TEXT_SYSTEM_PROMPT } = require('../../src/lib/analysis');
 const { REPAIR_TEXT_SYSTEM_PROMPT } = require('../../src/lib/hebrewName');
 
 // Real JPEG magic bytes (FF D8 FF E0 ... JFIF) so a future magic-byte check accepts it.
@@ -39,6 +39,8 @@ test('POST /api/analyze sums items, returns the clean dish name, sends model and
   const call = ctx.anthropic.calls[0];
   assert.equal(call.model, MODEL);
   assert.equal(call.system, IMAGE_SYSTEM_PROMPT);
+  assert.equal(call.temperature, 0);
+  assert.equal(call.messages[0].content[1].text, IMAGE_USER_MESSAGE);
   assert.equal(call.messages[0].content[0].source.data, JPEG_BASE64);
   assert.equal(call.messages[0].content[0].source.media_type, 'image/jpeg');
 });

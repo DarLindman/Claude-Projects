@@ -6,7 +6,8 @@
 //     (string; a function called with the request that returns a string/response
 //     or throws; an Error instance makes the call reject). Default: 'סלט'
 //   - user content is an array (image request)         -> `fake.imageReply` when set (a
-//     string, for malformed-reply tests), else a JSON object with dish_name and items
+//     string, for malformed-reply tests), else a JSON object with visual_description,
+//     dish_name and items (the shape the image prompt asks for)
 //   - otherwise (text request)                         -> JSON array of items
 const { REPAIR_PROMPT_PREFIX } = require('../../src/lib/hebrewName');
 
@@ -38,7 +39,7 @@ function fakeAnthropic() {
         const content = args.messages?.[0]?.content;
         if (Array.isArray(content)) {
           if (fake.imageReply !== undefined) return reply(fake.imageReply);
-          return reply(JSON.stringify({ dish_name: 'עוף עם אורז', items: IMAGE_ITEMS }));
+          return reply(JSON.stringify({ visual_description: 'grilled chicken with white rice', dish_name: 'עוף עם אורז', items: IMAGE_ITEMS }));
         }
         return reply(JSON.stringify(TEXT_ITEMS));
       },
