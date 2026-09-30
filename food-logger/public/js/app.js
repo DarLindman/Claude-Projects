@@ -8,13 +8,14 @@ import { state } from './state.js';
 import { apiFetch } from './api.js';
 import { addDays, formatDate, formatDateShort, todayStr } from './dates.js';
 import { closeModal, escapeHtml, openModal, showToast } from './dom.js';
-import { animateCountUp, startFireCanvas, stopFireCanvas } from './effects.js';
+import { stopFireCanvas } from './effects.js';
 import { getFoodEmoji } from './format.js';
-import { PET_MESSAGES, _cameraCapyState, cloneCapybara, getIdleWrap, getPetState, setIdleWrap, setPetState, startIdleAnimations } from './pet.js';
+import { _cameraCapyState, cloneCapybara, setIdleWrap, setPetState, startIdleAnimations } from './pet.js';
 import { calcRecommendedCal, loadProfile, updateSettingsProfileSub } from './profile.js';
 import { navigate, registerScreen } from './router.js';
 import { saveEntry, selectMeal } from './screens/analysis.js';
 import { analyzeFood, analyzeText, animatePlaceholder, autoResizeTextarea, onImageSelected } from './screens/camera.js';
+import { animateDashStagger, loadDashboard } from './screens/dashboard.js';
 import { doChangePassword, openProfileModal, populateProfileSelects, saveMpProfile, setMpActivity, setMpGender, setMpGoal, updateMpPreview } from './screens/settings.js';
 import { loadStats, statsChangeMonth, statsChangeYear, stopStatsCapyWalk, switchStats } from './screens/stats.js';
 import { doLogout, getToken, getUsername, setLoggedIn } from './session.js';
@@ -143,117 +144,9 @@ function finishLogin() {
 // ════════════════════════════════════════════════════
 
 // ════════════════════════════════════════════════════
-// Dashboard helpers
-// ════════════════════════════════════════════════════
-function renderDashLogPreview(entries) {
-  const el = document.getElementById('dash-log-preview');
-  if (!el) return;
-  const last3 = entries.slice(-3).reverse();
-  if (!last3.length) { el.innerHTML = ''; return; }
-  el.innerHTML = last3.map(e => {
-    const t = e.logged_at ? e.logged_at.slice(11, 16) : '';
-    return `<div class="dash-log-row">
-      <div class="dash-log-time-col">
-        <div class="dash-log-icon">${getFoodEmoji(e.food_name)}</div>
-        <div class="dash-log-time">${t}</div>
-      </div>
-      <div class="dash-log-name">${escapeHtml(e.food_name || '')}</div>
-      <div class="dash-log-kcal">${Math.round(e.calories || 0)}</div>
-      <div class="dash-log-macros">ח ${Math.round(e.protein_g||0)} · פ ${Math.round(e.carbs_g||0)} · ש ${Math.round(e.fat_g||0)}</div>
-    </div>`;
-  }).join('');
-}
-
-// ════════════════════════════════════════════════════
-
-function animateDashStagger() {
-  var els = document.querySelectorAll('.dash-stagger');
-  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  els.forEach(function(el) { el.classList.remove('anim-visible'); });
-  var delays = [0, 150, 300, 450];
-  els.forEach(function(el, i) {
-    if (reduced) { el.classList.add('anim-visible'); return; }
-    setTimeout(function() { el.classList.add('anim-visible'); }, delays[i] || 0);
-  });
-}
 
 // Dashboard
 // ════════════════════════════════════════════════════
-async function loadDashboard() {
-  let entries = [], cal = 0, goal = 0;
-
-  try {
-    entries = await apiFetch(`/api/food?date=${todayStr()}`);
-    const { cal: c, pro, carb, fat, fiber } = entries.reduce(
-      (s, e) => ({
-        cal:   s.cal   + (+e.calories  || 0),
-        pro:   s.pro   + (+e.protein_g || 0),
-        carb:  s.carb  + (+e.carbs_g   || 0),
-        fat:   s.fat   + (+e.fat_g     || 0),
-        fiber: s.fiber + (+e.fiber_g   || 0),
-      }),
-      { cal: 0, pro: 0, carb: 0, fat: 0, fiber: 0 }
-    );
-    cal = c;
-    goal = calcRecommendedCal(state.userProfile);
-    const calEl  = document.getElementById('dash-cal-remaining');
-    const sepEl  = document.getElementById('dash-cal-sep');
-    const goalEl = document.getElementById('dash-cal-goal-label');
-    const pctEl  = document.getElementById('dash-cal-pct');
-    if (cal === 0 && goal === 0) {
-      calEl.textContent = '—';
-    } else if (cal === 0) {
-      calEl.textContent = '0';
-    } else {
-      animateCountUp(calEl, cal);
-    }
-    if (goal > 0) {
-      goalEl.textContent = goal.toLocaleString('he-IL');
-      goalEl.style.display = '';
-      sepEl.style.display  = '';
-      const pct = Math.round((cal / goal) * 100);
-      pctEl.textContent    = pct + '%';
-      pctEl.style.display  = '';
-    } else {
-      goalEl.style.display = 'none';
-      sepEl.style.display  = 'none';
-      pctEl.style.display  = 'none';
-    }
-  } catch {}
-
-  try {
-    const { streak, lastLogDate } = await apiFetch('/api/streak');
-    const numEl = document.getElementById('dash-streak-num');
-    if (numEl) numEl.textContent = streak ?? '—';
-    if (streak >= 1) startFireCanvas();
-    else stopFireCanvas();
-
-    // Pet state — use Israel timezone to match server streak calculation
-    const toIsraelDate = d => d.toLocaleString('sv', { timeZone: 'Asia/Jerusalem' }).slice(0, 10);
-    const today = toIsraelDate(new Date());
-    const yesterday = toIsraelDate(new Date(Date.now() - 86400000));
-    const hasLoggedToday = entries && entries.length > 0;
-    const hasLoggedYesterday = lastLogDate === yesterday;
-    const daysSinceLastLog = lastLogDate
-      ? Math.round((new Date(today) - new Date(lastLogDate)) / 86400000)
-      : 999;
-
-    const petState = getPetState(cal / (goal || 2000), hasLoggedToday, hasLoggedYesterday, daysSinceLastLog);
-    const wrapEl = document.getElementById('pet-dashboard-wrap');
-    if (wrapEl && !wrapEl.querySelector('svg')) {
-      wrapEl.appendChild(cloneCapybara(80));
-      setIdleWrap('dash', wrapEl.querySelector('.pet-wrap'));
-    }
-    if (getIdleWrap('dash')) startIdleAnimations(getIdleWrap('dash'));
-    const petWrap = wrapEl?.querySelector('.pet-wrap');
-    if (petWrap) setPetState(petWrap, petState);
-
-    const petUsername = getUsername() || '';
-    document.getElementById('pet-name-label').textContent = petUsername;
-    document.getElementById('pet-status-text').textContent = PET_MESSAGES[petState](petUsername);
-
-  } catch {}
-}
 
 // ════════════════════════════════════════════════════
 // Diary
