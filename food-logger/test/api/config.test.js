@@ -135,3 +135,16 @@ test('a valid ORIGIN is accepted and stored without a trailing slash', () => {
   const p = loadConfig({ ...base, NODE_ENV: 'production', ORIGIN: 'https://food.example.com/' });
   assert.equal(p.origin, 'https://food.example.com');
 });
+
+test('JWT_SECRET is trimmed: the trimmed value is used and the length check applies to it', () => {
+  const secret = 'y'.repeat(32);
+  assert.equal(loadConfig({ ...base, JWT_SECRET: `  ${secret}\n` }).jwtSecret, secret);
+  assert.throws(() => loadConfig({ ...base, JWT_SECRET: `${'y'.repeat(31)}   ` }), /JWT_SECRET/);
+});
+
+test('.env.example placeholder JWT_SECRET is rejected, so it cannot be deployed unchanged', () => {
+  const text = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', '.env.example'), 'utf8');
+  const line = text.split(/\r?\n/).find((l) => l.startsWith('JWT_SECRET='));
+  assert.ok(line, 'JWT_SECRET line present');
+  assert.throws(() => loadConfig({ ...base, JWT_SECRET: line.slice('JWT_SECRET='.length) }), /JWT_SECRET/);
+});

@@ -45,7 +45,9 @@ function loadConfig(env = process.env) {
   const databaseUrl = read(env, 'DATABASE_URL');
   if (!databaseUrl) errors.push('DATABASE_URL is required');
 
-  const jwtSecret = read(env, 'JWT_SECRET');
+  // Trimmed: a stray newline or space from a pasted value must not count towards the length
+  // check or end up in the signing key.
+  const jwtSecret = read(env, 'JWT_SECRET')?.trim();
   if (!jwtSecret) {
     errors.push('JWT_SECRET is required');
   } else if (jwtSecret.length < MIN_JWT_SECRET_LENGTH) {
