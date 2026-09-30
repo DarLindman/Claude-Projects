@@ -46,7 +46,7 @@ Validated once at startup by `src/config.js`; the process refuses to start (and 
   - `routes/` — `auth`, `food`, `weight`, `profile`, `stats`, `streak`, `analyze`.
   - `lib/` — `sessions.js` (cookie + JWT), `passwords.js` (bcrypt cost 12), `analysis.js` and `anthropic.js` (AI), `image.js`, `dates.js`, `schemas.js`, `icon.js` (PWA icon generation via `@napi-rs/canvas`).
 - **`public/index.html`** — markup only (Hebrew RTL, dark theme); CSS in `public/css/`, JS in `public/js/`, fonts self-hosted in `public/fonts/`.
-- **AI** — `POST /api/analyze` (image) and `POST /api/analyze-text` (free text) call `claude-haiku-4-5-20251001` and return a JSON nutritional estimate. Rate limited to 20 requests/hour per **user** (not per IP).
+- **AI** — `POST /api/analyze` (image) and `POST /api/analyze-text` (free text) call `claude-haiku-4-5-20251001` and return a JSON nutritional estimate. Rate limited to 20 requests/hour per **user**, plus a per-**IP** cap of 60 requests/hour shared by both endpoints (registration is open, so per-user alone would let a script mint accounts to multiply billed calls). Knobs: `limits.analyzePerHour`, `limits.analyzePerIpPerHour`.
 
 ### Auth and sessions
 
@@ -55,10 +55,11 @@ Validated once at startup by `src/config.js`; the process refuses to start (and 
 - `GET /auth/me` returns `{ username }` and is how the frontend learns at load time whether it is signed in.
 - No cookie: `401 UNAUTHORIZED`. A bad, expired, revoked or orphaned cookie: `401 SESSION_EXPIRED` and the cookie is cleared. A database failure is `500 INTERNAL`, never a 401.
 - Login is limited per IP (`/auth/login`, `/auth/register`: 10 per minute) and per username (10 failures per 15 minutes; in memory, so it resets on restart and assumes one instance). Trade-off: anyone who knows a username can lock that account out for up to 15 minutes, which is accepted for a single-user app.
+- `POST /auth/change-password` is a bcrypt path behind the session cookie, so it is limited per IP (10 per minute, `limits.changePasswordPerMin`) and per user id (10 wrong current passwords per 15 minutes, `limits.changePasswordFailures`; checked before bcrypt, reset on success; same in-memory caveats).
 
 ### CSRF
 
-Every state-changing request (any method except GET, HEAD and OPTIONS) must carry `Origin` equal to the normalised `ORIGIN` (the `Referer` origin is accepted only when `Origin` is absent) **and** the header `X-FL-Client: 1`; otherwise `403 CSRF`, before body parsing or auth. `public/js/api.js` adds the header to every call. When testing with curl or supertest, send both. `createCsrf` refuses to be built with an origin that is not http(s).
+Every state-changing request (any method except GET, HEAD and OPTIONS) must carry `Origin` equal to the normalised `ORIGIN` (the `Referer` origin is accepted only when `Origin` is absent) **and** the header `X-FL-Client: 1`; otherwise `403 CSRF`, before body parsing or auth. `public/js/api.js` adds the header to every call. When testing with curl or supertest, send both. `loadConfig` is the guard that `ORIGIN` is an exact http(s) origin; `createCsrf` itself only throws when the normalised expected origin is `'null'`.
 
 ### Error-code contract
 
