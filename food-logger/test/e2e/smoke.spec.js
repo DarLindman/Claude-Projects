@@ -1,7 +1,7 @@
 'use strict';
 
 const { test, expect } = require('@playwright/test');
-const { attachGuards, expectNoGuardEvents, SIGNED_OUT_ME } = require('./helpers');
+const { attachGuards, expectNoGuardEvents, SIGNED_OUT_ME, SAVE_TO_DIARY } = require('./helpers');
 
 // Known baseline console noise, listed explicitly so it is visible.
 // baseline, removed in Task 13/14
@@ -48,7 +48,7 @@ test('full user journey', async ({ page }) => {
 
   // ── save -> diary ──────────────────────────────────────────────────────
   await page.locator('#save-entry-btn').click();
-  await expect(page.locator('#screen-home')).toBeVisible();
+  await expect(page.locator('#screen-home')).toBeVisible(SAVE_TO_DIARY);
   const rows = page.locator('#meal-list .meal-item-row');
   await expect(rows).toHaveCount(1);
   await expect(page.locator('#sum-cal')).toHaveText(String(Math.round(analysedCal)));

@@ -5,7 +5,7 @@
 // injected would also show up as a CSP violation through attachGuards.
 
 const { test, expect } = require('@playwright/test');
-const { attachGuards, expectNoGuardEvents } = require('./helpers');
+const { attachGuards, expectNoGuardEvents, SAVE_TO_DIARY } = require('./helpers');
 
 const PASSWORD = 'xss-pass-1234';
 const CSRF = { Origin: 'http://localhost:3100', 'X-FL-Client': '1' };
@@ -130,7 +130,7 @@ test('a hostile name typed into the analysis result is saved and rendered as tex
   await page.locator('#res-name').fill(payload);
   await page.locator('#save-entry-btn').click();
 
-  await expect(page.locator('#screen-home')).toBeVisible();
+  await expect(page.locator('#screen-home')).toBeVisible(SAVE_TO_DIARY);
   await expect(page.locator('#meal-list .mir-name')).toHaveText(payload);
   await expectInert(page, 'diary after UI save');
   expectNoGuardEvents(guards);

@@ -1,7 +1,7 @@
 'use strict';
 
 const { test, expect } = require('@playwright/test');
-const { attachGuards, expectNoGuardEvents, SIGNED_OUT_ME } = require('./helpers');
+const { attachGuards, expectNoGuardEvents, SIGNED_OUT_ME, SAVE_TO_DIARY } = require('./helpers');
 
 const PASSWORD = 'hardening-pass-1';
 const JWT_SHAPED = /eyJ[\w-]+\.[\w-]+\./;
@@ -134,7 +134,7 @@ test('the full journey runs under the CSP: no violations, no console errors, no 
   await expect(page.locator('#analysis-result')).toBeVisible();
   await page.locator('#save-entry-btn').click();
   const rows = page.locator('#meal-list .meal-item-row');
-  await expect(rows).toHaveCount(1);
+  await expect(rows).toHaveCount(1, SAVE_TO_DIARY);
   await rows.first().getByRole('button', { name: 'מחק' }).click();
   await expect(rows).toHaveCount(0);
 

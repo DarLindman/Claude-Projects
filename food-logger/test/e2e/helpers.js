@@ -44,4 +44,9 @@ function expectNoGuardEvents(guards, allow = []) {
 // resource load as a console error. Only that exact request is allowed.
 const SIGNED_OUT_ME = /^console\.error: Failed to load resource: the server responded with a status of 401 \(Unauthorized\) \[http:\/\/localhost:\d+\/auth\/me\]$/;
 
-module.exports = { attachGuards, expectNoGuardEvents, SIGNED_OUT_ME };
+// Saving an analysis shows a celebration and only then navigates to the diary, on a fixed
+// 2.7 s timer (screens/analysis.js). The default 5 s expect timeout leaves too little room on a
+// slow machine, so every wait for "saved entry appears in the diary" uses this one.
+const SAVE_TO_DIARY = { timeout: 10_000 };
+
+module.exports = { attachGuards, expectNoGuardEvents, SIGNED_OUT_ME, SAVE_TO_DIARY };

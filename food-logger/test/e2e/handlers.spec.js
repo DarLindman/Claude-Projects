@@ -6,7 +6,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { test, expect } = require('@playwright/test');
-const { attachGuards, expectNoGuardEvents, SIGNED_OUT_ME } = require('./helpers');
+const { attachGuards, expectNoGuardEvents, SIGNED_OUT_ME, SAVE_TO_DIARY } = require('./helpers');
 
 const ALLOWED_BASELINE = [SIGNED_OUT_ME];
 const PASSWORD = 'handlers-pass-1';
@@ -127,9 +127,13 @@ test('inline handlers are gone and every delegated action still works', async ({
   // ── camera: file picker button and the file input's change handler ─────
   await page.locator('#screen-dashboard .dash-cta').click();      // dashboard CTA -> camera
   await expect(page.locator('#screen-camera')).toBeVisible();
+  // The listener is registered before the click that opens the chooser (Promise.all), and the
+  // button is given time to be actionable once the screen transition has settled.
+  const shoot = page.locator('.cam-btn-shoot');
+  await expect(shoot).toBeEnabled();
   const [chooser] = await Promise.all([
-    page.waitForEvent('filechooser'),
-    page.locator('.cam-btn-shoot').click(),
+    page.waitForEvent('filechooser', { timeout: 15_000 }),
+    shoot.click(),
   ]);
   await chooser.setFiles({ name: 'meal.png', mimeType: 'image/png', buffer: TINY_PNG });
   await expect(page.locator('#analyze-btn')).toBeEnabled();      // onImageSelected ran
@@ -160,7 +164,7 @@ test('inline handlers are gone and every delegated action still works', async ({
 
   // ── save -> diary entry ────────────────────────────────────────────────
   await page.locator('#save-entry-btn').click();
-  await expect(page.locator('#screen-home')).toBeVisible();
+  await expect(page.locator('#screen-home')).toBeVisible(SAVE_TO_DIARY);
   const rows = page.locator('#meal-list .meal-item-row');
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toHaveClass(/meal-accent-dinner/);   // the saved meal type is the one selected
