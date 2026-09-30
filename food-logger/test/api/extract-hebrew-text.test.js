@@ -1,0 +1,113 @@
+'use strict';
+
+// The pure parts of the Hebrew copy-audit extractor (scripts/extract-hebrew-text.js and
+// scripts/hebrew-audit/*): literal extraction, HTML text nodes, deduplication, table
+// rendering, plus a check that the real sources are fully accounted for.
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const { tokenize, bodyOf } = require('../../scripts/hebrew-audit/js');
+const { extractHtml, decodeEntities } = require('../../scripts/hebrew-audit/html');
+const { collectJs, account } = require('../../scripts/hebrew-audit/collect');
+const { dedupe, escapeCell, renderTable } = require('../../scripts/hebrew-audit/table');
+const { build } = require('../../scripts/extract-hebrew-text');
+
+const texts = (src) => tokenize(src).literals.map(bodyOf);
+
+test('string literals: escaped quotes, both quote kinds, unicode escapes', () => {
+  const src = String.raw`const a = 'צ\'יפס'; const b = "אמר \"שלום\""; const c = 'שלום';`;
+  assert.deepEqual(texts(src), ["צ'יפס", 'אמר "שלום"', 'שלום']);
+});
+
+test('template literals: ${} placeholders, nested templates, line numbers', () => {
+  const src = 'const t = `שלום ${name}, יש ${Math.round(x)} פריטים ${cond ? `כן ${y}` : \'לא\'}`;\nconst u = `שורה\nשנייה`;';
+  const tok = tokenize(src);
+  const bodies = tok.literals.map(bodyOf);
+  assert.ok(bodies.includes('שלום ${name}, יש ${…} פריטים ${…}'));
+  assert.ok(bodies.includes('כן ${y}'), 'the nested template is found on its own');
+  assert.ok(bodies.includes('לא'));
+  const multi = tok.literals.find((l) => l.kind === 'template' && l.startLine === 2);
+  assert.equal(multi.endLine, 3);
+});
+
+test('comments are skipped, regex literals are not strings, division is not a regex', () => {
+  const src = [
+    "// 'מילה בהערה'",
+    '/* "עוד הערה" */',
+    'const re = /[א-ת]+"/; const half = total / 2; const s = "אמיתי";',
+  ].join('\n');
+  const tok = tokenize(src);
+  assert.deepEqual(tok.literals.map(bodyOf), ['אמיתי']);
+  assert.equal(tok.comments.length, 2);
+  assert.equal(tok.regexes.length, 1);
+});
+
+test('collectJs: keys, markup in templates read as text nodes and attributes', () => {
+  const src = [
+    'const ERRORS = {',
+    "  'food_name:REQUIRED': 'שם האוכל חסר',",
+    '};',
+    'showToast(\'נשמר\');',
+    'const tpl = html`<button aria-label="מחק">מחק</button><p>אין ${n} נתונים</p>`;',
+  ].join('\n');
+  const { items } = collectJs(src);
+  const by = Object.fromEntries(items.map((i) => [i.text, i]));
+  assert.equal(by['שם האוכל חסר'].where, 'food_name:REQUIRED');
+  assert.equal(by['נשמר'].where, 'toast');
+  assert.equal(items.filter((i) => i.text === 'מחק').length, 2, 'the attribute and the text node');
+  assert.equal(by['אין ${n} נתונים'].line, 5);
+});
+
+test('extractHtml: attributes, entities, comments, scripts and styles', () => {
+  const html = [
+    '<!-- הערה -->',
+    '<div id="a">',
+    '  <input placeholder="לפחות 3 תווים" title=\'כותרת\'>',
+    '  <p>ק&quot;ג&nbsp;&amp; עוד &#1488;</p>',
+    '  <script>const x = "עברית בסקריפט";</script>',
+    '  <style>.a::after { content: "עברית"; }</style>',
+    '</div>',
+  ].join('\n');
+  const items = extractHtml(html);
+  assert.deepEqual(items.map((i) => [i.kind, i.text, i.line]), [
+    ['attr', 'לפחות 3 תווים', 3],
+    ['attr', 'כותרת', 3],
+    ['text', 'ק"ג & עוד א', 4],
+  ]);
+  assert.equal(items[0].where, 'input[placeholder]');
+  assert.equal(items[2].where, 'p in #a');
+  assert.equal(decodeEntities('&#x5d0;&lt;'), 'א<');
+});
+
+test('dedupe keeps every location, renderTable escapes cells and leaves the review columns empty', () => {
+  const rows = dedupe([
+    { text: 'שמור', file: 'a.html', line: 3, where: 'button' },
+    { text: 'מחק | הכל', file: 'a.html', line: 4, where: '' },
+    { text: 'שמור', file: 'b.js', line: 9, where: 'toast' },
+  ]);
+  assert.equal(rows.length, 2);
+  assert.deepEqual(rows[0].locations.map((l) => `${l.file}:${l.line}`), ['a.html:3', 'b.js:9']);
+  const table = renderTable(rows).split('\n');
+  assert.equal(table[0], '| # | location | current text | proposed text | reason | owner decision |');
+  assert.equal(table[2], '| 1 | a.html:3 (button)<br>b.js:9 (toast) | שמור |  |  |  |');
+  assert.match(table[3], /מחק \\\| הכל/);
+  assert.equal(escapeCell('a\n<b>'), 'a &lt;b&gt;');
+});
+
+test('account: a Hebrew line outside every row, comment and regex is reported', () => {
+  const src = "const a = 'שלום';\n// הערה\nconst b = 1; /* ok */\nconst c = `x\n${'בדיקה'}`;";
+  const result = collectJs(src);
+  const acc = account(src, result);
+  assert.equal(acc.hebrewLines, 3);
+  assert.equal(acc.comment, 1);
+  assert.deepEqual(acc.unaccounted, []);
+  // remove the extracted rows on purpose: the same lines are now unaccounted
+  const none = account(src, { items: [], comments: [], regexes: [] });
+  assert.deepEqual(none.unaccounted, [1, 2, 5]);
+});
+
+test('the real sources: every Hebrew line is accounted for and the table is not empty', () => {
+  const out = build();
+  assert.deepEqual(out.unaccounted.map((s) => [s.file, s.unaccounted]), []);
+  assert.ok(out.rows.length > 100);
+  assert.match(out.markdown, /## AI prompts \(not user-facing; excluded\)/);
+});
