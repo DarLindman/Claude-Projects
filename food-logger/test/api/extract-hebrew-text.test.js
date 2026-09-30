@@ -5,6 +5,9 @@
 // rendering, plus a check that the real sources are fully accounted for.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const { tokenize, bodyOf } = require('../../scripts/hebrew-audit/js');
 const { extractHtml, decodeEntities } = require('../../scripts/hebrew-audit/html');
 const { collectJs, account } = require('../../scripts/hebrew-audit/collect');
@@ -140,9 +143,38 @@ test('build merges given proposals and lists a stale one in the accounting secti
   } });
   assert.deepEqual(out.stale, ['טקסט שלא קיים באפליקציה']);
   assert.match(out.markdown, /\| שגיאת שרת \| משהו השתבש \| בהירות: בדיקה \|  \|/);
-  assert.match(out.markdown, /Review proposals: 2 in `docs\/hebrew-copy-proposals\.json`, merged into 1 rows\. Stale proposals .*: 1\n\n- STALE: `טקסט שלא קיים באפליקציה`/);
+  assert.match(out.markdown, /Review proposals: 2 in `docs\/hebrew-copy-proposals\.json`, merged into 1 rows \(1 recommended, 0 optional; 0 with an owner decision\)\. Stale proposals .*: 1\n\n- STALE: `טקסט שלא קיים באפליקציה`/);
   const none = build(undefined, { proposals: {} });
   assert.match(none.markdown, /Stale proposals .*: \(none\)/);
+});
+
+test('level and owner decision: rendered, validated, and a decision survives a regenerate', () => {
+  const rows = dedupe([{ text: 'שמור', file: 'a.html', line: 2, where: 'button' }]);
+  const one = (p) => renderTable(mergeProposals(rows, { 'שמור': { proposed: 'שמירה', reason: 'ניסוח: בדיקה', ...p } }).rows).split('\n')[2];
+  assert.equal(one({ level: 'optional', decision: 'approved' }), '| 1 | a.html:2 (button) | שמור | שמירה | ניסוח: בדיקה (optional) | approved |');
+  assert.equal(one({ decision: 'edited:שמור שינויים' }), '| 1 | a.html:2 (button) | שמור | שמירה | ניסוח: בדיקה | edited:שמור שינויים |');
+  assert.equal(one({ decision: '' }), '| 1 | a.html:2 (button) | שמור | שמירה | ניסוח: בדיקה |  |');
+  for (const bad of [{ decision: 'yes' }, { decision: 'edited:' }, { level: 'must' }]) assert.throws(() => one(bad), /decision|level/);
+
+  // the decision lives in the proposals file, so every regenerate renders it again
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hebrew-audit-'));
+  try {
+    const file = path.join(dir, 'proposals.json');
+    fs.writeFileSync(file, JSON.stringify({ 'שגיאת שרת': { proposed: 'משהו השתבש', reason: 'בהירות: בדיקה', level: 'recommended', decision: 'rejected' } }));
+    for (let i = 0; i < 2; i++) {
+      const out = build(undefined, { proposalsFile: file });
+      assert.match(out.markdown, /\| שגיאת שרת \| משהו השתבש \| בהירות: בדיקה \| rejected \|/);
+      assert.match(out.markdown, /1 with an owner decision/);
+    }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('the real proposals file: every entry has a level and an empty or valid decision', () => {
+  const real = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', '..', 'docs', 'hebrew-copy-proposals.json'), 'utf8'));
+  for (const [text, p] of Object.entries(real)) {
+    assert.ok(['recommended', 'optional'].includes(p.level), `level of "${text}"`);
+    assert.equal(typeof p.decision, 'string', `decision of "${text}"`);
+  }
 });
 
 test('text inside a function the app never calls is marked not shown to users', () => {

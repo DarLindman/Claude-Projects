@@ -24,20 +24,34 @@ const HEADER = ['#', 'location', 'current text', 'proposed text', 'reason', 'own
 
 // Reviewer proposals are kept outside the generated table, in a JSON object that maps the
 // exact current text of a row to { proposed, reason }, so regenerating the table never
-// loses them. Returns the rows with `proposed` and `reason` filled in, plus the proposals
-// whose text no longer exists in the sources (stale). The owner decision is never set here.
+// loses them. Optional fields: `level` ('recommended' | 'optional', default recommended)
+// and the owner's `decision` ('' | 'approved' | 'rejected' | 'edited:<text>'), which is
+// rendered into the owner decision column so it also survives a regenerate. Returns the
+// rows with the proposal fields filled in, plus the proposals whose text no longer
+// exists in the sources (stale).
+const LEVELS = new Set(['recommended', 'optional']);
+const DECISION = /^(|approved|rejected|edited:\S[\s\S]*)$/;
+
 function mergeProposals(rows, proposals = {}) {
   if (!proposals || typeof proposals !== 'object' || Array.isArray(proposals)) throw new Error('proposals must be an object keyed by the current text');
   for (const [text, p] of Object.entries(proposals)) {
     if (!p || typeof p.proposed !== 'string' || typeof p.reason !== 'string') throw new Error(`proposal for "${text}" needs string "proposed" and "reason"`);
+    if (p.level !== undefined && !LEVELS.has(p.level)) throw new Error(`proposal for "${text}" has an unknown level "${p.level}"`);
+    if (p.decision !== undefined && (typeof p.decision !== 'string' || !DECISION.test(p.decision))) throw new Error(`proposal for "${text}" has an invalid decision (approved | rejected | edited:<text> | empty)`);
   }
   const has = (t) => Object.prototype.hasOwnProperty.call(proposals, t);
   const texts = new Set(rows.map((r) => r.text));
+  const fill = (r) => {
+    const p = proposals[r.text];
+    return { ...r, proposed: p.proposed, reason: p.reason, level: p.level || 'recommended', decision: p.decision || '' };
+  };
   return {
-    rows: rows.map((r) => (has(r.text) ? { ...r, proposed: proposals[r.text].proposed, reason: proposals[r.text].reason } : r)),
+    rows: rows.map((r) => (has(r.text) ? fill(r) : r)),
     stale: Object.keys(proposals).filter((t) => !texts.has(t)),
   };
 }
+
+const reasonCell = (row) => (row.reason ? `${row.reason}${row.level === 'optional' ? ' (optional)' : ''}` : '');
 
 function renderTable(rows) {
   const lines = [
@@ -46,7 +60,7 @@ function renderTable(rows) {
   ];
   rows.forEach((row, i) => {
     const loc = row.locations.map((l) => escapeCell(locationText(l))).join('<br>');
-    lines.push(`| ${i + 1} | ${loc} | ${escapeCell(row.text)} | ${escapeCell(row.proposed || '')} | ${escapeCell(row.reason || '')} |  |`);
+    lines.push(`| ${i + 1} | ${loc} | ${escapeCell(row.text)} | ${escapeCell(row.proposed || '')} | ${escapeCell(reasonCell(row))} | ${escapeCell(row.decision || '')} |`);
   });
   return lines.join('\n');
 }
