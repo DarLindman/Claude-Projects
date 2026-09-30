@@ -130,3 +130,13 @@ test('CSRF-rejected logins count neither against the username lockout nor the pe
     await limited.pool.end();
   }
 });
+
+// ─── A malformed expected origin must never let `Origin: null` through ───────
+test('createCsrf refuses to be built with an origin that normalises to "null"', () => {
+  const { createCsrf } = require('../../src/middleware/csrf');
+  for (const bad of ['localhost:3000', 'file:///tmp/x', 'not a url', '', undefined]) {
+    assert.throws(() => createCsrf({ origin: bad }), /origin/i, `origin ${JSON.stringify(bad)}`);
+  }
+  assert.doesNotThrow(() => createCsrf({ origin: 'http://localhost:3000' }));
+  assert.doesNotThrow(() => createCsrf({ origin: 'https://food.example.com/' }));
+});

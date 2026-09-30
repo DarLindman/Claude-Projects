@@ -61,10 +61,11 @@ module.exports = function authRoutes({ pool, config, auth, ipLimiter, usernameLi
     usernameLimiter.reset(username);
     if (passwords.needsRehash(user.password_hash)) {
       // Existing accounts move to the current cost on their next successful login.
-      // A failed upgrade must not fail the login.
+      // A failed upgrade must not fail the login. Compare-and-swap on the hash read above:
+      // if the password was changed meanwhile, the rehash of the old one must not overwrite it.
       try {
         const upgraded = await passwords.hashPassword(password);
-        await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [upgraded, user.id]);
+        await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2 AND password_hash = $3', [upgraded, user.id, user.password_hash]);
       } catch (e) {
         console.error(`[${req.id}] password rehash failed`, e);
       }

@@ -15,6 +15,22 @@ function parseNonNegativeInt(raw) {
   return /^\d+$/.test(raw.trim()) ? Number(raw.trim()) : null;
 }
 
+// The normalised origin (no trailing slash) of an http(s) URL that is exactly an origin, or
+// null. One trailing slash is tolerated ("https://food.example.com/"); a scheme-less value
+// ("localhost:3000" parses as scheme "localhost:") and any path, query or fragment are not.
+// The CSRF check compares the browser's Origin header with this value.
+function parseOrigin(value) {
+  const stripped = value.endsWith('/') ? value.slice(0, -1) : value;
+  let url;
+  try {
+    url = new URL(stripped);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+  return url.origin === stripped ? stripped : null;
+}
+
 function loadConfig(env = process.env) {
   const errors = [];
 
@@ -41,10 +57,16 @@ function loadConfig(env = process.env) {
     errors.push('ANTHROPIC_API_KEY is required in production');
   }
 
-  let origin = read(env, 'ORIGIN');
-  if (!origin) {
+  let origin = DEFAULT_ORIGIN;
+  const originRaw = read(env, 'ORIGIN');
+  if (originRaw === undefined) {
     if (isProd) errors.push('ORIGIN is required in production');
-    origin = DEFAULT_ORIGIN;
+  } else {
+    origin = parseOrigin(originRaw.trim());
+    if (origin === null) {
+      errors.push(`ORIGIN must be an exact http(s) origin such as https://food.example.com, without a path (got "${originRaw.trim()}")`);
+      origin = DEFAULT_ORIGIN;
+    }
   }
 
   let port = 3000;

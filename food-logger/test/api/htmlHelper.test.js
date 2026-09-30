@@ -55,6 +55,11 @@ test('an object that merely looks like a fragment but is not from raw()/html() i
   assert.equal(text(html`${{ toString: () => '<script>' }}`), '&lt;script&gt;');
 });
 
+test('a plain { __raw } object is not trusted: it is escaped as [object Object]', async () => {
+  const { html } = await load();
+  assert.equal(text(html`${{ __raw: '<b>' }}`), '[object Object]');
+});
+
 test('setHtml assigns trusted results and refuses plain strings', async () => {
   const { html, raw, setHtml } = await load();
   const el = { innerHTML: 'old' };

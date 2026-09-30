@@ -25,6 +25,9 @@ function createAnalyzeLimiter({ windowMs = 3_600_000, max = 20 } = {}) {
 }
 
 // Failed-login counter per username, so a password can't be guessed from many IPs.
+// Known trade-off: anyone who knows a username can lock that account out, even when the
+// real owner enters the correct password, for up to 15 minutes (the window). Accepted for a
+// single-user app. The state is in memory: it resets on restart and assumes one instance.
 // Sliding window: `max` failures within `windowMs` lock the username until the oldest
 // of them ages out. Keys are trimmed and lowercased. The Map is kept in order of each
 // key's latest failure, so pruning expired keys only ever looks at the front.

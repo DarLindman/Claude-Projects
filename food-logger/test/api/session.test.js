@@ -235,3 +235,24 @@ test('an empty fl_session cookie counts as no session: 401 UNAUTHORIZED', async 
   assert.equal(res.status, 401);
   assert.deepEqual(res.body, UNAUTHORIZED);
 });
+
+// ─── A database failure is a 500, never a 401 ────────────────────────────────
+test('when the database fails the auth middleware answers 500 INTERNAL, not 401 (no logout, cookie kept)', async () => {
+  const { createAuth } = require('../../src/middleware/auth');
+  const { errorHandler, requestId } = require('../../src/middleware/errors');
+  const express = require('express');
+  const cookieParser = require('cookie-parser');
+
+  const failingPool = { query: async () => { throw new Error('connection terminated unexpectedly'); } };
+  const app = express();
+  app.use(requestId);
+  app.use(cookieParser());
+  app.get('/probe', createAuth({ pool: failingPool, config: ctx.config }), (req, res) => res.json({ user: req.user }));
+  app.use(errorHandler);
+
+  const c = await signedIn(ctx.app, 'dbdown');
+  const res = await request(app).get('/probe').set('Cookie', c.cookie);
+  assert.equal(res.status, 500);
+  assert.deepEqual(res.body, { error: { code: 'INTERNAL' } });
+  assert.equal(setCookieLine(res), undefined, 'a transient database error must not clear the session cookie');
+});

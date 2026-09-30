@@ -27,10 +27,15 @@ export async function bootSession() {
   else navigate('welcome');
 }
 
+// Bumped by every doLogout(). setLoggedIn compares it after each await: apiFetch runs the
+// unauthorized handler (doLogout) the moment a call reports a lost session, before it
+// throws, so an unchanged value means the session is still the one this call started with.
+let logoutCount = 0;
+
 export async function setLoggedIn(u) {
+  const startedAt = logoutCount;
   username = u;
   document.getElementById('settings-user').textContent = `מחובר כ: ${u}`;
-  document.getElementById('bottom-nav').style.display = 'flex';
   // Load profile from server; fall back to localStorage
   try {
     const serverProfile = await apiFetch('/api/profile');
@@ -39,15 +44,19 @@ export async function setLoggedIn(u) {
       localStorage.setItem('fl_profile', JSON.stringify(serverProfile));
     }
   } catch {}
+  if (logoutCount !== startedAt) return; // the session was lost: stay on the auth screen
   // Load weight logs at startup so calcRecommendedCal always has current weight
   try { state.weightLogs = await apiFetch('/api/weight'); } catch {}
+  if (logoutCount !== startedAt) return;
   updateSettingsProfileSub();
+  document.getElementById('bottom-nav').style.display = 'flex';
   navigate('dashboard');
 }
 
 // Signs out this device: the server clears the cookie (a failure is ignored, the local
 // state is cleared either way).
 export async function doLogout() {
+  logoutCount += 1;
   try { await apiFetch('/auth/logout', { method: 'POST', silent: true }); } catch {}
   localStorage.removeItem('fl_profile');
   username = null; state.userProfile = null;

@@ -24,10 +24,18 @@ function requestOrigin(req) {
 // the custom header `X-FL-Client: 1`, which a cross-site form cannot send.
 // Otherwise 403 CSRF, before any body parsing, auth or handler work.
 function createCsrf(config) {
-  let expected = config.origin;
+  let expected;
   try {
     expected = new URL(config.origin).origin; // "http://host:3000/" -> "http://host:3000"
-  } catch { /* not a URL: compare the raw value, which then simply never matches a browser */ }
+  } catch {
+    expected = 'null';
+  }
+  // A value that is not an http(s) origin ("localhost:3000") normalises to the string "null",
+  // which is exactly what browsers send as `Origin: null` from sandboxed or cross-origin
+  // contexts: it would let those requests through. Refuse to start instead.
+  if (expected === 'null') {
+    throw new Error(`createCsrf: config.origin must be an http(s) origin (got ${JSON.stringify(config.origin)})`);
+  }
 
   return function csrf(req, res, next) {
     if (SAFE_METHODS.has(req.method)) return next();

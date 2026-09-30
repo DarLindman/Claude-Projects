@@ -65,7 +65,8 @@ test('HSTS is absent outside production and present in production', async () => 
   assert.equal(dev.headers['strict-transport-security'], undefined);
   const res = await request(prod.app).get('/');
   assert.equal(res.status, 200);
-  assert.match(res.headers['strict-transport-security'], /^max-age=\d+/);
+  assert.equal(res.headers['strict-transport-security'], 'max-age=31536000; includeSubDomains');
+  assert.ok(!/preload/i.test(res.headers['strict-transport-security']), 'HSTS must not opt into preload');
   assertSecurityHeaders(res, 'production GET /');
 });
 

@@ -106,6 +106,36 @@ test('an existing cost-10 account with a short password can still log in and is 
   assert.equal(await hashOf('legacy1'), upgraded, 'no rehash when already cost 12');
 });
 
+test('the login rehash is compare-and-swap: a password change that lands during the login is not overwritten', async () => {
+  const oldHash = bcrypt.hashSync('old-password-1', 10);
+  await ctx.pool.query('INSERT INTO users (username, password_hash) VALUES ($1, $2)', ['casuser', oldHash]);
+  const changedHash = await passwords.hashPassword('changed-password-2');
+  // Deterministic race: right after the login's bcrypt verify of the old hash finishes (the
+  // window before the rehash UPDATE), a concurrent change-password commits a new hash.
+  const original = passwords.verifyPassword;
+  let injected = 0;
+  passwords.verifyPassword = async (pw, hash) => {
+    const ok = await original(pw, hash);
+    if (hash === oldHash) {
+      injected += 1;
+      await ctx.pool.query('UPDATE users SET password_hash = $1, token_version = token_version + 1 WHERE username = $2', [changedHash, 'casuser']);
+    }
+    return ok;
+  };
+  try {
+    const res = await request(ctx.app).post('/auth/login').set(csrfHeaders(ctx.config)).send({ username: 'casuser', password: 'old-password-1' });
+    assert.equal(res.status, 200, 'the login itself verified against the hash it read');
+  } finally {
+    passwords.verifyPassword = original;
+  }
+  assert.equal(injected, 1, 'the concurrent change ran inside the window');
+  assert.equal(await hashOf('casuser'), changedHash, 'the rehash of the old password must not overwrite the new hash');
+  const oldPw = await request(ctx.app).post('/auth/login').set(csrfHeaders(ctx.config)).send({ username: 'casuser', password: 'old-password-1' });
+  assert.equal(oldPw.status, 401, 'the old password no longer works');
+  const newPw = await request(ctx.app).post('/auth/login').set(csrfHeaders(ctx.config)).send({ username: 'casuser', password: 'changed-password-2' });
+  assert.equal(newPw.status, 200, 'the new password still works');
+});
+
 test('login for an unknown user still runs verifyPassword against the dummy hash', async () => {
   const calls = [];
   const original = passwords.verifyPassword;

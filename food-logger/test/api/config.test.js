@@ -108,3 +108,30 @@ test('multiple problems are all reported in one error', () => {
       )
   );
 });
+
+// ─── ORIGIN validation ───────────────────────────────────────────────────────
+test('ORIGIN must be a bare http(s) origin: anything else is rejected and names ORIGIN', () => {
+  for (const bad of ['localhost:3000', 'http://localhost:3000/path', 'ftp://example.com', 'not a url', 'https://food.example.com/x/', 'http://localhost:3000?x=1', 'http://localhost:3000//', 'javascript:alert(1)']) {
+    assert.throws(
+      () => loadConfig({ ...base, ORIGIN: bad }),
+      (e) => e instanceof Error && e.message.includes('ORIGIN'),
+      `ORIGIN ${JSON.stringify(bad)} must be rejected`
+    );
+  }
+});
+
+test('a bad ORIGIN is rejected in production too, and reported together with other problems', () => {
+  assert.throws(() => loadConfig({ ...base, NODE_ENV: 'production', ORIGIN: 'food.example.com' }), /ORIGIN/);
+  assert.throws(
+    () => loadConfig({ ...base, JWT_SECRET: 'short', ORIGIN: 'localhost:3000' }),
+    (e) => e.message.includes('JWT_SECRET') && e.message.includes('ORIGIN')
+  );
+});
+
+test('a valid ORIGIN is accepted and stored without a trailing slash', () => {
+  assert.equal(loadConfig({ ...base, ORIGIN: 'http://localhost:3000' }).origin, 'http://localhost:3000');
+  assert.equal(loadConfig({ ...base, ORIGIN: 'https://food.example.com/' }).origin, 'https://food.example.com');
+  assert.equal(loadConfig({ ...base, ORIGIN: 'https://food.example.com' }).origin, 'https://food.example.com');
+  const p = loadConfig({ ...base, NODE_ENV: 'production', ORIGIN: 'https://food.example.com/' });
+  assert.equal(p.origin, 'https://food.example.com');
+});

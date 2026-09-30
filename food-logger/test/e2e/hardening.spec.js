@@ -192,6 +192,53 @@ test('the CSP is enforced by the browser: injected inline script and inline hand
   await expect.poll(() => guards.csp.length).toBeGreaterThanOrEqual(2);
 
   expect(await page.evaluate(() => [typeof window.__pwned, typeof window.__pwnedHandler])).toEqual(['undefined', 'undefined']);
-  expect(guards.csp.some((m) => /^script-src-elem blocked inline/.test(m) || /script-src/.test(m)), guards.csp.join('; ')).toBe(true);
+  expect(guards.csp.some((m) => /script-src-elem/.test(m)), guards.csp.join('; ')).toBe(true);
   expect(guards.csp.some((m) => /script-src-attr/.test(m)), guards.csp.join('; ')).toBe(true);
+});
+
+// ── A session that dies between /auth/me and the calls right after it ────────
+
+test('a session lost while setLoggedIn loads the profile stops the boot: no dashboard, no bottom nav', async ({ page }) => {
+  const username = `lost${Date.now()}`;
+  const reg = await page.context().request.post('/auth/register', {
+    headers: { Origin: APP_ORIGIN, 'X-FL-Client': '1' },
+    data: { username, password: PASSWORD },
+  });
+  expect(reg.status()).toBe(200);
+
+  // Record, from the very first moment, whether the dashboard was ever shown or the nav ever displayed.
+  await page.addInitScript(() => {
+    window.__shown = { dashboard: false, nav: false };
+    new MutationObserver(() => {
+      const dash = document.getElementById('screen-dashboard');
+      const nav = document.getElementById('bottom-nav');
+      if (dash && dash.classList.contains('active')) window.__shown.dashboard = true;
+      if (nav && nav.style.display === 'flex') window.__shown.nav = true;
+    }).observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'style'] });
+  });
+
+  // /auth/me succeeds (real server); the calls that follow report the session as gone.
+  // The logout call is held back so the boot code cannot lose the race by luck.
+  const loaded = [];
+  let releaseLogout;
+  const logoutHeld = new Promise((resolve) => { releaseLogout = resolve; });
+  await page.route('**/api/profile', (route) => {
+    loaded.push('profile');
+    return route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: { code: 'SESSION_EXPIRED' } }) });
+  });
+  await page.route('**/api/weight', (route) => {
+    loaded.push('weight');
+    return route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: { code: 'SESSION_EXPIRED' } }) });
+  });
+  await page.route('**/auth/logout', async (route) => { await logoutHeld; await route.continue(); });
+
+  await page.goto('/');
+  await expect.poll(() => loaded.includes('profile')).toBe(true);
+  // Let the pending boot code run to the end while the logout is still in flight.
+  await page.waitForTimeout(500);
+  releaseLogout();
+
+  await expect(page.locator('#screen-auth')).toBeVisible();
+  await expect(page.locator('#bottom-nav')).toBeHidden();
+  expect(await page.evaluate(() => window.__shown), 'the dashboard or the nav flashed up after the session was lost').toEqual({ dashboard: false, nav: false });
 });
