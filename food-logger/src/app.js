@@ -7,6 +7,7 @@ const cookieParser = require('cookie-parser');
 const { createAuth } = require('./middleware/auth');
 const { AppError, requestId, errorHandler } = require('./middleware/errors');
 const { createCsrf } = require('./middleware/csrf');
+const { securityMiddleware } = require('./middleware/security');
 const { createUsernameLimiter, createIpLimiter, createAnalyzeLimiter } = require('./middleware/rateLimit');
 const authRoutes = require('./routes/auth');
 const foodRoutes = require('./routes/food');
@@ -36,6 +37,8 @@ function createApp({ config, pool, anthropic, icon = null, limits = {} }) {
   const app = express();
   app.set('trust proxy', config.trustProxy);
 
+  // First, so every response (static files, 404s, errors) carries the security headers.
+  app.use(securityMiddleware(config));
   app.use(requestId);
   app.use(cookieParser());
   // Before the body parser, static files and every router: a CSRF failure costs no

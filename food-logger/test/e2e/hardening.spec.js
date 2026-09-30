@@ -110,3 +110,88 @@ test('a wrong current password on change-password does not sign the user out', a
   await expect(page.locator('#bottom-nav')).toBeVisible();
   expect(await page.evaluate(() => fetch('/auth/me').then((r) => r.json()))).toEqual({ username });
 });
+
+// ── CSP ─────────────────────────────────────────────────────────────────────
+
+const APP_ORIGIN = 'http://localhost:3100';
+
+test('the full journey runs under the CSP: no violations, no console errors, no request leaves the app origin', async ({ page }) => {
+  const guards = attachGuards(page);
+  const external = [];
+  page.on('request', (req) => {
+    const url = req.url();
+    if (url.startsWith('data:') || url.startsWith('blob:')) return;
+    if (new URL(url).origin !== APP_ORIGIN) external.push(url);
+  });
+
+  const username = `csp${Date.now()}`;
+  await registerViaUi(page, username);
+
+  // add food by text, save, delete
+  await page.locator('#nav-camera').click();
+  await page.locator('#food-text-input').fill('סלט ולחם');
+  await page.locator('#text-analyze-btn').click();
+  await expect(page.locator('#analysis-result')).toBeVisible();
+  await page.locator('#save-entry-btn').click();
+  const rows = page.locator('#meal-list .meal-item-row');
+  await expect(rows).toHaveCount(1);
+  await rows.first().getByRole('button', { name: 'מחק' }).click();
+  await expect(rows).toHaveCount(0);
+
+  // stats tabs, weight, settings, logout, login again
+  await page.locator('#nav-stats').click();
+  await page.locator('.stats-tab', { hasText: 'חודשי' }).click();
+  await page.locator('.stats-tab', { hasText: 'שנתי' }).click();
+  await expect(page.locator('#stats-yearly')).toBeVisible();
+  await page.locator('#nav-weight').click();
+  await expect(page.locator('#screen-weight')).toBeVisible();
+  await page.locator('#nav-settings').click();
+  await expect(page.locator('#settings-user')).toContainText(username);
+  await page.locator('#screen-settings .settings-item', { hasText: 'יציאה' }).click();
+  await expect(page.locator('#screen-auth')).toBeVisible();
+  await page.locator('#auth-step1 .tab-btn', { hasText: 'כניסה' }).click();
+  await page.locator('#login-user').fill(username);
+  await page.locator('#login-pass').fill(PASSWORD);
+  await page.locator('#auth-login').getByRole('button', { name: 'כניסה' }).click();
+  await expect(page.locator('#screen-dashboard')).toBeVisible();
+
+  expect(guards.csp, `CSP violations: ${guards.csp.join('; ')}`).toEqual([]);
+  // Only the expected 401 of GET /auth/me on signed-out page loads may reach the console.
+  expect(guards.errors.filter((m) => !SIGNED_OUT_ME.test(m))).toEqual([]);
+  expect(external, `requests that left ${APP_ORIGIN}`).toEqual([]);
+});
+
+test('the self-hosted fonts are the ones in use (no Google Fonts)', async ({ page }) => {
+  const fontRequests = [];
+  page.on('request', (req) => { if (req.resourceType() === 'font') fontRequests.push(req.url()); });
+  await page.goto('/');
+  await expect(page.locator('#screen-welcome')).toBeVisible();
+  await page.evaluate(() => document.fonts.ready);
+  const faces = await page.evaluate(() => [...document.fonts].filter((f) => f.status === 'loaded').map((f) => `${f.family}|${f.style}|${f.weight}`));
+  expect(faces.length).toBeGreaterThan(0);
+  expect(fontRequests.length).toBeGreaterThan(0);
+  for (const url of fontRequests) expect(url.startsWith(`${APP_ORIGIN}/fonts/`), url).toBe(true);
+});
+
+test('the CSP is enforced by the browser: injected inline script and inline handlers do not run', async ({ page }) => {
+  const guards = attachGuards(page);
+  await page.goto('/');
+  await expect(page.locator('#screen-welcome')).toBeVisible();
+
+  await page.evaluate(() => {
+    const s = document.createElement('script');
+    s.textContent = 'window.__pwned = 1';
+    document.body.appendChild(s);
+    const img = document.createElement('img');
+    img.setAttribute('src', 'x');
+    img.setAttribute('onerror', 'window.__pwnedHandler = 1');
+    document.body.appendChild(img);
+  });
+  // give the violation events and the failed image load a moment
+  await page.waitForFunction(() => document.querySelector('img[onerror]')?.complete === true);
+  await expect.poll(() => guards.csp.length).toBeGreaterThanOrEqual(2);
+
+  expect(await page.evaluate(() => [typeof window.__pwned, typeof window.__pwnedHandler])).toEqual(['undefined', 'undefined']);
+  expect(guards.csp.some((m) => /^script-src-elem blocked inline/.test(m) || /script-src/.test(m)), guards.csp.join('; ')).toBe(true);
+  expect(guards.csp.some((m) => /script-src-attr/.test(m)), guards.csp.join('; ')).toBe(true);
+});
