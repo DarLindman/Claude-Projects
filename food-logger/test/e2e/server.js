@@ -30,7 +30,7 @@ async function main() {
     config,
     pool,
     anthropic: fakeAnthropic(),
-    limits: { loginPerMin: 100000, analyzePerHour: 100000 },
+    limits: { loginPerMin: 100000, analyzePerHour: 100000, analyzePerIpPerHour: 100000, changePasswordPerMin: 100000 },
   });
   const server = app.listen(PORT, () => console.log(`e2e server listening on ${PORT}`));
 

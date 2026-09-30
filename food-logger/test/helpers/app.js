@@ -23,7 +23,7 @@ async function buildTestApp(overrides = {}) {
   await resetDb(pool);
   const anthropic = fakeAnthropic();
   const { limits = {}, env, ...rest } = overrides;
-  const app = createApp({ config, pool, anthropic, limits: { loginPerMin: 1000, ...limits }, ...rest });
+  const app = createApp({ config, pool, anthropic, limits: { loginPerMin: 1000, analyzePerIpPerHour: 1000, changePasswordPerMin: 1000, ...limits }, ...rest });
   return { app, pool, config, anthropic };
 }
 

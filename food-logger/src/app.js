@@ -8,7 +8,7 @@ const { createAuth } = require('./middleware/auth');
 const { AppError, requestId, errorHandler } = require('./middleware/errors');
 const { createCsrf } = require('./middleware/csrf');
 const { securityMiddleware } = require('./middleware/security');
-const { createUsernameLimiter, createIpLimiter, createAnalyzeLimiter } = require('./middleware/rateLimit');
+const { createUsernameLimiter, createIpLimiter, createAnalyzeLimiter, createAnalyzeIpLimiter } = require('./middleware/rateLimit');
 const authRoutes = require('./routes/auth');
 const foodRoutes = require('./routes/food');
 const weightRoutes = require('./routes/weight');
@@ -24,12 +24,13 @@ const OWN_PARSER = /^\/api\/analyze(-text)?\/?$/i;
 
 // Builds the Express app from injected dependencies. Never calls listen().
 // `icon` is the PWA icon PNG buffer (or null); `limits` overrides rate limits
-// (`now` is an injectable clock for the username lockout).
+// (`now` is an injectable clock for the username lockouts).
 
 function createApp({ config, pool, anthropic, icon = null, limits = {} }) {
   const {
     loginPerMin = 10,
     analyzePerHour = 20,
+    analyzePerIpPerHour = 60,
     usernameFailures = 10,
     usernameWindowMs = 900_000,
     now = Date.now,
@@ -50,6 +51,7 @@ function createApp({ config, pool, anthropic, icon = null, limits = {} }) {
   const ipLimiter = createIpLimiter({ max: loginPerMin });
   const usernameLimiter = createUsernameLimiter({ max: usernameFailures, windowMs: usernameWindowMs, now });
   const analyzeLimiter = createAnalyzeLimiter({ max: analyzePerHour });
+  const analyzeIpLimiter = createAnalyzeIpLimiter({ max: analyzePerIpPerHour });
 
   const serveIcon = (_, res) => {
     if (icon) return res.type('png').send(icon);
@@ -64,7 +66,7 @@ function createApp({ config, pool, anthropic, icon = null, limits = {} }) {
   const deps = { pool, anthropic, config, auth };
 
   app.use('/auth', authRoutes({ ...deps, ipLimiter, usernameLimiter }));
-  app.use('/api', analyzeRoutes({ ...deps, analyzeLimiter }));
+  app.use('/api', analyzeRoutes({ ...deps, analyzeLimiter, analyzeIpLimiter }));
   app.use('/api/food', foodRoutes(deps));
   app.use('/api/weight', weightRoutes(deps));
   app.use('/api/profile', profileRoutes(deps));

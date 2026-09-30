@@ -235,3 +235,32 @@ test('body limits are unchanged: /api/analyze accepts >100 KB up to 8 MB, /api/a
     assert.equal(text.body.error.code, 'VALIDATION');
   });
 });
+
+// ─── Per-IP analyze budget (Anthropic bill amplification) ────────────────────
+const JPEG_BASE64 = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01]).toString('base64');
+
+test('analyze per-IP limiter: several different users on one IP share one budget across both endpoints', async () => {
+  await withApp({ limits: { analyzePerHour: 1000, analyzePerIpPerHour: 3 } }, async ({ app, anthropic }) => {
+    const users = [];
+    for (const name of ['ipuser1', 'ipuser2', 'ipuser3', 'ipuser4']) users.push(await signedIn(app, name));
+    assert.equal((await users[0].post('/api/analyze-text', { text: 'סלט' })).status, 200);
+    assert.equal((await users[1].post('/api/analyze', { imageBase64: JPEG_BASE64 })).status, 200);
+    assert.equal((await users[2].post('/api/analyze-text', { text: 'סלט' })).status, 200);
+    anthropic.calls.length = 0;
+    const fourth = await users[3].post('/api/analyze-text', { text: 'סלט' });
+    assert.equal(fourth.status, 429);
+    assert.deepEqual(fourth.body, { error: { code: 'RATE_LIMITED' } });
+    assert.equal(anthropic.calls.length, 0, 'no AI call once the IP budget is spent');
+  });
+});
+
+test('analyze per-IP limiter with TRUST_PROXY=1: different client IPs have separate budgets', async () => {
+  await withApp({ env: { TRUST_PROXY: '1' }, limits: { analyzePerHour: 1000, analyzePerIpPerHour: 1 } }, async ({ app }) => {
+    const a = await signedIn(app, 'xffa');
+    const b = await signedIn(app, 'xffb');
+    const call = (c, ip) => c.req('post', '/api/analyze-text').set('X-Forwarded-For', ip).send({ text: 'סלט' });
+    assert.equal((await call(a, '203.0.113.1')).status, 200);
+    assert.equal((await call(b, '203.0.113.1')).status, 429);
+    assert.equal((await call(b, '203.0.113.2')).status, 200);
+  });
+});

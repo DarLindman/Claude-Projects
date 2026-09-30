@@ -24,6 +24,14 @@ function createAnalyzeLimiter({ windowMs = 3_600_000, max = 20 } = {}) {
   return engine({ windowMs, max, keyGenerator: (req) => String(req.user.id) });
 }
 
+// Per-IP limiter for the AI endpoints, one budget shared by /api/analyze and /api/analyze-text.
+// Registration is open, so the per-user limit alone lets a script mint accounts and multiply
+// billed Anthropic calls; this caps the total per client address. Mounted after `auth` like
+// the per-user one. The address comes from req.ip (honours `trust proxy`).
+function createAnalyzeIpLimiter({ windowMs = 3_600_000, max = 60 } = {}) {
+  return engine({ windowMs, max });
+}
+
 // Failed-login counter per username, so a password can't be guessed from many IPs.
 // Known trade-off: anyone who knows a username can lock that account out, even when the
 // real owner enters the correct password, for up to 15 minutes (the window). Accepted for a
@@ -71,4 +79,4 @@ function createUsernameLimiter({ max = 10, windowMs = 900_000, now = Date.now } 
   };
 }
 
-module.exports = { createUsernameLimiter, createIpLimiter, createAnalyzeLimiter };
+module.exports = { createUsernameLimiter, createIpLimiter, createAnalyzeLimiter, createAnalyzeIpLimiter };

@@ -29,11 +29,11 @@ async function callAi(req, fn) {
   }
 }
 
-module.exports = function analyzeRoutes({ anthropic, auth, analyzeLimiter }) {
+module.exports = function analyzeRoutes({ anthropic, auth, analyzeLimiter, analyzeIpLimiter }) {
   const router = express.Router();
 
   // ─── Analyze food image ─────────────────────────────────────────────────────
-  router.post('/analyze', auth, analyzeLimiter, jsonImage, validate({ body: imageBody }), asyncHandler(async (req, res) => {
+  router.post('/analyze', auth, analyzeLimiter, analyzeIpLimiter, jsonImage, validate({ body: imageBody }), asyncHandler(async (req, res) => {
     const raw = req.valid.body.imageBase64.replace(/^data:[^;]+;base64,/, '');
     const bytes = Buffer.from(raw, 'base64');
     const mimeType = detectImageType(bytes);
@@ -43,7 +43,7 @@ module.exports = function analyzeRoutes({ anthropic, auth, analyzeLimiter }) {
   }));
 
   // ─── Analyze food text ──────────────────────────────────────────────────────
-  router.post('/analyze-text', auth, analyzeLimiter, jsonText, validate({ body: textBody }), asyncHandler(async (req, res) => {
+  router.post('/analyze-text', auth, analyzeLimiter, analyzeIpLimiter, jsonText, validate({ body: textBody }), asyncHandler(async (req, res) => {
     const { text } = req.valid.body;
     res.json(await callAi(req, () => analyzeText(anthropic, text)));
   }));
