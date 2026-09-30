@@ -2,6 +2,7 @@ import { state } from '../state.js';
 import { apiFetch } from '../api.js';
 import { closeModal, openModal, showToast } from '../dom.js';
 import { calcRecommendedCal, updateSettingsProfileSub } from '../profile.js';
+import { messageFor } from '../errors.js';
 
 // Populate dropdown selects for profile fields
 export function populateProfileSelects() {
@@ -46,7 +47,7 @@ export async function doChangePassword() {
     await apiFetch('/auth/change-password', { method: 'POST', body: JSON.stringify({ currentPassword: cur, newPassword: nw }) });
     closeModal('modal-change-pass');
     showToast('הסיסמא שונתה בהצלחה');
-  } catch (e) { document.getElementById('cp-error').textContent = e.message; }
+  } catch (e) { document.getElementById('cp-error').textContent = messageFor(e); }
 }
 
 // ════════════════════════════════════════════════════

@@ -2,6 +2,7 @@ import { state } from '../state.js';
 import { apiFetch } from '../api.js';
 import { _cameraCapyState, scheduleCameraHappy } from '../pet.js';
 import { navigate } from '../router.js';
+import { messageFor } from '../errors.js';
 
 let _placeholderIv = null;
 export function animatePlaceholder() {
@@ -92,7 +93,7 @@ export async function analyzeText() {
   } catch (e) {
     _cameraCapyState('sad');
     document.getElementById('analysis-loading').style.display = 'none';
-    document.getElementById('analysis-error').textContent = e.message;
+    document.getElementById('analysis-error').textContent = messageFor(e);
   }
   btn.disabled = false;
 }
@@ -137,6 +138,6 @@ export async function analyzeFood() {
   } catch (e) {
     _cameraCapyState('sad');
     document.getElementById('analysis-loading').style.display = 'none';
-    document.getElementById('analysis-error').textContent = e.message;
+    document.getElementById('analysis-error').textContent = messageFor(e);
   }
 }

@@ -53,7 +53,7 @@ test('POST /api/analyze without image returns 400', async () => {
   const c = await signedIn(ctx.app, 'imgUser3');
   const res = await c.post('/api/analyze', {});
   assert.equal(res.status, 400);
-  assert.deepEqual(res.body, { error: 'No image provided' });
+  assert.deepEqual(res.body, { error: { code: 'VALIDATION' }, fields: { imageBase64: 'REQUIRED' } });
 });
 
 test('POST /api/analyze-text translates a non-Hebrew name via ensureHebrewFoodName', async () => {
@@ -81,10 +81,10 @@ test('POST /api/analyze-text validates input', async () => {
   const c = await signedIn(ctx.app, 'txtUser3');
   const empty = await c.post('/api/analyze-text', { text: '   ' });
   assert.equal(empty.status, 400);
-  assert.deepEqual(empty.body, { error: 'No text provided' });
+  assert.deepEqual(empty.body, { error: { code: 'VALIDATION' }, fields: { text: 'REQUIRED' } });
   const long = await c.post('/api/analyze-text', { text: 'א'.repeat(501) });
   assert.equal(long.status, 400);
-  assert.deepEqual(long.body, { error: 'תיאור ארוך מדי (מקסימום 500 תווים)' });
+  assert.deepEqual(long.body, { error: { code: 'VALIDATION' }, fields: { text: 'TOO_LONG' } });
 });
 
 test('analyze endpoints require auth', async () => {

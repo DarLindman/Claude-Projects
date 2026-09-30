@@ -3,6 +3,25 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { z } = require('zod');
+const { AppError, asyncHandler } = require('../middleware/errors');
+const { validate } = require('../middleware/validate');
+const { noNul } = require('../lib/schemas');
+
+// Task 9 replaces the password rules (WEAK_PASSWORD / PASSWORD_TOO_LONG); until then
+// the old minimum of 6 applies, with a 1024-character cap.
+const registerBody = z.object({
+  username: noNul.trim().min(3).max(50),
+  password: noNul.min(6).max(1024),
+});
+const loginBody = z.object({
+  username: noNul.max(100),
+  password: noNul.min(1).max(1024),
+});
+const changePasswordBody = z.object({
+  currentPassword: noNul.min(1).max(1024),
+  newPassword: noNul.min(6).max(1024),
+});
 
 // deps.loginLimiter is supplied by createApp (Task 10 replaces the limiters).
 module.exports = function authRoutes({ pool, config, auth, loginLimiter }) {
@@ -15,56 +34,40 @@ module.exports = function authRoutes({ pool, config, auth, loginLimiter }) {
   }
 
   // ─── Auth routes ───────────────────────────────────────────────────────────
-  router.post('/register', loginLimiter, async (req, res) => {
-    const { username, password } = req.body;
-    if (!username || !password || username.length < 3 || username.length > 50 || password.length < 6)
-      return res.status(400).json({ error: 'שם משתמש חייב להכיל 3–50 תווים, סיסמא לפחות 6' });
+  router.post('/register', loginLimiter, validate({ body: registerBody }), asyncHandler(async (req, res) => {
+    const { username, password } = req.valid.body;
+    const hash = await bcrypt.hash(password, 10);
     try {
-      const hash = await bcrypt.hash(password, 10);
       const { rows } = await pool.query(
         'INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id, username',
         [username.toLowerCase(), hash]
       );
       res.json({ token: createToken(rows[0]), username: rows[0].username });
     } catch (e) {
-      if (e.code === '23505') return res.status(409).json({ error: 'שם המשתמש כבר קיים' });
-      console.error(e);
-      res.status(500).json({ error: 'שגיאת שרת' });
+      if (e.code === '23505') throw new AppError(409, 'USERNAME_TAKEN');
+      throw e;
     }
-  });
+  }));
 
-  router.post('/login', loginLimiter, async (req, res) => {
-    const { username, password } = req.body;
-    const lowerUser = (username || '').toLowerCase();
-    try {
-      const { rows } = await pool.query('SELECT * FROM users WHERE username = $1', [lowerUser]);
-      const user = rows[0];
-      // Always run bcrypt to prevent timing-based username enumeration
-      const valid = await bcrypt.compare(password, user ? user.password_hash : DUMMY_HASH);
-      if (!valid || !user) return res.status(401).json({ error: 'שם משתמש או סיסמא שגויים' });
-      res.json({ token: createToken(user), username: user.username });
-    } catch (e) {
-      console.error(e);
-      res.status(500).json({ error: 'שגיאת שרת' });
-    }
-  });
+  router.post('/login', loginLimiter, validate({ body: loginBody }), asyncHandler(async (req, res) => {
+    const { username, password } = req.valid.body;
+    const { rows } = await pool.query('SELECT * FROM users WHERE username = $1', [username.toLowerCase()]);
+    const user = rows[0];
+    // Always run bcrypt to prevent timing-based username enumeration
+    const valid = await bcrypt.compare(password, user ? user.password_hash : DUMMY_HASH);
+    if (!valid || !user) throw new AppError(401, 'INVALID_CREDENTIALS');
+    res.json({ token: createToken(user), username: user.username });
+  }));
 
-  router.post('/change-password', auth, async (req, res) => {
-    const { currentPassword, newPassword } = req.body;
-    if (!newPassword || newPassword.length < 6)
-      return res.status(400).json({ error: 'סיסמא חדשה חייבת להכיל לפחות 6 תווים' });
-    try {
-      const { rows } = await pool.query('SELECT * FROM users WHERE id = $1', [req.user.id]);
-      if (!rows[0] || !(await bcrypt.compare(currentPassword, rows[0].password_hash)))
-        return res.status(401).json({ error: 'סיסמא נוכחית שגויה' });
-      const hash = await bcrypt.hash(newPassword, 10);
-      await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, req.user.id]);
-      res.json({ ok: true });
-    } catch (e) {
-      console.error(e);
-      res.status(500).json({ error: 'שגיאת שרת' });
-    }
-  });
+  router.post('/change-password', auth, validate({ body: changePasswordBody }), asyncHandler(async (req, res) => {
+    const { currentPassword, newPassword } = req.valid.body;
+    const { rows } = await pool.query('SELECT * FROM users WHERE id = $1', [req.user.id]);
+    if (!rows[0] || !(await bcrypt.compare(currentPassword, rows[0].password_hash)))
+      throw new AppError(401, 'WRONG_CURRENT_PASSWORD');
+    const hash = await bcrypt.hash(newPassword, 10);
+    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, req.user.id]);
+    res.json({ ok: true });
+  }));
 
   return router;
 };

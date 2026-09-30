@@ -38,4 +38,4 @@ export function doLogout() {
 }
 
 // Wire the token and the 401 handler into apiFetch
-configureApi({ readToken: getToken, onUnauthorized: doLogout });
+configureApi({ getToken, onUnauthorized: doLogout });

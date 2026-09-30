@@ -1,40 +1,47 @@
 'use strict';
 
 const express = require('express');
-const { AnalysisParseError, analyzeImage, analyzeText } = require('../lib/analysis');
+const { z } = require('zod');
+const { analyzeImage, analyzeText } = require('../lib/analysis');
+const { detectImageType } = require('../lib/image');
+const { AppError, asyncHandler } = require('../middleware/errors');
+const { validate } = require('../middleware/validate');
+const { noNul } = require('../lib/schemas');
+
+// mimeType is deliberately not read: the real type comes from the magic bytes.
+const imageBody = z.object({ imageBase64: z.string().min(1) });
+// Length is checked before trimming (as before); a blank text counts as missing.
+const textBody = z.object({ text: noNul.max(500).transform((s) => s.trim()).pipe(z.string().min(1)) });
+
+// Any failure of the AI call (SDK error, empty or unparseable reply) is a 502 whose
+// body never carries upstream text; the details go to the server log with the request id.
+async function callAi(req, fn) {
+  try {
+    return await fn();
+  } catch (e) {
+    console.error(`[${req.id}] AI request failed:`, e);
+    throw new AppError(502, 'AI_UNAVAILABLE');
+  }
+}
 
 module.exports = function analyzeRoutes({ anthropic, auth, analyzeLimiter }) {
   const router = express.Router();
 
   // ─── Analyze food image ─────────────────────────────────────────────────────
-  router.post('/analyze', auth, analyzeLimiter, async (req, res) => {
-    const { imageBase64: raw, mimeType: mime } = req.body;
-    if (!raw) return res.status(400).json({ error: 'No image provided' });
-    const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    const mimeType = ALLOWED_MIME.includes(mime) ? mime : 'image/jpeg';
-    const imageBase64 = raw.replace(/^data:[^;]+;base64,/, '');
-    try {
-      res.json(await analyzeImage(anthropic, { imageBase64, mimeType }));
-    } catch (e) {
-      if (e instanceof AnalysisParseError) return res.status(500).json({ error: 'לא ניתן לנתח את תגובת ה-AI' });
-      console.error(e);
-      res.status(500).json({ error: 'שגיאה בניתוח התמונה' });
-    }
-  });
+  router.post('/analyze', auth, analyzeLimiter, validate({ body: imageBody }), asyncHandler(async (req, res) => {
+    const raw = req.valid.body.imageBase64.replace(/^data:[^;]+;base64,/, '');
+    const bytes = Buffer.from(raw, 'base64');
+    const mimeType = detectImageType(bytes);
+    if (!mimeType) throw new AppError(400, 'IMAGE_INVALID');
+    const imageBase64 = bytes.toString('base64');
+    res.json(await callAi(req, () => analyzeImage(anthropic, { imageBase64, mimeType })));
+  }));
 
   // ─── Analyze food text ──────────────────────────────────────────────────────
-  router.post('/analyze-text', auth, analyzeLimiter, async (req, res) => {
-    const { text } = req.body;
-    if (!text || !text.trim()) return res.status(400).json({ error: 'No text provided' });
-    if (text.length > 500) return res.status(400).json({ error: 'תיאור ארוך מדי (מקסימום 500 תווים)' });
-    try {
-      res.json(await analyzeText(anthropic, text));
-    } catch (e) {
-      if (e instanceof AnalysisParseError) return res.status(500).json({ error: 'לא ניתן לנתח את תגובת ה-AI' });
-      console.error(e);
-      res.status(500).json({ error: 'שגיאה בניתוח הטקסט' });
-    }
-  });
+  router.post('/analyze-text', auth, analyzeLimiter, validate({ body: textBody }), asyncHandler(async (req, res) => {
+    const { text } = req.valid.body;
+    res.json(await callAi(req, () => analyzeText(anthropic, text)));
+  }));
 
   return router;
 };

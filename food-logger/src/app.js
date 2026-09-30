@@ -6,6 +6,7 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 
 const { createAuth } = require('./middleware/auth');
+const { AppError, requestId, errorHandler } = require('./middleware/errors');
 const authRoutes = require('./routes/auth');
 const foodRoutes = require('./routes/food');
 const weightRoutes = require('./routes/weight');
@@ -20,11 +21,20 @@ function createApp({ config, pool, anthropic, icon = null, limits = {} }) {
   const { loginPerMin = 10, analyzePerHour = 20 } = limits;
   const app = express();
 
+  app.use(requestId);
   app.use(cors({ origin: config.origin }));
-  app.use(express.json({ limit: '15mb' }));
+  // Only the image upload gets a large body; body-parser skips a body that is already
+  // parsed, so this must be mounted before the 100 KB default.
+  app.use('/api/analyze', express.json({ limit: '8mb' }));
+  app.use(express.json({ limit: '100kb' }));
 
-  const loginLimiter = rateLimit({ windowMs: 60_000, max: loginPerMin, standardHeaders: true, legacyHeaders: false });
-  const analyzeLimiter = rateLimit({ windowMs: 3_600_000, max: analyzePerHour, standardHeaders: true, legacyHeaders: false });
+  const limiterOptions = {
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (req, res, next) => next(new AppError(429, 'RATE_LIMITED')),
+  };
+  const loginLimiter = rateLimit({ ...limiterOptions, windowMs: 60_000, max: loginPerMin });
+  const analyzeLimiter = rateLimit({ ...limiterOptions, windowMs: 3_600_000, max: analyzePerHour });
 
   const serveIcon = (_, res) => {
     if (icon) return res.type('png').send(icon);
@@ -45,6 +55,10 @@ function createApp({ config, pool, anthropic, icon = null, limits = {} }) {
   app.use('/api/profile', profileRoutes(deps));
   app.use('/api/stats', statsRoutes(deps));
   app.use('/api/streak', streakRoutes(deps));
+
+  // Unknown API paths get the JSON error contract instead of Express's HTML 404.
+  app.use(['/api', '/auth'], (req, res, next) => next(new AppError(404, 'NOT_FOUND')));
+  app.use(errorHandler);
 
   return app;
 }

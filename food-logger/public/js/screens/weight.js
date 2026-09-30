@@ -4,6 +4,7 @@ import { formatDate, formatDateShort, todayStr } from '../dates.js';
 import { escapeHtml, showToast } from '../dom.js';
 import { updateSettingsProfileSub } from '../profile.js';
 import { loadDiary } from './home.js';
+import { messageFor } from '../errors.js';
 
 // ════════════════════════════════════════════════════
 // Weight screen
@@ -42,7 +43,7 @@ export async function addWeightLog() {
     updateSettingsProfileSub();
     loadDiary(); // refresh home screen calorie bar regardless of current screen
     showToast('המשקל נשמר');
-  } catch (e) { document.getElementById('weight-add-error').textContent = e.message; }
+  } catch (e) { document.getElementById('weight-add-error').textContent = messageFor(e); }
 }
 
 export async function deleteWeightLog(id) {

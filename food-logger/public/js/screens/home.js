@@ -5,6 +5,7 @@ import { closeModal, escapeHtml, openModal, showToast } from '../dom.js';
 import { getFoodEmoji } from '../format.js';
 import { cloneCapybara, setIdleWrap, setPetState, startIdleAnimations } from '../pet.js';
 import { calcRecommendedCal } from '../profile.js';
+import { messageFor } from '../errors.js';
 
 // ════════════════════════════════════════════════════
 // Diary
@@ -231,7 +232,7 @@ export async function editRecalculate() {
   } catch (e) {
     const msg = e?.status === 429
       ? 'הגעת למגבלת הניתוחים לשעה זו'
-      : (e?.message || 'שגיאה בניתוח');
+      : messageFor(e);
     showToast(msg);
     updateEditButtons();
   } finally {
@@ -265,6 +266,6 @@ export async function editSave() {
     loadDiary();
     showToast('✅ המנה עודכנה');
   } catch (e) {
-    showToast(e?.message || 'שגיאה בשמירה');
+    showToast(messageFor(e));
   }
 }

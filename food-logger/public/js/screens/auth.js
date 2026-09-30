@@ -3,6 +3,7 @@ import { apiFetch } from '../api.js';
 import { todayStr } from '../dates.js';
 import { loadProfile } from '../profile.js';
 import { setLoggedIn } from '../session.js';
+import { messageFor } from '../errors.js';
 
 let pendingToken = null;
 let pendingUsername = null;
@@ -23,7 +24,7 @@ export async function doLogin() {
   try {
     const data = await apiFetch('/auth/login', { method: 'POST', body: JSON.stringify({ username: u, password: p }) });
     setLoggedIn(data.token, data.username);
-  } catch (e) { document.getElementById('auth-error').textContent = e.message; }
+  } catch (e) { document.getElementById('auth-error').textContent = messageFor(e); }
 }
 
 export function doRegister() {
@@ -74,7 +75,7 @@ export async function saveRegProfile() {
   try {
     const data = await apiFetch('/auth/register', { method: 'POST', body: JSON.stringify({ username: state.pendingRegUser, password: state.pendingRegPass }) });
     pendingToken = data.token; pendingUsername = data.username;
-  } catch(e) { document.getElementById('auth-error3').textContent = e.message; return; }
+  } catch(e) { document.getElementById('auth-error3').textContent = messageFor(e); return; }
   const birthDate = document.getElementById('reg-birthdate').value || '';
   const height = +document.getElementById('reg-height').value || 0;
   const weight = +document.getElementById('reg-weight').value || 0;
@@ -93,7 +94,7 @@ export async function skipRegProfile() {
   try {
     const data = await apiFetch('/auth/register', { method: 'POST', body: JSON.stringify({ username: state.pendingRegUser, password: state.pendingRegPass }) });
     pendingToken = data.token; pendingUsername = data.username;
-  } catch(e) { document.getElementById('auth-error3').textContent = e.message; return; }
+  } catch(e) { document.getElementById('auth-error3').textContent = messageFor(e); return; }
   finishLogin();
 }
 

@@ -5,6 +5,7 @@ import { showToast } from '../dom.js';
 import { spawnConfetti } from '../effects.js';
 import { cloneCapybara, setPetState } from '../pet.js';
 import { navigate } from '../router.js';
+import { messageFor } from '../errors.js';
 
 export function selectMeal(btn) {
   document.querySelectorAll('.meal-opt').forEach(b => b.classList.remove('selected'));
@@ -60,7 +61,7 @@ export async function saveEntry() {
     document.getElementById('file-input').value = '';
     document.getElementById('food-text-input').value = '';
   } catch (e) {
-    showToast('שגיאה בשמירה: ' + e.message);
+    showToast('שגיאה בשמירה: ' + messageFor(e));
     saveBtn.disabled = false;
     saveBtn.textContent = 'שמור ביומן';
   }

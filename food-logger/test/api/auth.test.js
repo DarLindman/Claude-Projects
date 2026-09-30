@@ -50,5 +50,5 @@ test('change-password: wrong current 401; right current ok and new password work
 test('protected route without token returns 401', async () => {
   const res = await request(ctx.app).get('/api/food');
   assert.equal(res.status, 401);
-  assert.deepEqual(res.body, { error: 'Unauthorized' });
+  assert.deepEqual(res.body, { error: { code: 'UNAUTHORIZED' } });
 });
