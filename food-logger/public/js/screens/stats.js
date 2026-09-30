@@ -212,3 +212,9 @@ async function loadYearlyStats() {
     renderStatMacros('yearly-macro', rows, `ממוצע יומי על בסיס ${totalDays} ימים`, totalDays);
   } catch { }
 }
+
+export const actions = {
+  switchStats: (el) => switchStats(el.dataset.arg),
+  statsChangeMonth: (el) => statsChangeMonth(+el.dataset.arg),
+  statsChangeYear: (el) => statsChangeYear(+el.dataset.arg),
+};

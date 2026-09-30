@@ -123,8 +123,8 @@
       </div>
     </div>
     <div class="welcome-actions fu fu-7">
-      <button class="btn btn-primary" onclick="goToAuth('register')">התחל עכשיו</button>
-      <button class="btn btn-ghost" onclick="goToAuth('login')">יש לי חשבון</button>
+      <button class="btn btn-primary" data-action="goToAuth" data-arg="register">התחל עכשיו</button>
+      <button class="btn btn-ghost" data-action="goToAuth" data-arg="login">יש לי חשבון</button>
     </div>
     <div class="welcome-footer fu fu-7">
       By Dar &middot; <a href="https://www.instagram.com/darlindman/" target="_blank" rel="noopener">Instagram</a>
@@ -144,33 +144,33 @@
       <!-- Step 1: login/register tabs -->
       <div id="auth-step1">
         <div class="tab-row">
-          <button class="tab-btn active" onclick="switchAuthTab('login')">כניסה</button>
-          <button class="tab-btn" onclick="switchAuthTab('register')">הרשמה</button>
+          <button class="tab-btn active" data-action="switchAuthTab" data-arg="login">כניסה</button>
+          <button class="tab-btn" data-action="switchAuthTab" data-arg="register">הרשמה</button>
         </div>
         <div id="auth-login">
           <div class="form-group"><label>שם משתמש</label><input id="login-user" type="text" placeholder="your_username" autocomplete="username"></div>
           <div class="form-group"><label>סיסמא</label><input id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password"></div>
-          <button class="btn btn-primary" onclick="doLogin()">כניסה</button>
+          <button class="btn btn-primary" data-action="doLogin">כניסה</button>
           <div id="auth-error" class="error-msg"></div>
         </div>
         <div id="auth-register" style="display:none">
           <div class="form-group"><label>שם משתמש</label><input id="reg-user" type="text" placeholder="לפחות 3 תווים" autocomplete="username"></div>
           <div class="form-group"><label>סיסמא</label><input id="reg-pass" type="password" placeholder="לפחות 8 תווים" autocomplete="new-password"></div>
-          <button class="btn btn-primary" onclick="doRegister()">הרשמה</button>
+          <button class="btn btn-primary" data-action="doRegister">הרשמה</button>
           <div id="auth-error2" class="error-msg"></div>
         </div>
       </div>
 
       <!-- Step 2: body profile (shown after register) -->
       <div id="auth-step2" style="display:none">
-        <button class="btn btn-ghost" dir="ltr" style="margin-bottom:12px;width:auto;padding:8px 16px;font-size:13px" onclick="pendingRegUser=null;pendingRegPass=null;document.getElementById('auth-step1').style.display='';document.getElementById('auth-step2').style.display='none'">חזור &#8594;</button>
+        <button class="btn btn-ghost" dir="ltr" style="margin-bottom:12px;width:auto;padding:8px 16px;font-size:13px" data-action="regBack">חזור &#8594;</button>
         <div class="profile-step-title">ספר לנו עליך</div>
         <div class="profile-step-sub">נחשב עבורך המלצת קלוריות יומית</div>
 
         <label style="margin-bottom:8px">מין</label>
         <div class="toggle-row" style="margin-bottom:16px">
-          <button class="toggle-btn selected" id="reg-male-btn" onclick="setRegGender('male')">👨 גבר</button>
-          <button class="toggle-btn" id="reg-female-btn" onclick="setRegGender('female')">👩 אישה</button>
+          <button class="toggle-btn selected" id="reg-male-btn" data-action="setRegGender" data-arg="male">👨 גבר</button>
+          <button class="toggle-btn" id="reg-female-btn" data-action="setRegGender" data-arg="female">👩 אישה</button>
         </div>
 
         <div class="form-group" style="margin-bottom:10px"><label>תאריך לידה</label><input type="date" id="reg-birthdate" lang="he" style="font-size:14px"></div>
@@ -180,7 +180,7 @@
         </div>
         <div class="form-group" style="margin-bottom:16px">
           <label>יעד שינוי שבועי (ק"ג)</label>
-          <select id="reg-goal-select" onchange="setRegGoal(+this.value)">
+          <select id="reg-goal-select" data-change="setRegGoal">
             <option value="1">+1 ק"ג (עלייה במשקל)</option>
             <option value="0.75">+¾ ק"ג</option>
             <option value="0.5">+½ ק"ג</option>
@@ -195,15 +195,15 @@
 
         <label style="margin-bottom:8px">רמת פעילות</label>
         <div class="activity-list" id="reg-activity-list">
-          <button class="activity-opt" data-val="sedentary" onclick="setRegActivity('sedentary')"><strong>יושבני</strong>עבודת משרד, מינימום פעילות</button>
-          <button class="activity-opt selected" data-val="light" onclick="setRegActivity('light')"><strong>פעילות קלה</strong>1–3 ימים בשבוע</button>
-          <button class="activity-opt" data-val="moderate" onclick="setRegActivity('moderate')"><strong>פעילות בינונית</strong>3–5 ימים בשבוע</button>
-          <button class="activity-opt" data-val="active" onclick="setRegActivity('active')"><strong>פעילות גבוהה</strong>6–7 ימים בשבוע</button>
-          <button class="activity-opt" data-val="vactive" onclick="setRegActivity('vactive')"><strong>ספורטאי</strong>אימון יומי אינטנסיבי</button>
+          <button class="activity-opt" data-val="sedentary" data-action="setRegActivity" data-arg="sedentary"><strong>יושבני</strong>עבודת משרד, מינימום פעילות</button>
+          <button class="activity-opt selected" data-val="light" data-action="setRegActivity" data-arg="light"><strong>פעילות קלה</strong>1–3 ימים בשבוע</button>
+          <button class="activity-opt" data-val="moderate" data-action="setRegActivity" data-arg="moderate"><strong>פעילות בינונית</strong>3–5 ימים בשבוע</button>
+          <button class="activity-opt" data-val="active" data-action="setRegActivity" data-arg="active"><strong>פעילות גבוהה</strong>6–7 ימים בשבוע</button>
+          <button class="activity-opt" data-val="vactive" data-action="setRegActivity" data-arg="vactive"><strong>ספורטאי</strong>אימון יומי אינטנסיבי</button>
         </div>
 
-        <button class="btn btn-primary" style="margin-bottom:10px" onclick="saveRegProfile()">בוא נתחיל! 🚀</button>
-        <button class="btn btn-ghost" onclick="skipRegProfile()">דלג לעת עתה</button>
+        <button class="btn btn-primary" style="margin-bottom:10px" data-action="saveRegProfile">בוא נתחיל! 🚀</button>
+        <button class="btn btn-ghost" data-action="skipRegProfile">דלג לעת עתה</button>
         <div id="auth-error3" class="error-msg"></div>
       </div>
     </div>
@@ -312,7 +312,7 @@
     </div>
 
     <!-- CTAs -->
-    <button class="btn btn-primary dash-cta dash-stagger" onclick="navigate('camera')">
+    <button class="btn btn-primary dash-cta dash-stagger" data-action="navigate" data-arg="camera">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true" style="vertical-align:middle;margin-left:6px">
         <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
       </svg>
@@ -334,9 +334,9 @@
   </div>
   <div class="page">
     <div class="date-nav">
-      <button onclick="changeDay(-1)">&#8249;</button>
+      <button data-action="changeDay" data-arg="-1">&#8249;</button>
       <div class="date-display" id="diary-date-label"></div>
-      <button onclick="changeDay(1)">&#8250;</button>
+      <button data-action="changeDay" data-arg="1">&#8250;</button>
     </div>
 
     <div class="card" id="daily-summary-card">
@@ -386,14 +386,14 @@
       <img id="preview-img" alt="תצוגה מקדימה">
     </div>
     <div class="cam-actions">
-      <button class="cam-btn cam-btn-shoot" onclick="document.getElementById('file-input').click()" aria-label="צלם / בחר תמונה"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></button>
-      <button class="cam-btn cam-btn-analyze" id="analyze-btn" onclick="analyzeFood()" disabled>✨ נתח תמונה</button>
+      <button class="cam-btn cam-btn-shoot" data-action="pickImage" aria-label="צלם / בחר תמונה"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></button>
+      <button class="cam-btn cam-btn-analyze" id="analyze-btn" data-action="analyzeFood" disabled>✨ נתח תמונה</button>
     </div>
-    <input type="file" id="file-input" accept="image/*" onchange="onImageSelected(event)">
+    <input type="file" id="file-input" accept="image/*" data-change="onImageSelected">
     <div class="text-analyze-section">
       <div class="text-analyze-divider"><span>או הקלד תיאור אוכל</span></div>
       <textarea id="food-text-input" placeholder="" data-placeholder="לדוגמה: 100 גרם חזה עוף עם כוס אורז וסלט ירקות"></textarea>
-      <button class="cam-btn cam-btn-analyze" id="text-analyze-btn" onclick="analyzeText()">✍️ נתח טקסט</button>
+      <button class="cam-btn cam-btn-analyze" id="text-analyze-btn" data-action="analyzeText">✍️ נתח טקסט</button>
     </div>
   </div>
 </div>
@@ -405,7 +405,7 @@
       <div class="topbar-title">ניתוח תזונה</div>
       <div class="topbar-brand-sub" style="margin-top:2px"><a class="topbar-brand-ig" href="https://www.instagram.com/darlindman/" target="_blank" rel="noopener"><svg width="9" height="9" viewBox="0 0 24 24" fill="#E1306C"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>Instagram</a> &middot; By Dar</div>
     </div>
-    <button style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 13px;font-size:14px;cursor:pointer;color:var(--muted);font-family:inherit" onclick="navigate('camera')">✕</button>
+    <button style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 13px;font-size:14px;cursor:pointer;color:var(--muted);font-family:inherit" data-action="navigate" data-arg="camera">✕</button>
   </div>
   <div class="page">
     <div id="pet-camera-wrap" style="display:flex;justify-content:center;padding:8px 0 4px"></div>
@@ -444,13 +444,13 @@
 
   <div class="card-title" style="margin-top:14px">סוג ארוחה</div>
   <div class="meal-select">
-    <button class="meal-opt" data-meal="breakfast" onclick="selectMeal(this)">בוקר</button>
-    <button class="meal-opt selected" data-meal="lunch" onclick="selectMeal(this)">צהריים</button>
-    <button class="meal-opt" data-meal="dinner" onclick="selectMeal(this)">ערב</button>
-    <button class="meal-opt" data-meal="snack" onclick="selectMeal(this)">חטיף</button>
+    <button class="meal-opt" data-meal="breakfast" data-action="selectMeal">בוקר</button>
+    <button class="meal-opt selected" data-meal="lunch" data-action="selectMeal">צהריים</button>
+    <button class="meal-opt" data-meal="dinner" data-action="selectMeal">ערב</button>
+    <button class="meal-opt" data-meal="snack" data-action="selectMeal">חטיף</button>
   </div>
 
-  <button class="btn btn-primary" id="save-entry-btn" onclick="saveEntry()" style="margin-top:4px">שמור ביומן</button>
+  <button class="btn btn-primary" id="save-entry-btn" data-action="saveEntry" style="margin-top:4px">שמור ביומן</button>
     </div>
     <div id="analysis-error" class="error-msg" style="margin-top:16px"></div>
   </div>
@@ -461,9 +461,9 @@
   <div class="topbar"><div class="topbar-title">נתונים</div><div class="topbar-brand"><div class="topbar-brand-title">Your Personal Food Logger</div><div class="topbar-brand-sub"><a class="topbar-brand-ig" href="https://www.instagram.com/darlindman/" target="_blank" rel="noopener"><svg width="9" height="9" viewBox="0 0 24 24" fill="#E1306C"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>Instagram</a> &middot; By Dar</div></div></div>
   <div class="page">
     <div class="stats-tabs">
-      <button class="stats-tab active" onclick="switchStats('weekly')">שבועי</button>
-      <button class="stats-tab" onclick="switchStats('monthly')">חודשי</button>
-      <button class="stats-tab" onclick="switchStats('yearly')">שנתי</button>
+      <button class="stats-tab active" data-action="switchStats" data-arg="weekly">שבועי</button>
+      <button class="stats-tab" data-action="switchStats" data-arg="monthly">חודשי</button>
+      <button class="stats-tab" data-action="switchStats" data-arg="yearly">שנתי</button>
     </div>
 
     <div id="stats-weekly">
@@ -481,9 +481,9 @@
 
     <div id="stats-monthly" style="display:none">
       <div class="date-nav">
-        <button onclick="statsChangeMonth(-1)">&#8249;</button>
+        <button data-action="statsChangeMonth" data-arg="-1">&#8249;</button>
         <div class="date-display" id="stats-month-label"></div>
-        <button onclick="statsChangeMonth(1)">&#8250;</button>
+        <button data-action="statsChangeMonth" data-arg="1">&#8250;</button>
       </div>
       <div id="monthly-avg-box"></div>
       <div class="card">
@@ -498,9 +498,9 @@
 
     <div id="stats-yearly" style="display:none">
       <div class="date-nav">
-        <button onclick="statsChangeYear(-1)">&#8249;</button>
+        <button data-action="statsChangeYear" data-arg="-1">&#8249;</button>
         <div class="date-display" id="stats-year-label"></div>
-        <button onclick="statsChangeYear(1)">&#8250;</button>
+        <button data-action="statsChangeYear" data-arg="1">&#8250;</button>
       </div>
       <div id="yearly-avg-box"></div>
       <div class="card">
@@ -524,7 +524,7 @@
       <div class="weight-log-form">
         <div class="form-group"><label>תאריך</label><input type="date" id="weight-date"></div>
         <div class="form-group"><label>משקל (ק"ג)</label><input type="number" id="weight-val" step="0.1" min="20" max="400" placeholder="70.0"></div>
-        <button class="btn btn-primary" onclick="addWeightLog()">הוסף</button>
+        <button class="btn btn-primary" data-action="addWeightLog">הוסף</button>
       </div>
       <div id="weight-add-error" class="error-msg"></div>
     </div>
@@ -546,18 +546,18 @@
   <div class="topbar"><div class="topbar-title">הגדרות</div><div class="topbar-brand"><div class="topbar-brand-title">Your Personal Food Logger</div><div class="topbar-brand-sub"><a class="topbar-brand-ig" href="https://www.instagram.com/darlindman/" target="_blank" rel="noopener"><svg width="9" height="9" viewBox="0 0 24 24" fill="#E1306C"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>Instagram</a> &middot; By Dar</div></div></div>
   <div class="page">
     <div class="card">
-      <div class="settings-item" onclick="openProfileModal()">
+      <div class="settings-item" data-action="openProfileModal">
         <div>
           <div class="settings-label">פרופיל גוף ויעד</div>
           <div class="settings-sub" id="settings-profile-sub">לא הוגדר</div>
         </div>
         <div class="settings-arrow">›</div>
       </div>
-      <div class="settings-item" onclick="openModal('modal-change-pass')">
+      <div class="settings-item" data-action="openModal" data-arg="modal-change-pass">
         <div><div class="settings-label">שינוי סיסמא</div></div>
         <div class="settings-arrow">›</div>
       </div>
-      <div class="settings-item" onclick="doLogout()">
+      <div class="settings-item" data-action="doLogout">
         <div><div class="settings-label" style="color:#f87171">יציאה</div><div class="settings-sub" id="settings-user"></div></div>
         <div class="settings-arrow">›</div>
       </div>
@@ -571,43 +571,43 @@
 
 <!-- ════════════════ BOTTOM NAV ════════════════ -->
 <nav class="bottom-nav" id="bottom-nav" style="display:none">
-  <button class="nav-item active" id="nav-dashboard" onclick="navigate('dashboard')">
+  <button class="nav-item active" id="nav-dashboard" data-action="navigate" data-arg="dashboard">
     <span class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg></span><span>בית</span>
   </button>
-  <button class="nav-item" id="nav-home" onclick="navigate('home')">
+  <button class="nav-item" id="nav-home" data-action="navigate" data-arg="home">
     <span class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
   <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
   <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
 </svg></span><span>יומן</span>
   </button>
-  <button class="nav-item nav-camera" id="nav-camera" onclick="navigate('camera')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></button>
-  <button class="nav-item" id="nav-stats" onclick="navigate('stats')">
+  <button class="nav-item nav-camera" id="nav-camera" data-action="navigate" data-arg="camera"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></button>
+  <button class="nav-item" id="nav-stats" data-action="navigate" data-arg="stats">
     <span class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span><span>נתונים</span>
   </button>
-  <button class="nav-item" id="nav-weight" onclick="navigate('weight')">
+  <button class="nav-item" id="nav-weight" data-action="navigate" data-arg="weight">
     <span class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg></span><span>משקל</span>
   </button>
-  <button class="nav-item" id="nav-settings" onclick="navigate('settings')">
+  <button class="nav-item" id="nav-settings" data-action="navigate" data-arg="settings">
     <span class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span><span>הגדרות</span>
   </button>
 </nav>
 
 <!-- ════════════════ MODALS ════════════════ -->
-<div class="modal-overlay" id="modal-change-pass" onclick="closeModal('modal-change-pass')">
-  <div class="modal-sheet" onclick="event.stopPropagation()">
-    <button class="modal-close" onclick="closeModal('modal-change-pass')">✕</button>
+<div class="modal-overlay" id="modal-change-pass" data-action="closeModalBackdrop" data-arg="modal-change-pass">
+  <div class="modal-sheet">
+    <button class="modal-close" data-action="closeModal" data-arg="modal-change-pass">✕</button>
     <div class="modal-title">שינוי סיסמא</div>
     <div class="form-group"><label>סיסמא נוכחית</label><input id="cp-current" type="password"></div>
     <div class="form-group"><label>סיסמא חדשה</label><input id="cp-new" type="password"></div>
-    <button class="btn btn-primary" onclick="doChangePassword()">שמור</button>
+    <button class="btn btn-primary" data-action="doChangePassword">שמור</button>
     <div id="cp-error" class="error-msg"></div>
   </div>
 </div>
 
 <!-- Profile modal -->
-<div class="modal-overlay" id="modal-profile" onclick="closeModal('modal-profile')">
-  <div class="modal-sheet" onclick="event.stopPropagation()">
-    <button class="modal-close" onclick="closeModal('modal-profile')">✕</button>
+<div class="modal-overlay" id="modal-profile" data-action="closeModalBackdrop" data-arg="modal-profile">
+  <div class="modal-sheet">
+    <button class="modal-close" data-action="closeModal" data-arg="modal-profile">✕</button>
     <div class="modal-title">פרופיל גוף ויעד</div>
 
     <div class="cal-preview">
@@ -617,15 +617,15 @@
 
     <label style="margin-bottom:8px">מין</label>
     <div class="toggle-row">
-      <button class="toggle-btn selected" id="mp-male-btn" onclick="setMpGender('male')">👨 גבר</button>
-      <button class="toggle-btn" id="mp-female-btn" onclick="setMpGender('female')">👩 אישה</button>
+      <button class="toggle-btn selected" id="mp-male-btn" data-action="setMpGender" data-arg="male">👨 גבר</button>
+      <button class="toggle-btn" id="mp-female-btn" data-action="setMpGender" data-arg="female">👩 אישה</button>
     </div>
 
-    <div class="form-group" style="margin-bottom:10px"><label>תאריך לידה</label><input type="date" id="mp-birthdate" lang="he" onchange="updateMpPreview()" style="font-size:14px"></div>
-    <div class="form-group" style="margin-bottom:16px"><label>גובה (ס"מ)</label><select id="mp-height" onchange="updateMpPreview()"></select></div>
+    <div class="form-group" style="margin-bottom:10px"><label>תאריך לידה</label><input type="date" id="mp-birthdate" lang="he" data-change="updateMpPreview" style="font-size:14px"></div>
+    <div class="form-group" style="margin-bottom:16px"><label>גובה (ס"מ)</label><select id="mp-height" data-change="updateMpPreview"></select></div>
     <div class="form-group" style="margin-bottom:16px">
       <label>יעד שינוי שבועי (ק"ג)</label>
-      <select id="mp-goal-select" onchange="setMpGoal(+this.value)">
+      <select id="mp-goal-select" data-change="setMpGoal">
         <option value="1">+1 ק"ג (עלייה במשקל)</option>
         <option value="0.75">+¾ ק"ג</option>
         <option value="0.5">+½ ק"ג</option>
@@ -640,14 +640,14 @@
 
     <label style="margin-bottom:8px">רמת פעילות</label>
     <div class="activity-list" id="mp-activity-list">
-      <button class="activity-opt" data-val="sedentary" onclick="setMpActivity('sedentary')"><strong>יושבני</strong>עבודת משרד, מינימום פעילות</button>
-      <button class="activity-opt selected" data-val="light" onclick="setMpActivity('light')"><strong>פעילות קלה</strong>1–3 ימים בשבוע</button>
-      <button class="activity-opt" data-val="moderate" onclick="setMpActivity('moderate')"><strong>פעילות בינונית</strong>3–5 ימים בשבוע</button>
-      <button class="activity-opt" data-val="active" onclick="setMpActivity('active')"><strong>פעילות גבוהה</strong>6–7 ימים בשבוע</button>
-      <button class="activity-opt" data-val="vactive" onclick="setMpActivity('vactive')"><strong>ספורטאי</strong>אימון יומי אינטנסיבי</button>
+      <button class="activity-opt" data-val="sedentary" data-action="setMpActivity" data-arg="sedentary"><strong>יושבני</strong>עבודת משרד, מינימום פעילות</button>
+      <button class="activity-opt selected" data-val="light" data-action="setMpActivity" data-arg="light"><strong>פעילות קלה</strong>1–3 ימים בשבוע</button>
+      <button class="activity-opt" data-val="moderate" data-action="setMpActivity" data-arg="moderate"><strong>פעילות בינונית</strong>3–5 ימים בשבוע</button>
+      <button class="activity-opt" data-val="active" data-action="setMpActivity" data-arg="active"><strong>פעילות גבוהה</strong>6–7 ימים בשבוע</button>
+      <button class="activity-opt" data-val="vactive" data-action="setMpActivity" data-arg="vactive"><strong>ספורטאי</strong>אימון יומי אינטנסיבי</button>
     </div>
 
-    <button class="btn btn-primary" onclick="saveMpProfile()">שמור פרופיל</button>
+    <button class="btn btn-primary" data-action="saveMpProfile">שמור פרופיל</button>
     <div id="mp-error" class="error-msg"></div>
   </div>
 </div>
@@ -656,11 +656,11 @@
 <div class="toast" id="toast"></div>
 
 <!-- ════════════════ EDIT MEAL MODAL ════════════════ -->
-<div class="modal-overlay" id="edit-modal" onclick="closeEditModal()">
-  <div class="modal-sheet" onclick="event.stopPropagation()" style="direction:rtl">
+<div class="modal-overlay" id="edit-modal" data-action="closeEditBackdrop">
+  <div class="modal-sheet" style="direction:rtl">
     <div style="display:flex;align-items:center;margin-bottom:16px">
       <div class="modal-title" style="margin-bottom:0">עריכת מנה</div>
-      <button id="edit-modal-close" class="modal-close" onclick="closeEditModal()">✕</button>
+      <button id="edit-modal-close" class="modal-close" data-action="closeEditModal">✕</button>
     </div>
     <div class="receipt">
       <div class="receipt-row receipt-name-row">
@@ -679,10 +679,10 @@
       </div>
     </div>
     <div class="meal-select" style="margin:14px 0 4px">
-      <button class="meal-opt" data-meal="breakfast" onclick="selectEditMeal(this)">בוקר</button>
-      <button class="meal-opt" data-meal="lunch"     onclick="selectEditMeal(this)">צהריים</button>
-      <button class="meal-opt" data-meal="dinner"    onclick="selectEditMeal(this)">ערב</button>
-      <button class="meal-opt" data-meal="snack"     onclick="selectEditMeal(this)">חטיף</button>
+      <button class="meal-opt" data-meal="breakfast" data-action="selectEditMeal">בוקר</button>
+      <button class="meal-opt" data-meal="lunch"     data-action="selectEditMeal">צהריים</button>
+      <button class="meal-opt" data-meal="dinner"    data-action="selectEditMeal">ערב</button>
+      <button class="meal-opt" data-meal="snack"     data-action="selectEditMeal">חטיף</button>
     </div>
     <div id="edit-btn-row" style="display:flex;gap:8px;margin-top:16px;flex-direction:row-reverse"></div>
   </div>

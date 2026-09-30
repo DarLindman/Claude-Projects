@@ -141,3 +141,10 @@ export async function analyzeFood() {
     document.getElementById('analysis-error').textContent = messageFor(e);
   }
 }
+
+export const actions = {
+  pickImage: () => document.getElementById('file-input').click(),
+  analyzeFood: () => analyzeFood(),
+  analyzeText: () => analyzeText(),
+  onImageSelected: (el, event) => onImageSelected(event),
+};

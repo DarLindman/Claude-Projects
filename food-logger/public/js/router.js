@@ -37,3 +37,8 @@ export function navigate(screen) {
     else hooks.leave?.();
   }
 }
+
+// Delegated action (see events.js): data-action="navigate" data-arg="<screen>"
+export const actions = {
+  navigate: (el) => navigate(el.dataset.arg),
+};

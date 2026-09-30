@@ -19,3 +19,11 @@ export function showToast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
 }
+
+// Delegated actions for modals (see events.js). The overlay carries closeModalBackdrop and
+// acts only when the click landed on the overlay itself, so clicks inside the sheet are ignored.
+export const actions = {
+  openModal: (el) => openModal(el.dataset.arg),
+  closeModal: (el) => closeModal(el.dataset.arg),
+  closeModalBackdrop: (el, event) => { if (event.target === el) closeModal(el.dataset.arg); },
+};

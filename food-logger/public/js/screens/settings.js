@@ -3,6 +3,7 @@ import { apiFetch } from '../api.js';
 import { closeModal, openModal, showToast } from '../dom.js';
 import { calcRecommendedCal, updateSettingsProfileSub } from '../profile.js';
 import { messageFor } from '../errors.js';
+import { doLogout } from '../session.js';
 
 // Populate dropdown selects for profile fields
 export function populateProfileSelects() {
@@ -137,3 +138,15 @@ export async function saveMpProfile() {
   closeModal('modal-profile');
   showToast('הפרופיל נשמר');
 }
+
+// Actions for the settings screen and the profile / change-password modals (doLogout lives in session.js).
+export const actions = {
+  openProfileModal: () => openProfileModal(),
+  doLogout: () => doLogout(),
+  doChangePassword: () => doChangePassword(),
+  setMpGender: (el) => setMpGender(el.dataset.arg),
+  setMpActivity: (el) => setMpActivity(el.dataset.arg),
+  setMpGoal: (el) => setMpGoal(+el.value),
+  updateMpPreview: () => updateMpPreview(),
+  saveMpProfile: () => saveMpProfile(),
+};

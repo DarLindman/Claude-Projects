@@ -105,3 +105,23 @@ function finishLogin(username) {
   document.getElementById('auth-step1').style.display = '';
   document.getElementById('auth-step2').style.display = 'none';
 }
+
+// The "back" button of the profile step: forget the pending credentials, show step 1 again.
+function regBack() {
+  state.pendingRegUser = null;
+  state.pendingRegPass = null;
+  document.getElementById('auth-step1').style.display = '';
+  document.getElementById('auth-step2').style.display = 'none';
+}
+
+export const actions = {
+  switchAuthTab: (el) => switchAuthTab(el.dataset.arg),
+  doLogin: () => doLogin(),
+  doRegister: () => doRegister(),
+  regBack: () => regBack(),
+  setRegGender: (el) => setRegGender(el.dataset.arg),
+  setRegActivity: (el) => setRegActivity(el.dataset.arg),
+  setRegGoal: (el) => setRegGoal(+el.value),
+  saveRegProfile: () => saveRegProfile(),
+  skipRegProfile: () => skipRegProfile(),
+};

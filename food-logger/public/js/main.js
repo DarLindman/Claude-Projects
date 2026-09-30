@@ -1,19 +1,19 @@
-import { state } from './state.js';
-import { closeModal, openModal } from './dom.js';
+import { actions as modalActions } from './dom.js';
+import { bindActions } from './events.js';
 import { stopFireCanvas } from './effects.js';
 import { _cameraCapyState } from './pet.js';
 import { loadProfile } from './profile.js';
-import { navigate, registerScreen } from './router.js';
-import { saveEntry, selectMeal } from './screens/analysis.js';
-import { doLogin, doRegister, saveRegProfile, setRegActivity, setRegGender, setRegGoal, skipRegProfile, switchAuthTab } from './screens/auth.js';
-import { analyzeFood, analyzeText, animatePlaceholder, autoResizeTextarea, onImageSelected } from './screens/camera.js';
+import { actions as navActions, registerScreen } from './router.js';
+import { actions as analysisActions } from './screens/analysis.js';
+import { actions as authActions, doLogin, doRegister } from './screens/auth.js';
+import { actions as cameraActions, animatePlaceholder, autoResizeTextarea } from './screens/camera.js';
 import { animateDashStagger, loadDashboard } from './screens/dashboard.js';
-import { changeDay, closeEditModal, deleteEntry, editRecalculate, editSave, loadDiary, openEditModal, selectEditMeal } from './screens/home.js';
-import { doChangePassword, openProfileModal, populateProfileSelects, saveMpProfile, setMpActivity, setMpGender, setMpGoal, updateMpPreview } from './screens/settings.js';
-import { loadStats, statsChangeMonth, statsChangeYear, stopStatsCapyWalk, switchStats } from './screens/stats.js';
-import { addWeightLog, deleteWeightLog, loadWeightScreen } from './screens/weight.js';
-import { goToAuth } from './screens/welcome.js';
-import { bootSession, doLogout } from './session.js';
+import { actions as homeActions, loadDiary } from './screens/home.js';
+import { actions as settingsActions, populateProfileSelects } from './screens/settings.js';
+import { actions as statsActions, loadStats, stopStatsCapyWalk } from './screens/stats.js';
+import { actions as weightActions, loadWeightScreen } from './screens/weight.js';
+import { actions as welcomeActions } from './screens/welcome.js';
+import { bootSession } from './session.js';
 
 // ════════════════════════════════════════════════════
 // Init
@@ -38,52 +38,26 @@ document.getElementById('reg-pass').addEventListener('keydown', e => { if (e.key
 document.getElementById('res-name').addEventListener('input', function() { autoResizeTextarea(this); });
 document.getElementById('food-text-input').addEventListener('input', function() { autoResizeTextarea(this); });
 
-// TEMPORARY bridge for inline handlers — removed in Task 12
-// Module scope makes top-level functions non-global; the inline onclick/onchange
-// attributes in index.html (and in JS template strings) still resolve names on window.
-Object.assign(window, {
-  addWeightLog,
-  analyzeFood,
-  analyzeText,
-  changeDay,
-  closeEditModal,
-  closeModal,
-  deleteEntry,
-  deleteWeightLog,
-  doChangePassword,
-  doLogin,
-  doLogout,
-  doRegister,
-  editRecalculate,
-  editSave,
-  goToAuth,
-  navigate,
-  onImageSelected,
-  openEditModal,
-  openModal,
-  openProfileModal,
-  saveEntry,
-  saveMpProfile,
-  saveRegProfile,
-  selectEditMeal,
-  selectMeal,
-  setMpActivity,
-  setMpGender,
-  setMpGoal,
-  setRegActivity,
-  setRegGender,
-  setRegGoal,
-  skipRegProfile,
-  statsChangeMonth,
-  statsChangeYear,
-  switchAuthTab,
-  switchStats,
-  updateMpPreview,
-});
-// TEMPORARY bridge accessors, removed in Task 12 together with the inline handlers.
-// One inline handler (the register step-2 "back" button) assigns to these names by bare
-// name (pendingRegUser=null;...); the accessors delegate to state.pendingRegUser/Pass.
-Object.defineProperties(window, {
-  pendingRegUser: { get: () => state.pendingRegUser, set: v => { state.pendingRegUser = v; }, configurable: true },
-  pendingRegPass: { get: () => state.pendingRegPass, set: v => { state.pendingRegPass = v; }, configurable: true },
-});
+// Event delegation: markup names actions (data-action / data-change), see events.js.
+// One listener pair per screen root, per modal and on the bottom nav; navigation and modal
+// actions are shared by all of them. Modals live outside the screens; the edit-meal modal
+// is driven by the diary's actions.
+const shared = { ...navActions, ...modalActions };
+const roots = {
+  '#screen-welcome':   welcomeActions,
+  '#screen-auth':      authActions,
+  '#screen-dashboard': {},
+  '#screen-home':      homeActions,
+  '#screen-camera':    cameraActions,
+  '#screen-analysis':  analysisActions,
+  '#screen-stats':     statsActions,
+  '#screen-weight':    weightActions,
+  '#screen-settings':  settingsActions,
+  '#bottom-nav':       {},
+  '#modal-change-pass': settingsActions,
+  '#modal-profile':    settingsActions,
+  '#edit-modal':       homeActions,
+};
+for (const [selector, actions] of Object.entries(roots)) {
+  bindActions(document.querySelector(selector), { ...shared, ...actions });
+}

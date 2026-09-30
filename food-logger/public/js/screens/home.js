@@ -49,12 +49,12 @@ function renderMealList(entries) {
   <div class="mir-right">
     <div class="mir-kcal">${Math.round(e.calories || 0)}</div>
     <div style="display:flex;flex-direction:row;gap:2px">
-      <button class="mir-delete" onclick="openEditModal(${e.id})" aria-label="ערוך">
+      <button class="mir-delete" data-action="openEditModal" data-id="${e.id}" aria-label="ערוך">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
         </svg>
       </button>
-      <button class="mir-delete" onclick="deleteEntry(${e.id})" aria-label="מחק">
+      <button class="mir-delete" data-action="deleteEntry" data-id="${e.id}" aria-label="מחק">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
           <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
         </svg>
@@ -139,7 +139,7 @@ export async function deleteEntry(id) {
 // ════════════════════════════════════════════════════
 // Meal Edit Modal
 // ════════════════════════════════════════════════════
-const _mealEntries = new Map(); // id → entry; used by renderMealList onclick
+const _mealEntries = new Map(); // id → entry; used by openEditModal (data-id lookup)
 
 let _editEntryId     = null;
 let _editOriginalName = '';
@@ -198,10 +198,10 @@ function updateEditButtons() {
   const row = document.getElementById('edit-btn-row');
   if (nameChanged) {
     row.innerHTML = `
-      <button class="btn btn-primary" style="flex:1" onclick="editRecalculate()">חשב מחדש</button>
-      <button class="btn" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text2)" onclick="editSave()">שמור מבלי לחשב מחדש</button>`;
+      <button class="btn btn-primary" style="flex:1" data-action="editRecalculate">חשב מחדש</button>
+      <button class="btn" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text2)" data-action="editSave">שמור מבלי לחשב מחדש</button>`;
   } else {
-    row.innerHTML = `<button class="btn btn-primary" style="width:100%" onclick="editSave()">שמור</button>`;
+    row.innerHTML = `<button class="btn btn-primary" style="width:100%" data-action="editSave">שמור</button>`;
   }
 }
 
@@ -228,7 +228,7 @@ export async function editRecalculate() {
     document.getElementById('edit-fat').value   = (+data.fat_g     || 0).toFixed(1);
     document.getElementById('edit-fiber').value = (+data.fiber_g   || 0).toFixed(1);
     document.getElementById('edit-btn-row').innerHTML =
-      `<button class="btn btn-primary" style="width:100%" onclick="editSave()">שמור</button>`;
+      `<button class="btn btn-primary" style="width:100%" data-action="editSave">שמור</button>`;
   } catch (e) {
     const msg = e?.status === 429
       ? 'הגעת למגבלת הניתוחים לשעה זו'
@@ -269,3 +269,15 @@ export async function editSave() {
     showToast(messageFor(e));
   }
 }
+
+// Actions for the diary screen and the edit-meal modal.
+export const actions = {
+  changeDay: (el) => changeDay(+el.dataset.arg),
+  openEditModal: (el) => openEditModal(+el.dataset.id),
+  deleteEntry: (el) => deleteEntry(+el.dataset.id),
+  closeEditModal: () => closeEditModal(),
+  closeEditBackdrop: (el, event) => { if (event.target === el) closeEditModal(); },
+  selectEditMeal: (el) => selectEditMeal(el),
+  editRecalculate: () => editRecalculate(),
+  editSave: () => editSave(),
+};

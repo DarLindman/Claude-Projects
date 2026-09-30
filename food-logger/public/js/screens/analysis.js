@@ -66,3 +66,8 @@ export async function saveEntry() {
     saveBtn.textContent = 'שמור ביומן';
   }
 }
+
+export const actions = {
+  selectMeal: (el) => selectMeal(el),
+  saveEntry: () => saveEntry(),
+};
