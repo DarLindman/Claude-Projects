@@ -23,8 +23,8 @@ const changePasswordBody = z.object({
   newPassword: noNul.max(1024),
 });
 
-// deps.loginLimiter is supplied by createApp (Task 10 replaces the limiters).
-module.exports = function authRoutes({ pool, config, auth, loginLimiter }) {
+// ipLimiter and usernameLimiter come from createApp (see middleware/rateLimit.js).
+module.exports = function authRoutes({ pool, config, auth, ipLimiter, usernameLimiter }) {
   const router = express.Router();
 
   // ─── Auth helpers ───────────────────────────────────────────────────────────
@@ -33,7 +33,7 @@ module.exports = function authRoutes({ pool, config, auth, loginLimiter }) {
   }
 
   // ─── Auth routes ───────────────────────────────────────────────────────────
-  router.post('/register', loginLimiter, validate({ body: registerBody }), asyncHandler(async (req, res) => {
+  router.post('/register', ipLimiter, validate({ body: registerBody }), asyncHandler(async (req, res) => {
     const { username, password } = req.valid.body;
     passwords.validateNewPassword(password);
     const hash = await passwords.hashPassword(password);
@@ -49,13 +49,18 @@ module.exports = function authRoutes({ pool, config, auth, loginLimiter }) {
     }
   }));
 
-  router.post('/login', loginLimiter, validate({ body: loginBody }), asyncHandler(async (req, res) => {
+  router.post('/login', ipLimiter, validate({ body: loginBody }), asyncHandler(async (req, res) => {
     const { username, password } = req.valid.body;
+    usernameLimiter.check(username); // before any DB or bcrypt work
     const { rows } = await pool.query('SELECT * FROM users WHERE username = $1', [username.toLowerCase()]);
     const user = rows[0];
     // Always run bcrypt to prevent timing-based username enumeration
     const valid = await passwords.verifyPassword(password, user ? user.password_hash : passwords.DUMMY_HASH);
-    if (!valid || !user) throw new AppError(401, 'INVALID_CREDENTIALS');
+    if (!valid || !user) {
+      usernameLimiter.recordFailure(username);
+      throw new AppError(401, 'INVALID_CREDENTIALS');
+    }
+    usernameLimiter.reset(username);
     if (passwords.needsRehash(user.password_hash)) {
       // Existing accounts move to the current cost on their next successful login.
       // A failed upgrade must not fail the login.

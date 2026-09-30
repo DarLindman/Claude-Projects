@@ -16,11 +16,12 @@ async function buildTestApp(overrides = {}) {
     DATABASE_URL: process.env.TEST_DATABASE_URL || process.env.DATABASE_URL || 'postgres://localhost/foodlogger_test',
     JWT_SECRET: 'test-secret-test-secret-test-secret-1234',
     ORIGIN: 'http://localhost:3000',
+    ...overrides.env,
   });
   await migrate(pool);
   await resetDb(pool);
   const anthropic = fakeAnthropic();
-  const { limits = {}, ...rest } = overrides;
+  const { limits = {}, env, ...rest } = overrides;
   const app = createApp({ config, pool, anthropic, limits: { loginPerMin: 1000, ...limits }, ...rest });
   return { app, pool, config, anthropic };
 }

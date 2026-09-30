@@ -8,6 +8,11 @@ const { AppError, asyncHandler } = require('../middleware/errors');
 const { validate } = require('../middleware/validate');
 const { noNul } = require('../lib/schemas');
 
+// Body parsers live here, not in app.js: they run after auth and the per-user limit so
+// callers who are unauthenticated or over budget never get a body (up to 8 MB) parsed.
+const jsonImage = express.json({ limit: '8mb' });
+const jsonText = express.json({ limit: '100kb' });
+
 // mimeType is deliberately not read: the real type comes from the magic bytes.
 const imageBody = z.object({ imageBase64: z.string().min(1) });
 // Length is checked before trimming (as before); a blank text counts as missing.
@@ -28,7 +33,7 @@ module.exports = function analyzeRoutes({ anthropic, auth, analyzeLimiter }) {
   const router = express.Router();
 
   // ─── Analyze food image ─────────────────────────────────────────────────────
-  router.post('/analyze', auth, analyzeLimiter, validate({ body: imageBody }), asyncHandler(async (req, res) => {
+  router.post('/analyze', auth, analyzeLimiter, jsonImage, validate({ body: imageBody }), asyncHandler(async (req, res) => {
     const raw = req.valid.body.imageBase64.replace(/^data:[^;]+;base64,/, '');
     const bytes = Buffer.from(raw, 'base64');
     const mimeType = detectImageType(bytes);
@@ -38,7 +43,7 @@ module.exports = function analyzeRoutes({ anthropic, auth, analyzeLimiter }) {
   }));
 
   // ─── Analyze food text ──────────────────────────────────────────────────────
-  router.post('/analyze-text', auth, analyzeLimiter, validate({ body: textBody }), asyncHandler(async (req, res) => {
+  router.post('/analyze-text', auth, analyzeLimiter, jsonText, validate({ body: textBody }), asyncHandler(async (req, res) => {
     const { text } = req.valid.body;
     res.json(await callAi(req, () => analyzeText(anthropic, text)));
   }));

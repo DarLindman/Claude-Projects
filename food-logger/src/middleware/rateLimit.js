@@ -1,0 +1,71 @@
+'use strict';
+
+const rateLimit = require('express-rate-limit');
+const { AppError } = require('./errors');
+
+// Rejections go through the error contract: { error: { code: 'RATE_LIMITED' } } with 429.
+function engine(options) {
+  return rateLimit({
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (req, res, next) => next(new AppError(429, 'RATE_LIMITED')),
+    ...options,
+  });
+}
+
+// Per-IP limiter for /auth/register and /auth/login. The client address comes from
+// req.ip, so it honours the app's `trust proxy` setting (X-Forwarded-For only when trusted).
+function createIpLimiter({ windowMs = 60_000, max = 10 } = {}) {
+  return engine({ windowMs, max });
+}
+
+// Per-user limiter for the AI endpoints. Must be mounted after `auth` (needs req.user).
+function createAnalyzeLimiter({ windowMs = 3_600_000, max = 20 } = {}) {
+  return engine({ windowMs, max, keyGenerator: (req) => String(req.user.id) });
+}
+
+// Failed-login counter per username, so a password can't be guessed from many IPs.
+// Sliding window: `max` failures within `windowMs` lock the username until the oldest
+// of them ages out. Keys are trimmed and lowercased. The Map is kept in order of each
+// key's latest failure, so pruning expired keys only ever looks at the front.
+function createUsernameLimiter({ max = 10, windowMs = 900_000, now = Date.now } = {}) {
+  const failures = new Map(); // key -> timestamps (ms), oldest first, at most `max`
+  const keyOf = (username) => String(username).trim().toLowerCase();
+
+  function prune(t) {
+    for (const [key, stamps] of failures) {
+      if (stamps[stamps.length - 1] > t - windowMs) break;
+      failures.delete(key);
+    }
+  }
+
+  function recent(key, t) {
+    const stamps = failures.get(key);
+    return stamps ? stamps.filter((s) => s > t - windowMs) : [];
+  }
+
+  return {
+    check(username) {
+      if (recent(keyOf(username), now()).length >= max) throw new AppError(429, 'RATE_LIMITED');
+    },
+    recordFailure(username) {
+      const t = now();
+      const key = keyOf(username);
+      const stamps = recent(key, t);
+      stamps.push(t);
+      if (stamps.length > max) stamps.shift();
+      failures.delete(key); // re-insert so the Map stays ordered by latest failure
+      failures.set(key, stamps);
+      prune(t);
+    },
+    reset(username) {
+      failures.delete(keyOf(username));
+    },
+    // Number of tracked usernames (for tests and diagnostics).
+    size() {
+      return failures.size;
+    },
+  };
+}
+
+module.exports = { createUsernameLimiter, createIpLimiter, createAnalyzeLimiter };
