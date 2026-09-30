@@ -2,10 +2,11 @@
 
 const path = require('path');
 const express = require('express');
-const cors = require('cors');
+const cookieParser = require('cookie-parser');
 
 const { createAuth } = require('./middleware/auth');
 const { AppError, requestId, errorHandler } = require('./middleware/errors');
+const { createCsrf } = require('./middleware/csrf');
 const { createUsernameLimiter, createIpLimiter, createAnalyzeLimiter } = require('./middleware/rateLimit');
 const authRoutes = require('./routes/auth');
 const foodRoutes = require('./routes/food');
@@ -36,7 +37,10 @@ function createApp({ config, pool, anthropic, icon = null, limits = {} }) {
   app.set('trust proxy', config.trustProxy);
 
   app.use(requestId);
-  app.use(cors({ origin: config.origin }));
+  app.use(cookieParser());
+  // Before the body parser, static files and every router: a CSRF failure costs no
+  // parsing, auth, rate-limit budget or handler work.
+  app.use(createCsrf(config));
   const defaultJson = express.json({ limit: '100kb' });
   app.use((req, res, next) => (OWN_PARSER.test(req.path) ? next() : defaultJson(req, res, next)));
 

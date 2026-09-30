@@ -3,11 +3,11 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const request = require('supertest');
-const { buildTestApp, signedIn, PASSWORD } = require('../helpers/app');
+const { buildTestApp, signedIn, csrfHeaders, PASSWORD } = require('../helpers/app');
 const { createUsernameLimiter } = require('../../src/middleware/rateLimit');
 
-const login = (app, username, password = PASSWORD) => request(app).post('/auth/login').send({ username, password });
-const register = (app, username) => request(app).post('/auth/register').send({ username, password: PASSWORD });
+const login = (app, username, password = PASSWORD) => request(app).post('/auth/login').set(csrfHeaders()).send({ username, password });
+const register = (app, username) => request(app).post('/auth/register').set(csrfHeaders()).send({ username, password: PASSWORD });
 
 async function withApp(options, fn) {
   const ctx = await buildTestApp(options);
@@ -147,7 +147,7 @@ test('login limiter: with loginPerMin=1 the second login attempt gets 429', asyn
 });
 
 const xff = (app, ip, username) =>
-  request(app).post('/auth/login').set('X-Forwarded-For', ip).send({ username, password: PASSWORD });
+  request(app).post('/auth/login').set(csrfHeaders()).set('X-Forwarded-For', ip).send({ username, password: PASSWORD });
 
 test('per-IP limiter with TRUST_PROXY=1: different X-Forwarded-For values have separate budgets', async () => {
   await withApp({ env: { TRUST_PROXY: '1' }, limits: { loginPerMin: 1 } }, async ({ app }) => {
@@ -191,7 +191,7 @@ test('analyze limiter is per user: A is limited on the third call, B is unaffect
 test('unauthenticated /api/analyze with a 200 KB body gets 401 without reaching the parser or the AI', async () => {
   await withApp({}, async ({ app, anthropic }) => {
     const big = JSON.stringify({ imageBase64: 'A'.repeat(200 * 1024) });
-    const res = await request(app).post('/api/analyze').set('Content-Type', 'application/json').send(big);
+    const res = await request(app).post('/api/analyze').set(csrfHeaders()).set('Content-Type', 'application/json').send(big);
     assert.equal(res.status, 401);
     assert.deepEqual(res.body, { error: { code: 'UNAUTHORIZED' } });
     assert.equal(anthropic.calls.length, 0);
@@ -200,7 +200,7 @@ test('unauthenticated /api/analyze with a 200 KB body gets 401 without reaching 
 
 test('unauthenticated /api/analyze with malformed JSON gets 401 (proves the parser has not run)', async () => {
   await withApp({}, async ({ app }) => {
-    const res = await request(app).post('/api/analyze').set('Content-Type', 'application/json').send('{ not json');
+    const res = await request(app).post('/api/analyze').set(csrfHeaders()).set('Content-Type', 'application/json').send('{ not json');
     assert.equal(res.status, 401);
   });
 });
@@ -209,15 +209,14 @@ test('over-limit /api/analyze gets 429 even when the body is malformed JSON (lim
   await withApp({ limits: { analyzePerHour: 1 } }, async ({ app }) => {
     const c = await signedIn(app, 'usera');
     assert.equal((await c.post('/api/analyze-text', { text: 'סלט' })).status, 200);
-    const res = await request(app).post('/api/analyze').set('Authorization', `Bearer ${c.token}`)
-      .set('Content-Type', 'application/json').send('{ not json');
+    const res = await c.req('post', '/api/analyze').set('Content-Type', 'application/json').send('{ not json');
     assert.equal(res.status, 429);
   });
 });
 
 test('unauthenticated /api/analyze-text with malformed JSON gets 401, not a parse error', async () => {
   await withApp({}, async ({ app }) => {
-    const res = await request(app).post('/api/analyze-text').set('Content-Type', 'application/json').send('{ not json');
+    const res = await request(app).post('/api/analyze-text').set(csrfHeaders()).set('Content-Type', 'application/json').send('{ not json');
     assert.equal(res.status, 401);
   });
 });

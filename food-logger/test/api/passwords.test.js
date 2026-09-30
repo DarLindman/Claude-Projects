@@ -5,13 +5,13 @@ const assert = require('node:assert/strict');
 const request = require('supertest');
 const bcrypt = require('bcryptjs');
 const passwords = require('../../src/lib/passwords');
-const { buildTestApp, signedIn, PASSWORD } = require('../helpers/app');
+const { buildTestApp, signedIn, csrfHeaders, PASSWORD } = require('../helpers/app');
 
 let ctx;
 before(async () => { ctx = await buildTestApp(); });
 after(async () => { await ctx.pool.end(); });
 
-const register = (username, password) => request(ctx.app).post('/auth/register').send({ username, password });
+const register = (username, password) => request(ctx.app).post('/auth/register').set(csrfHeaders(ctx.config)).send({ username, password });
 const hashOf = async (username) => (await ctx.pool.query('SELECT password_hash FROM users WHERE username = $1', [username])).rows[0].password_hash;
 const HE = 'א'; // 2 bytes in UTF-8
 
@@ -93,15 +93,15 @@ test('hashPassword, verifyPassword and needsRehash', async () => {
 test('an existing cost-10 account with a short password can still log in and is rehashed to cost 12', async () => {
   const old = bcrypt.hashSync('short', 10);
   await ctx.pool.query('INSERT INTO users (username, password_hash) VALUES ($1, $2)', ['legacy1', old]);
-  const bad = await request(ctx.app).post('/auth/login').send({ username: 'legacy1', password: 'wrong' });
+  const bad = await request(ctx.app).post('/auth/login').set(csrfHeaders(ctx.config)).send({ username: 'legacy1', password: 'wrong' });
   assert.equal(bad.status, 401);
   assert.equal(await hashOf('legacy1'), old, 'a failed login must not rehash');
-  const res = await request(ctx.app).post('/auth/login').send({ username: 'legacy1', password: 'short' });
+  const res = await request(ctx.app).post('/auth/login').set(csrfHeaders(ctx.config)).send({ username: 'legacy1', password: 'short' });
   assert.equal(res.status, 200);
   assert.equal(res.body.username, 'legacy1');
   const upgraded = await hashOf('legacy1');
   assert.match(upgraded, /^\$2[ab]\$12\$/);
-  const again = await request(ctx.app).post('/auth/login').send({ username: 'legacy1', password: 'short' });
+  const again = await request(ctx.app).post('/auth/login').set(csrfHeaders(ctx.config)).send({ username: 'legacy1', password: 'short' });
   assert.equal(again.status, 200, 'the rehashed account still logs in');
   assert.equal(await hashOf('legacy1'), upgraded, 'no rehash when already cost 12');
 });
@@ -111,7 +111,7 @@ test('login for an unknown user still runs verifyPassword against the dummy hash
   const original = passwords.verifyPassword;
   passwords.verifyPassword = (pw, hash) => { calls.push(hash); return original(pw, hash); };
   try {
-    const res = await request(ctx.app).post('/auth/login').send({ username: 'nobody-at-all', password: 'whatever-1' });
+    const res = await request(ctx.app).post('/auth/login').set(csrfHeaders(ctx.config)).send({ username: 'nobody-at-all', password: 'whatever-1' });
     assert.equal(res.status, 401);
     assert.deepEqual(res.body, { error: { code: 'INVALID_CREDENTIALS' } });
   } finally {

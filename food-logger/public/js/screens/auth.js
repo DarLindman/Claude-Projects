@@ -5,9 +5,6 @@ import { loadProfile } from '../profile.js';
 import { setLoggedIn } from '../session.js';
 import { messageFor } from '../errors.js';
 
-let pendingToken = null;
-let pendingUsername = null;
-
 // ════════════════════════════════════════════════════
 // Auth
 // ════════════════════════════════════════════════════
@@ -23,7 +20,7 @@ export async function doLogin() {
   document.getElementById('auth-error').textContent = '';
   try {
     const data = await apiFetch('/auth/login', { method: 'POST', body: JSON.stringify({ username: u, password: p }) });
-    setLoggedIn(data.token, data.username);
+    setLoggedIn(data.username);
   } catch (e) { document.getElementById('auth-error').textContent = messageFor(e); }
 }
 
@@ -70,38 +67,41 @@ export function setRegGoal(v) {
   if (sel) sel.value = String(v);
 }
 
+// Registering sets the session cookie, so the profile step's requests below are
+// authenticated by the browser without any token handling here.
 export async function saveRegProfile() {
   document.getElementById('auth-error3').textContent = '';
+  let username;
   try {
     const data = await apiFetch('/auth/register', { method: 'POST', body: JSON.stringify({ username: state.pendingRegUser, password: state.pendingRegPass }) });
-    pendingToken = data.token; pendingUsername = data.username;
+    username = data.username;
   } catch(e) { document.getElementById('auth-error3').textContent = messageFor(e); return; }
   const birthDate = document.getElementById('reg-birthdate').value || '';
   const height = +document.getElementById('reg-height').value || 0;
   const weight = +document.getElementById('reg-weight').value || 0;
   const profile = { gender: state.regGender, birthDate, height, weight, activity: state.regActivity, goalKg: state.regGoalKg };
   localStorage.setItem('fl_profile', JSON.stringify(profile));
-  const authHeader = { Authorization: `Bearer ${pendingToken}` };
-  try { await apiFetch('/api/profile', { method: 'PUT', body: JSON.stringify(profile), headers: authHeader }); } catch(e) {}
+  try { await apiFetch('/api/profile', { method: 'PUT', body: JSON.stringify(profile) }); } catch(e) {}
   if (weight > 0) {
-    try { await apiFetch('/api/weight', { method: 'POST', body: JSON.stringify({ weight_kg: weight, logged_at: todayStr() }), headers: authHeader }); } catch(e) {}
+    try { await apiFetch('/api/weight', { method: 'POST', body: JSON.stringify({ weight_kg: weight, logged_at: todayStr() }) }); } catch(e) {}
   }
-  finishLogin();
+  finishLogin(username);
 }
 
 export async function skipRegProfile() {
   document.getElementById('auth-error3').textContent = '';
+  let username;
   try {
     const data = await apiFetch('/auth/register', { method: 'POST', body: JSON.stringify({ username: state.pendingRegUser, password: state.pendingRegPass }) });
-    pendingToken = data.token; pendingUsername = data.username;
+    username = data.username;
   } catch(e) { document.getElementById('auth-error3').textContent = messageFor(e); return; }
-  finishLogin();
+  finishLogin(username);
 }
 
-function finishLogin() {
+function finishLogin(username) {
   loadProfile();
-  setLoggedIn(pendingToken, pendingUsername);
-  pendingToken = null; pendingUsername = null; state.pendingRegUser = null; state.pendingRegPass = null;
+  setLoggedIn(username);
+  state.pendingRegUser = null; state.pendingRegPass = null;
   document.getElementById('auth-step1').style.display = '';
   document.getElementById('auth-step2').style.display = 'none';
 }

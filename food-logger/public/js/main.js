@@ -13,7 +13,7 @@ import { doChangePassword, openProfileModal, populateProfileSelects, saveMpProfi
 import { loadStats, statsChangeMonth, statsChangeYear, stopStatsCapyWalk, switchStats } from './screens/stats.js';
 import { addWeightLog, deleteWeightLog, loadWeightScreen } from './screens/weight.js';
 import { goToAuth } from './screens/welcome.js';
-import { doLogout, getToken, getUsername, setLoggedIn } from './session.js';
+import { bootSession, doLogout } from './session.js';
 
 // ════════════════════════════════════════════════════
 // Init
@@ -30,11 +30,8 @@ registerScreen('analysis',  { enter: () => _cameraCapyState('neutral') });
 populateProfileSelects();
 loadProfile();
 
-if (getToken()) {
-  setLoggedIn(getToken(), getUsername());
-} else {
-  navigate('welcome');
-}
+// The session is an HttpOnly cookie: ask the server whether it is still valid.
+bootSession();
 
 document.getElementById('login-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 document.getElementById('reg-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });

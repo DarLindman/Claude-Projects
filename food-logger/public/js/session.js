@@ -3,15 +3,32 @@ import { apiFetch, configureApi } from './api.js';
 import { updateSettingsProfileSub } from './profile.js';
 import { navigate } from './router.js';
 
-let token = localStorage.getItem('fl_token');
-let username = localStorage.getItem('fl_username');
-export function getToken() { return token; }
+// The session itself is an HttpOnly cookie set by the server; JavaScript never sees it.
+// Only the username is kept here, in memory, for display.
+let username = null;
 export function getUsername() { return username; }
 
-export async function setLoggedIn(t, u) {
-  token = t; username = u;
-  localStorage.setItem('fl_token', t);
-  localStorage.setItem('fl_username', u);
+// Before cookie sessions the token and username lived in localStorage; drop them.
+function removeLegacyKeys() {
+  try {
+    localStorage.removeItem('fl_token');
+    localStorage.removeItem('fl_username');
+  } catch { /* storage unavailable */ }
+}
+
+// On page load: ask the server who is signed in (the cookie goes along by itself).
+export async function bootSession() {
+  removeLegacyKeys();
+  let me = null;
+  try {
+    me = await apiFetch('/auth/me', { silent: true });
+  } catch { /* not signed in, session expired or network error */ }
+  if (me && me.username) await setLoggedIn(me.username);
+  else navigate('welcome');
+}
+
+export async function setLoggedIn(u) {
+  username = u;
   document.getElementById('settings-user').textContent = `מחובר כ: ${u}`;
   document.getElementById('bottom-nav').style.display = 'flex';
   // Load profile from server; fall back to localStorage
@@ -28,14 +45,15 @@ export async function setLoggedIn(t, u) {
   navigate('dashboard');
 }
 
-export function doLogout() {
-  localStorage.removeItem('fl_token');
-  localStorage.removeItem('fl_username');
+// Signs out this device: the server clears the cookie (a failure is ignored, the local
+// state is cleared either way).
+export async function doLogout() {
+  try { await apiFetch('/auth/logout', { method: 'POST', silent: true }); } catch {}
   localStorage.removeItem('fl_profile');
-  token = null; username = null; state.userProfile = null;
+  username = null; state.userProfile = null;
   document.getElementById('bottom-nav').style.display = 'none';
   navigate('auth');
 }
 
-// Wire the token and the 401 handler into apiFetch
-configureApi({ getToken, onUnauthorized: doLogout });
+// Wire the 401 handler into apiFetch
+configureApi({ onUnauthorized: doLogout });

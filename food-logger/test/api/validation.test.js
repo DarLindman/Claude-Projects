@@ -3,7 +3,7 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const request = require('supertest');
-const { buildTestApp, signedIn, PASSWORD } = require('../helpers/app');
+const { buildTestApp, signedIn, csrfHeaders, PASSWORD } = require('../helpers/app');
 
 let ctx;
 let c;
@@ -22,8 +22,10 @@ const VALIDATION = { code: 'VALIDATION' };
 // `send` builds the request from the signed-in client; `raw` sends a JSON string as-is.
 const authed = (method, path, body) => () => c[method](path, body);
 const rawAuthed = (method, path, raw) => () => c[method](path, raw).type('json');
-const anon = (method, path, body) => () => (body === undefined ? request(ctx.app)[method](path) : request(ctx.app)[method](path).send(body));
-const rawAnon = (method, path, raw) => () => request(ctx.app)[method](path).type('json').send(raw);
+// No session cookie, but the CSRF headers the real client sends (CSRF itself is tested in csrf.test.js).
+const anonReq = (method, path) => request(ctx.app)[method](path).set(csrfHeaders(ctx.config));
+const anon = (method, path, body) => () => (body === undefined ? anonReq(method, path) : anonReq(method, path).send(body));
+const rawAnon = (method, path, raw) => () => anonReq(method, path).type('json').send(raw);
 
 const CASES = [
   // ── food POST ────────────────────────────────────────────────────────────

@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const express = require('express');
 const request = require('supertest');
 const { AppError, asyncHandler, requestId, errorHandler } = require('../../src/middleware/errors');
-const { buildTestApp, signedIn } = require('../helpers/app');
+const { buildTestApp, signedIn, csrfHeaders } = require('../helpers/app');
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -150,7 +150,7 @@ test('missing or invalid credentials use the error contract', async () => {
   const none = await request(ctx.app).get('/api/food');
   assert.equal(none.status, 401);
   assert.deepEqual(none.body, { error: { code: 'UNAUTHORIZED' } });
-  const bad = await request(ctx.app).get('/api/food').set('Authorization', 'Bearer not-a-token');
+  const bad = await request(ctx.app).get('/api/food').set('Cookie', 'fl_session=not-a-token');
   assert.equal(bad.status, 401);
   assert.deepEqual(bad.body, { error: { code: 'SESSION_EXPIRED' } });
 });
@@ -176,13 +176,13 @@ test('unknown API routes give a JSON 404, not an HTML page', async () => {
 
 test('register duplicate, wrong login and wrong current password use stable codes', async () => {
   const c = await signedIn(ctx.app, 'codes1');
-  const dup = await request(ctx.app).post('/auth/register').send({ username: 'CODES1', password: 'correct-horse-1' });
+  const dup = await request(ctx.app).post('/auth/register').set(csrfHeaders(ctx.config)).send({ username: 'CODES1', password: 'correct-horse-1' });
   assert.equal(dup.status, 409);
   assert.deepEqual(dup.body, { error: { code: 'USERNAME_TAKEN' } });
-  const login = await request(ctx.app).post('/auth/login').send({ username: 'codes1', password: 'wrong-password' });
+  const login = await request(ctx.app).post('/auth/login').set(csrfHeaders(ctx.config)).send({ username: 'codes1', password: 'wrong-password' });
   assert.equal(login.status, 401);
   assert.deepEqual(login.body, { error: { code: 'INVALID_CREDENTIALS' } });
-  const unknownUser = await request(ctx.app).post('/auth/login').send({ username: 'nobody-here', password: 'whatever1' });
+  const unknownUser = await request(ctx.app).post('/auth/login').set(csrfHeaders(ctx.config)).send({ username: 'nobody-here', password: 'whatever1' });
   assert.deepEqual(unknownUser.body, { error: { code: 'INVALID_CREDENTIALS' } });
   const cp = await c.post('/auth/change-password', { currentPassword: 'nope-nope', newPassword: 'brand-new-pw' });
   assert.equal(cp.status, 401);

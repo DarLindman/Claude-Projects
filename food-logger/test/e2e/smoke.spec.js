@@ -1,11 +1,11 @@
 'use strict';
 
 const { test, expect } = require('@playwright/test');
-const { attachGuards, expectNoGuardEvents } = require('./helpers');
+const { attachGuards, expectNoGuardEvents, SIGNED_OUT_ME } = require('./helpers');
 
 // Known baseline console noise, listed explicitly so it is visible.
 // baseline, removed in Task 13/14
-const ALLOWED_BASELINE = [];
+const ALLOWED_BASELINE = [SIGNED_OUT_ME];
 
 const PASSWORD = 'first-password-1';
 const NEW_PASSWORD = 'second-password-2';
@@ -111,7 +111,10 @@ test('full user journey', async ({ page }) => {
   await page.locator('#screen-settings .settings-item', { hasText: 'יציאה' }).click();
   await expect(page.locator('#screen-auth')).toBeVisible();
   await expect(page.locator('#bottom-nav')).toBeHidden();
-  expect(await page.evaluate(() => localStorage.getItem('fl_token'))).toBeNull();
+  // the session is a cookie now: nothing in storage, and the server no longer knows us
+  expect(await page.evaluate(() => [localStorage.getItem('fl_token'), localStorage.getItem('fl_username')])).toEqual([null, null]);
+  expect((await page.context().cookies()).filter((c) => c.name === 'fl_session')).toEqual([]);
+  expect(await page.evaluate(() => fetch('/auth/me').then((r) => r.status))).toBe(401);
 
   // ── log in with the new password ───────────────────────────────────────
   await page.locator('#auth-step1 .tab-btn', { hasText: 'כניסה' }).click();

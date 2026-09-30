@@ -9,7 +9,11 @@ function attachGuards(page) {
 
   page.on('pageerror', (err) => guards.errors.push(`pageerror: ${err.message}`));
   page.on('console', (msg) => {
-    if (msg.type() === 'error') guards.errors.push(`console.error: ${msg.text()}`);
+    // The URL matters for resource errors ("Failed to load resource: ... 401"), whose text has none.
+    if (msg.type() === 'error') {
+      const url = msg.location()?.url;
+      guards.errors.push(`console.error: ${msg.text()}${url ? ` [${url}]` : ''}`);
+    }
   });
 
   page.exposeFunction('__reportCsp', (detail) => guards.csp.push(detail)).catch(() => {});
@@ -36,4 +40,8 @@ function expectNoGuardEvents(guards, allow = []) {
   expect(errors.length + csp.length, report || 'no guard events').toBe(0);
 }
 
-module.exports = { attachGuards, expectNoGuardEvents };
+// A signed-out page load asks GET /auth/me, which answers 401; Chrome logs every 4xx
+// resource load as a console error. Only that exact request is allowed.
+const SIGNED_OUT_ME = /^console\.error: Failed to load resource: the server responded with a status of 401 \(Unauthorized\) \[http:\/\/localhost:\d+\/auth\/me\]$/;
+
+module.exports = { attachGuards, expectNoGuardEvents, SIGNED_OUT_ME };

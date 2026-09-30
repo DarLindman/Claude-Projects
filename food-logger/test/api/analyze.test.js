@@ -3,7 +3,7 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const request = require('supertest');
-const { buildTestApp, signedIn } = require('../helpers/app');
+const { buildTestApp, signedIn, csrfHeaders } = require('../helpers/app');
 const { MODEL } = require('../../src/lib/anthropic');
 const { IMAGE_SYSTEM_PROMPT, TEXT_SYSTEM_PROMPT } = require('../../src/lib/analysis');
 
@@ -88,9 +88,9 @@ test('POST /api/analyze-text validates input', async () => {
 });
 
 test('analyze endpoints require auth', async () => {
-  const a = await request(ctx.app).post('/api/analyze').send({ imageBase64: JPEG_BASE64 });
+  const a = await request(ctx.app).post('/api/analyze').set(csrfHeaders(ctx.config)).send({ imageBase64: JPEG_BASE64 });
   assert.equal(a.status, 401);
-  const t = await request(ctx.app).post('/api/analyze-text').send({ text: 'salad' });
+  const t = await request(ctx.app).post('/api/analyze-text').set(csrfHeaders(ctx.config)).send({ text: 'salad' });
   assert.equal(t.status, 401);
 });
 

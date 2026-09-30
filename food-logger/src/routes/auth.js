@@ -1,12 +1,12 @@
 'use strict';
 
 const express = require('express');
-const jwt = require('jsonwebtoken');
 const { z } = require('zod');
 const { AppError, asyncHandler } = require('../middleware/errors');
 const { validate } = require('../middleware/validate');
 const { noNul } = require('../lib/schemas');
 const passwords = require('../lib/passwords');
+const { setSessionCookie, clearSessionCookie } = require('../lib/sessions');
 
 // New passwords: zod only checks the type and bounds the work (1024 characters);
 // the policy (8 characters minimum, 72 bytes maximum) is passwords.validateNewPassword.
@@ -27,26 +27,24 @@ const changePasswordBody = z.object({
 module.exports = function authRoutes({ pool, config, auth, ipLimiter, usernameLimiter }) {
   const router = express.Router();
 
-  // ─── Auth helpers ───────────────────────────────────────────────────────────
-  function createToken(user) {
-    return jwt.sign({ id: user.id, username: user.username }, config.jwtSecret, { expiresIn: '7d' });
-  }
-
   // ─── Auth routes ───────────────────────────────────────────────────────────
   router.post('/register', ipLimiter, validate({ body: registerBody }), asyncHandler(async (req, res) => {
     const { username, password } = req.valid.body;
     passwords.validateNewPassword(password);
     const hash = await passwords.hashPassword(password);
+    let user;
     try {
       const { rows } = await pool.query(
-        'INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id, username',
+        'INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id, username, token_version',
         [username.toLowerCase(), hash]
       );
-      res.json({ token: createToken(rows[0]), username: rows[0].username });
+      user = rows[0];
     } catch (e) {
       if (e.code === '23505') throw new AppError(409, 'USERNAME_TAKEN');
       throw e;
     }
+    setSessionCookie(res, config, user);
+    res.json({ username: user.username });
   }));
 
   router.post('/login', ipLimiter, validate({ body: loginBody }), asyncHandler(async (req, res) => {
@@ -71,7 +69,26 @@ module.exports = function authRoutes({ pool, config, auth, ipLimiter, usernameLi
         console.error(`[${req.id}] password rehash failed`, e);
       }
     }
-    res.json({ token: createToken(user), username: user.username });
+    setSessionCookie(res, config, user);
+    res.json({ username: user.username });
+  }));
+
+  router.get('/me', auth, (req, res) => {
+    res.json({ username: req.user.username });
+  });
+
+  // Signs out this device only: other sessions stay valid (see /logout-all).
+  // 200 even without a session; the CSRF check still applies (app.js).
+  router.post('/logout', (req, res) => {
+    clearSessionCookie(res, config);
+    res.json({ ok: true });
+  });
+
+  // Revokes every session of the user, this one included.
+  router.post('/logout-all', auth, asyncHandler(async (req, res) => {
+    await pool.query('UPDATE users SET token_version = token_version + 1 WHERE id = $1', [req.user.id]);
+    clearSessionCookie(res, config);
+    res.json({ ok: true });
   }));
 
   router.post('/change-password', auth, validate({ body: changePasswordBody }), asyncHandler(async (req, res) => {
@@ -81,7 +98,16 @@ module.exports = function authRoutes({ pool, config, auth, ipLimiter, usernameLi
     if (!rows[0] || !(await passwords.verifyPassword(currentPassword, rows[0].password_hash)))
       throw new AppError(401, 'WRONG_CURRENT_PASSWORD');
     const hash = await passwords.hashPassword(newPassword);
-    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, req.user.id]);
+    // Revokes every other session; this device gets a fresh cookie with the new version.
+    const updated = await pool.query(
+      'UPDATE users SET password_hash = $1, token_version = token_version + 1 WHERE id = $2 RETURNING id, token_version',
+      [hash, req.user.id]
+    );
+    if (!updated.rows[0]) { // the user was deleted meanwhile
+      clearSessionCookie(res, config);
+      throw new AppError(401, 'SESSION_EXPIRED');
+    }
+    setSessionCookie(res, config, updated.rows[0]);
     res.json({ ok: true });
   }));
 

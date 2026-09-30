@@ -1,5 +1,5 @@
 // Cross-module UI state. Screen-private state stays in the module that owns it;
-// token/username live in session.js and pendingToken/pendingUsername in screens/auth.js (Task 11 replaces them).
+// the signed-in username lives in session.js; the session itself is an HttpOnly cookie.
 import { todayStr } from './dates.js';
 
 export const state = {

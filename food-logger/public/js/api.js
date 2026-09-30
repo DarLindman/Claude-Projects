@@ -11,29 +11,32 @@ export class ApiError extends Error {
   }
 }
 
-// Token access and the unauthorized handler are injected by session.js (configureApi) so
-// this module does not import session.js, which itself imports apiFetch (keeps the graph acyclic).
-let _getToken = () => null;
+// The unauthorized handler is injected by session.js (configureApi) so this module does
+// not import session.js, which itself imports apiFetch (keeps the graph acyclic).
+// The session lives in an HttpOnly cookie the browser sends by itself (same-origin
+// fetch); no token is ever visible to JavaScript.
 let _onUnauthorized = () => {};
-export function configureApi({ getToken, onUnauthorized }) {
-  _getToken = getToken;
+export function configureApi({ onUnauthorized }) {
   _onUnauthorized = onUnauthorized;
 }
 
 // Only these codes mean the session is gone; other 401s (wrong password) must not log out.
 const SESSION_CODES = new Set(['UNAUTHORIZED', 'SESSION_EXPIRED']);
 
+// `X-FL-Client: 1` goes on every request: the server's CSRF check requires it on every
+// state-changing request, and a cross-site form cannot send a custom header.
+// `silent: true` skips the unauthorized handler (used by the boot-time session check).
 export async function apiFetch(path, opts = {}) {
-  const token = _getToken();
+  const { silent = false, ...fetchOpts } = opts;
   const res = await fetch(API + path, {
-    ...opts,
-    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(opts.headers || {}) }
+    ...fetchOpts,
+    headers: { 'Content-Type': 'application/json', ...(fetchOpts.headers || {}), 'X-FL-Client': '1' }
   });
   let data = null;
   try { data = await res.json(); } catch { /* non-JSON body (proxy error page) */ }
   if (!res.ok) {
     const err = new ApiError(res.status, data?.error?.code || 'INTERNAL', data?.fields);
-    if (SESSION_CODES.has(err.code)) _onUnauthorized();
+    if (!silent && SESSION_CODES.has(err.code)) _onUnauthorized();
     throw err;
   }
   return data;
