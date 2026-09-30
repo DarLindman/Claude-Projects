@@ -45,6 +45,17 @@ function nullableNumber(max, { integer = false } = {}) {
   });
 }
 
+// Required number in [min, max], NOT rounded. Accepts numbers and numeric strings ("70.5") and
+// always yields a number: profiles stored by older clients hold numeric strings, and the client
+// re-sends them as they are. '' and non-numeric strings are INVALID.
+function looseNumber(min, max) {
+  return z.unknown().transform((v, ctx) => {
+    const n = toFinite(v);
+    if (Number.isNaN(n) || n < min || n > max) return reject(ctx, v);
+    return n;
+  });
+}
+
 // Required number in [min, max], rounded to 1 decimal.
 function rangedNumber(min, max) {
   return z.unknown().optional().transform((v, ctx) => {
@@ -54,4 +65,4 @@ function rangedNumber(min, max) {
   });
 }
 
-module.exports = { noNul, id, dateStr, monthStr, yearStr, mealType, loggedAt, nullableNumber, rangedNumber, foodName, optionalQuery };
+module.exports = { noNul, id, dateStr, monthStr, yearStr, mealType, loggedAt, nullableNumber, rangedNumber, looseNumber, foodName, optionalQuery };
