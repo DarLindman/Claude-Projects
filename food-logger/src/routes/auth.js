@@ -23,8 +23,8 @@ const changePasswordBody = z.object({
   newPassword: noNul.max(1024),
 });
 
-// ipLimiter and usernameLimiter come from createApp (see middleware/rateLimit.js).
-module.exports = function authRoutes({ pool, config, auth, ipLimiter, usernameLimiter }) {
+// The limiters come from createApp (see middleware/rateLimit.js).
+module.exports = function authRoutes({ pool, config, auth, ipLimiter, usernameLimiter, changePasswordIpLimiter, changePasswordUserLimiter }) {
   const router = express.Router();
 
   // ─── Auth routes ───────────────────────────────────────────────────────────
@@ -92,12 +92,17 @@ module.exports = function authRoutes({ pool, config, auth, ipLimiter, usernameLi
     res.json({ ok: true });
   }));
 
-  router.post('/change-password', auth, validate({ body: changePasswordBody }), asyncHandler(async (req, res) => {
+  router.post('/change-password', changePasswordIpLimiter, auth, validate({ body: changePasswordBody }), asyncHandler(async (req, res) => {
     const { currentPassword, newPassword } = req.valid.body;
+    const limiterKey = String(req.user.id);
+    changePasswordUserLimiter.check(limiterKey); // before any bcrypt work
     passwords.validateNewPassword(newPassword);
     const { rows } = await pool.query('SELECT * FROM users WHERE id = $1', [req.user.id]);
-    if (!rows[0] || !(await passwords.verifyPassword(currentPassword, rows[0].password_hash)))
+    if (!rows[0] || !(await passwords.verifyPassword(currentPassword, rows[0].password_hash))) {
+      changePasswordUserLimiter.recordFailure(limiterKey);
       throw new AppError(401, 'WRONG_CURRENT_PASSWORD');
+    }
+    changePasswordUserLimiter.reset(limiterKey);
     const hash = await passwords.hashPassword(newPassword);
     // Revokes every other session; this device gets a fresh cookie with the new version.
     const updated = await pool.query(

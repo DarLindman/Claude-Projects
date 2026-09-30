@@ -32,6 +32,8 @@ function createApp({ config, pool, anthropic, icon = null, limits = {} }) {
     analyzePerHour = 20,
     analyzePerIpPerHour = 60,
     usernameFailures = 10,
+    changePasswordPerMin = 10,
+    changePasswordFailures = 10,
     usernameWindowMs = 900_000,
     now = Date.now,
   } = limits;
@@ -50,6 +52,10 @@ function createApp({ config, pool, anthropic, icon = null, limits = {} }) {
 
   const ipLimiter = createIpLimiter({ max: loginPerMin });
   const usernameLimiter = createUsernameLimiter({ max: usernameFailures, windowMs: usernameWindowMs, now });
+  // change-password is a bcrypt path behind a (possibly copied) session cookie: a per-IP cap
+  // bounds the CPU cost, a per-user failure lockout bounds guessing of the current password.
+  const changePasswordIpLimiter = createIpLimiter({ max: changePasswordPerMin });
+  const changePasswordUserLimiter = createUsernameLimiter({ max: changePasswordFailures, windowMs: usernameWindowMs, now });
   const analyzeLimiter = createAnalyzeLimiter({ max: analyzePerHour });
   const analyzeIpLimiter = createAnalyzeIpLimiter({ max: analyzePerIpPerHour });
 
@@ -65,7 +71,7 @@ function createApp({ config, pool, anthropic, icon = null, limits = {} }) {
   const auth = createAuth({ pool, config });
   const deps = { pool, anthropic, config, auth };
 
-  app.use('/auth', authRoutes({ ...deps, ipLimiter, usernameLimiter }));
+  app.use('/auth', authRoutes({ ...deps, ipLimiter, usernameLimiter, changePasswordIpLimiter, changePasswordUserLimiter }));
   app.use('/api', analyzeRoutes({ ...deps, analyzeLimiter, analyzeIpLimiter }));
   app.use('/api/food', foodRoutes(deps));
   app.use('/api/weight', weightRoutes(deps));

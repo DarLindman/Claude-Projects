@@ -264,3 +264,74 @@ test('analyze per-IP limiter with TRUST_PROXY=1: different client IPs have separ
     assert.equal((await call(b, '203.0.113.2')).status, 200);
   });
 });
+
+// ─── change-password: per-IP limit and per-user failure lockout ──────────────
+const changePw = (c, currentPassword, newPassword = 'brand-new-pw') => c.post('/auth/change-password', { currentPassword, newPassword });
+
+test('change-password lockout: after changePasswordFailures wrong passwords even the correct one is 429 until the window passes', async () => {
+  const state = { t: 9_000_000 };
+  await withApp({ limits: { changePasswordFailures: 3, usernameWindowMs: 60_000, now: () => state.t } }, async ({ app }) => {
+    const c = await signedIn(app, 'cpuser');
+    const other = await signedIn(app, 'cpother');
+    for (let i = 0; i < 3; i++) assert.equal((await changePw(c, 'wrong-password-1')).status, 401);
+    const locked = await changePw(c, PASSWORD);
+    assert.equal(locked.status, 429);
+    assert.deepEqual(locked.body, { error: { code: 'RATE_LIMITED' } });
+    assert.equal((await changePw(other, PASSWORD)).status, 200, 'a different user is unaffected');
+    state.t += 59_999;
+    assert.equal((await changePw(c, PASSWORD)).status, 429);
+    state.t += 1;
+    assert.equal((await changePw(c, PASSWORD)).status, 200);
+  });
+});
+
+test('change-password lockout: a locked-out attempt is rejected before any bcrypt work', async () => {
+  await withApp({ limits: { changePasswordFailures: 2 } }, async ({ app }) => {
+    const c = await signedIn(app, 'cptimed');
+    const timed = async () => {
+      const started = process.hrtime.bigint();
+      const res = await changePw(c, 'wrong-password-1');
+      return { status: res.status, ms: Number(process.hrtime.bigint() - started) / 1e6 };
+    };
+    const first = await timed();
+    await timed();
+    const locked = await timed();
+    assert.equal(first.status, 401);
+    assert.equal(locked.status, 429);
+    assert.ok(locked.ms < first.ms / 2, `locked ${locked.ms} ms vs bcrypt-backed ${first.ms} ms`);
+  });
+});
+
+test('change-password: a success resets the failure counter', async () => {
+  await withApp({ limits: { changePasswordFailures: 3 } }, async ({ app }) => {
+    const c = await signedIn(app, 'cpreset');
+    let current = PASSWORD;
+    for (let round = 0; round < 3; round++) {
+      await changePw(c, 'wrong-password-1');
+      await changePw(c, 'wrong-password-1');
+      const next = `brand-new-pw-${round}`;
+      assert.equal((await changePw(c, current, next)).status, 200, `round ${round}`);
+      current = next;
+    }
+  });
+});
+
+test('change-password per-IP limiter: with changePasswordPerMin=2 the third request gets 429', async () => {
+  await withApp({ limits: { changePasswordPerMin: 2 } }, async ({ app }) => {
+    const c = await signedIn(app, 'cpip');
+    assert.equal((await changePw(c, 'wrong-password-1')).status, 401);
+    assert.equal((await changePw(c, 'wrong-password-1')).status, 401);
+    const third = await changePw(c, PASSWORD);
+    assert.equal(third.status, 429);
+    assert.deepEqual(third.body, { error: { code: 'RATE_LIMITED' } });
+  });
+});
+
+test('change-password: a CSRF-rejected request counts towards neither limiter', async () => {
+  await withApp({ limits: { changePasswordPerMin: 1, changePasswordFailures: 1 } }, async ({ app }) => {
+    const c = await signedIn(app, 'cpcsrf');
+    const noCsrf = () => request(app).post('/auth/change-password').set('Cookie', c.cookie).send({ currentPassword: 'wrong-password-1', newPassword: 'brand-new-pw' });
+    for (let i = 0; i < 3; i++) assert.equal((await noCsrf()).status, 403);
+    assert.equal((await changePw(c, PASSWORD)).status, 200);
+  });
+});
