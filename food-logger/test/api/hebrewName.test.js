@@ -178,7 +178,7 @@ test('ensureHebrewDishName: all-foreign name with failing repair is the default 
 });
 
 test('ensureHebrewDishName: empty, non-string and punctuation-only input fall back', async () => {
-  for (const input of ['!!! 123', '', '   ', null, undefined, 42, [], {}, '---', '🍗']) {
+  for (const input of ['!!! 123', '', '   ', null, undefined, 42, [], {}, '---', '100']) {
     const { fake, logs, log } = setup();
     const r = await ensureHebrewDishName(fake, input, { log });
     assert.deepEqual(r, { name: DEFAULT_DISH_NAME, action: 'fallback' }, String(input));
@@ -248,4 +248,136 @@ test('ensureHebrewDishName: a foreign name too long after cleaning is shortened'
   const { fake, log } = setup(new Error('down'));
   const r = await ensureHebrewDishName(fake, 'אחד שתיים שלוש ארבע חמש שש שבע chicken', { log });
   assert.deepEqual(r, { name: 'אחד שתיים שלוש ארבע חמש שש', action: 'cleaned' });
+});
+
+// ---- fix round 1 ----
+// Invisible characters are built from code points so the source stays readable.
+const ch = (n) => String.fromCharCode(n);
+const INVISIBLE = { BOM: ch(0xFEFF), NBSP: ch(0xA0), LS: ch(0x2028), PS: ch(0x2029), HAIR: ch(0x200A), IDEO: ch(0x3000), ZWSP: ch(0x200B) };
+const RAW_SEPARATORS = new RegExp('[\n\r' + ch(0x2028) + ch(0x2029) + ']');
+
+test('findForeignScript: every non-ASCII space or invisible character is foreign', () => {
+  for (const [label, c] of Object.entries(INVISIBLE)) {
+    assert.equal(findForeignScript(`עוף${c}אורז`), true, label);
+    assert.equal(findForeignScript(`${c}עוף`), true, `${label} leading`);
+  }
+  assert.equal(findForeignScript('עוף אורז'), false);
+  assert.equal(findForeignScript('עוף\tאורז'), false);
+});
+
+test('ensureHebrewDishName: invisible characters are never ok (repaired by default reply)', async () => {
+  for (const [label, c] of Object.entries(INVISIBLE)) {
+    for (const input of [`עוף${c}אורז`, `${c}עוף אורז`]) {
+      const { fake, logs, log } = setup();
+      const r = await ensureHebrewDishName(fake, input, { log });
+      assert.notEqual(r.action, 'ok', label);
+      assert.equal(r.action, 'repaired', label);
+      assert.equal(fake.calls.length, 1, label);
+      assert.equal(logs.length, 1, label);
+    }
+  }
+});
+
+test('ensureHebrewDishName: invisible character with failing repair is cleaned (whole word dropped) or fallback', async () => {
+  const { fake, log } = setup(new Error('down'));
+  assert.deepEqual(await ensureHebrewDishName(fake, `חזה עוף ${INVISIBLE.BOM} אורז`, { log }), { name: 'חזה עוף אורז', action: 'cleaned' });
+  assert.deepEqual(await ensureHebrewDishName(fake, `עוף${INVISIBLE.NBSP}אורז`, { log }), { name: DEFAULT_DISH_NAME, action: 'fallback' });
+});
+
+test('ensureHebrewDishName: padded or double-spaced names are normalised as cleaned, no AI call', async () => {
+  const { fake, logs, log } = setup();
+  assert.deepEqual(await ensureHebrewDishName(fake, '  עוף  ', { log }), { name: 'עוף', action: 'cleaned' });
+  assert.deepEqual(await ensureHebrewDishName(fake, 'עוף  עם   אורז', { log }), { name: 'עוף עם אורז', action: 'cleaned' });
+  assert.deepEqual(await ensureHebrewDishName(fake, 'עוף\nאורז', { log }), { name: 'עוף אורז', action: 'cleaned' });
+  assert.equal(fake.calls.length, 0);
+  assert.equal(logs.length, 3);
+});
+
+test('ensureHebrewDishName: emoji-only foreign names go to the repair call', async () => {
+  let ctx = setup();
+  assert.deepEqual(await ensureHebrewDishName(ctx.fake, '🍗', { log: ctx.log }), { name: 'סלט', action: 'repaired' });
+  assert.equal(ctx.fake.calls.length, 1);
+  for (const bad of [new Error('down'), 'garbage reply', '']) {
+    ctx = setup(bad);
+    assert.deepEqual(await ensureHebrewDishName(ctx.fake, '🍗', { log: ctx.log }), { name: DEFAULT_DISH_NAME, action: 'fallback' });
+    assert.equal(ctx.fake.calls.length, 1);
+    assert.equal(ctx.logs.length, 1);
+  }
+});
+
+test('ensureHebrewDishName: names with no Hebrew letter and nothing recoverable fall back without a call', async () => {
+  // "!!! 123" contains "!" (foreign) but no letter and no emoji, so there is nothing for the AI to rewrite.
+  for (const input of ['100', '---', '123 456', '( )', '!!! 123']) {
+    const { fake, logs, log } = setup();
+    assert.deepEqual(await ensureHebrewDishName(fake, input, { log }), { name: DEFAULT_DISH_NAME, action: 'fallback' }, input);
+    assert.equal(fake.calls.length, 0, input);
+    assert.equal(logs.length, 1, input);
+  }
+});
+
+test('requireHebrewLetter:false lets a letterless name through (R-D)', async () => {
+  assert.equal(isValidDishName('100'), false);
+  assert.equal(isValidDishName('100', { requireHebrewLetter: false }), true);
+  assert.equal(isValidDishName('', { requireHebrewLetter: false }), false);
+  const { fake, logs, log } = setup();
+  assert.deepEqual(await ensureHebrewDishName(fake, '100', { requireHebrewLetter: false, log }), { name: '100', action: 'ok' });
+  assert.deepEqual(await ensureHebrewDishName(fake, '100', { log }), { name: DEFAULT_DISH_NAME, action: 'fallback' });
+  assert.equal(fake.calls.length, 0);
+  assert.equal(logs.length, 1);
+});
+
+test('very long input is handled in linear time and returns a valid result', async () => {
+  const inputs = ['!'.repeat(100000), '-'.repeat(100000), ' -'.repeat(50000), 'א'.repeat(100000), '( '.repeat(50000) + 'עוף', 'עם '.repeat(40000)];
+  for (const input of inputs) {
+    const { fake, logs, log } = setup(new Error('down'));
+    const t0 = process.hrtime.bigint();
+    const r = await ensureHebrewDishName(fake, input, { log });
+    const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+    assert.ok(ms < 500, `took ${ms} ms for ${input.slice(0, 6)}`);
+    assert.ok(r.name === DEFAULT_DISH_NAME || isValidDishName(r.name), r.name);
+    assert.notEqual(r.action, 'ok');
+    assert.equal(logs.length, 1);
+  }
+  const t0 = process.hrtime.bigint();
+  cleanDishName('- '.repeat(100000));
+  assert.ok(Number(process.hrtime.bigint() - t0) / 1e6 < 500);
+});
+
+test('repair reply is edge-trimmed like cleanDishName before validation', async () => {
+  for (const [reply, expected] of [['- עוף', 'עוף'], ['עוף עם', 'עוף'], ['  עם  עוף  עם  ', 'עוף'], ['עוף   אורז', 'עוף אורז'], ['"עוף אורז".', 'עוף אורז']]) {
+    const { fake, log } = setup(reply);
+    assert.deepEqual(await ensureHebrewDishName(fake, 'chicken', { log }), { name: expected, action: 'repaired' }, reply);
+  }
+  for (const reply of ['עם', '- -', '.', '"" ""']) {
+    const { fake, log } = setup(reply);
+    assert.deepEqual(await ensureHebrewDishName(fake, 'chicken', { log }), { name: DEFAULT_DISH_NAME, action: 'fallback' }, reply);
+  }
+});
+
+test('log line truncates the original name and never contains raw line or paragraph separators', async () => {
+  let ctx = setup(new Error('down'));
+  await ensureHebrewDishName(ctx.fake, 'x'.repeat(300), { log: ctx.log });
+  assert.equal(ctx.logs.length, 1);
+  assert.ok(ctx.logs[0].length < 140, String(ctx.logs[0].length));
+  assert.match(ctx.logs[0], /fallback/);
+
+  ctx = setup(new Error('down'));
+  const weird = `עוף\nאורז${INVISIBLE.LS}x${INVISIBLE.PS}y\r\tz`;
+  await ensureHebrewDishName(ctx.fake, weird, { log: ctx.log });
+  assert.equal(ctx.logs.length, 1);
+  assert.ok(!RAW_SEPARATORS.test(ctx.logs[0]));
+  assert.ok(ctx.logs[0].includes(ch(92) + 'u2028'));
+
+  ctx = setup();
+  await ensureHebrewDishName(ctx.fake, undefined, { log: ctx.log });
+  assert.equal(ctx.logs.length, 1);
+});
+
+test('input is capped at 500 characters and a truncated name is never ok', async () => {
+  const { fake, log } = setup();
+  const long = 'א'.repeat(1000);
+  const r = await ensureHebrewDishName(fake, long, { maxWords: Infinity, maxChars: 2000, log });
+  assert.equal(r.action, 'cleaned');
+  assert.equal(r.name.length, 500);
+  assert.equal(fake.calls.length, 0);
 });
