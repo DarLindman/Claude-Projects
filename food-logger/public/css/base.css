@@ -1,3 +1,173 @@
+
+/* ── Capybara pet ───────────────────────────────── */
+.pet-wrap {
+  display: inline-block;
+  cursor: pointer;
+  user-select: none;
+}
+.pet-wrap svg { display: block; overflow: visible; }
+
+@keyframes pet-breathe {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.04); }
+}
+.pet-wrap {
+  animation: pet-breathe 4s cubic-bezier(0.45,0,0.55,1) infinite;
+  transform-origin: center bottom;
+}
+/* Ear twitch */
+@keyframes pet-ear-twitch {
+  0%, 100% { transform: scaleY(1); }
+  40%       { transform: scaleY(1.35); }
+}
+.pet-ear-twitching .pet-ear-left { animation: pet-ear-twitch 150ms ease-in-out; }
+/* State pop */
+@keyframes pet-state-pop {
+  0%   { transform: scale(0.92); }
+  60%  { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+.pet-state-pop { animation: pet-state-pop 0.25s cubic-bezier(0.22,1,0.36,1) both; }
+/* Walk hop (used on direction turn) */
+@keyframes pet-hop {
+  0%,100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+.pet-hopping { animation: pet-hop 150ms cubic-bezier(0.25,1,0.5,1); }
+/* Thinking modifier */
+.pet--thinking {
+  animation: capy-think 1.2s ease-in-out infinite !important;
+  transform-origin: center bottom;
+}
+@keyframes capy-think {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  30%       { transform: rotate(-8deg) translateY(-3px); }
+  60%       { transform: rotate(4deg) translateY(-1px); }
+}
+.pet--thinking .pet-think-q { animation: capy-think-q 1.2s ease-in-out infinite; }
+@keyframes capy-think-q {
+  0%, 100% { opacity: 0; transform: translateY(0); }
+  30%, 70%  { opacity: 1; transform: translateY(-3px); }
+}
+/* Logo SVG enter animations */
+@keyframes capy-logo-bg-enter {
+  from { transform: scale(0); }
+  to   { transform: scale(1); }
+}
+@keyframes capy-logo-bowl-drop {
+  from { transform: translateY(-40px); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+@keyframes capy-logo-ing-fall {
+  from { transform: translateY(-30px) rotate(var(--ing-rot, 30deg)); opacity: 0; }
+  to   { transform: translateY(0)     rotate(0deg);                  opacity: 1; }
+}
+.capy-logo-bg {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: capy-logo-bg-enter 300ms cubic-bezier(0.22,1,0.36,1) both;
+}
+.capy-logo-bowl {
+  animation: capy-logo-bowl-drop 400ms cubic-bezier(0.22,1,0.36,1) 100ms both;
+}
+.capy-logo-ing {
+  animation: capy-logo-ing-fall 450ms cubic-bezier(0.22,1,0.36,1) calc(500ms + var(--delay, 0ms)) both;
+}
+.capy-logo-body { animation: pet-breathe 4s cubic-bezier(0.45,0,0.55,1) infinite; transform-origin: center bottom; }
+@media (prefers-reduced-motion: reduce) {
+  .capy-logo-bg, .capy-logo-bowl, .capy-logo-ing { animation: none; }
+  .capy-logo-body { animation: none; }
+}
+/* ── Walking capybara on stats ──────────────────── */
+#pet-stats-wrap {
+  position: relative;
+  height: 72px;
+  overflow: hidden;
+  padding: 0;
+  text-align: left;
+}
+.capy-walk-stage {
+  position: absolute;
+  bottom: 4px;
+  left: 0;
+  will-change: transform;
+}
+/* Override breathe with a walking body-bob */
+#pet-stats-wrap .pet-wrap {
+  animation: capy-walk-bob 0.45s cubic-bezier(0.25, 1, 0.5, 1) infinite !important;
+  transform-origin: center bottom;
+}
+@keyframes capy-walk-bob {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  25%       { transform: rotate(-3deg) translateY(-3px); }
+  75%       { transform: rotate(3deg) translateY(-3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .capy-walk-stage { animation: none !important; will-change: auto; }
+  #pet-stats-wrap .pet-wrap { animation: none !important; }
+}
+
+@keyframes pet-tap {
+  0%   { transform: scale(1) translateY(0); }
+  30%  { transform: scale(1.08) translateY(-6px); }
+  60%  { transform: scale(0.95) translateY(2px); }
+  100% { transform: scale(1) translateY(0); }
+}
+.pet-wrap.tapped {
+  animation: pet-tap 0.4s var(--ease-spring) forwards;
+}
+
+/* default (neutral) state — flat eyes, flat mouth */
+.pet-eyes-arc,
+.pet-eyes-closed,
+.pet-eyes-happy,
+.pet-mouth-grin,
+.pet-mouth-frown,
+.pet-mouth-surprised,
+.pet-blush,
+.pet-brow-sad,
+.pet-tear,
+.pet-zzz { display: none; }
+
+.pet-eyes-neutral { display: inline; }
+.pet-mouth-neutral { display: inline; }
+
+/* happy */
+.pet--happy .pet-eyes-neutral { display: none; }
+.pet--happy .pet-eyes-happy   { display: inline; }
+.pet--happy .pet-mouth-neutral { display: none; }
+.pet--happy .pet-mouth-grin   { display: inline; }
+
+/* ecstatic */
+.pet--ecstatic .pet-eyes-neutral  { display: none; }
+.pet--ecstatic .pet-eyes-arc      { display: inline; }
+.pet--ecstatic .pet-mouth-neutral { display: none; }
+.pet--ecstatic .pet-mouth-grin    { display: inline; }
+.pet--ecstatic .pet-blush         { display: inline; }
+
+/* sad */
+.pet--sad .pet-eyes-neutral  { display: none; }
+.pet--sad .pet-eyes-happy    { display: inline; }
+.pet--sad .pet-brow-sad      { display: inline; }
+.pet--sad .pet-mouth-neutral { display: none; }
+.pet--sad .pet-mouth-frown   { display: inline; }
+.pet--sad .pet-tear          { display: inline; }
+
+/* sleeping */
+.pet--sleeping .pet-eyes-neutral { display: none; }
+.pet--sleeping .pet-eyes-closed  { display: inline; }
+.pet--sleeping .pet-mouth-neutral { display: none; }
+.pet--sleeping .pet-zzz          { display: inline; }
+
+/* surprised — uses display:inline consistent with all other state rules in this file */
+.pet--surprised .pet-eyes-neutral    { display: none; }
+.pet--surprised .pet-mouth-neutral   { display: none; }
+.pet--surprised .pet-eyes-happy      { display: inline; }
+.pet--surprised .pet-mouth-surprised { display: inline; }
+.pet--surprised .pet-mouth-grin      { display: none; }
+.pet--surprised .pet-mouth-frown     { display: none; }
+
+
 /* ── Background FX ───────────────────────────── */
 #bg-fx {
   position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
