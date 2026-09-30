@@ -1,7 +1,7 @@
 export const MEAL_LABELS = { breakfast: 'בוקר', lunch: 'צהריים', dinner: 'ערב', snack: 'חטיף' };
 export const MEAL_BADGE = { breakfast: 'badge-breakfast', lunch: 'badge-lunch', dinner: 'badge-dinner', snack: 'badge-snack' };
 
-const FOOD_EMOJI_MAP = [
+export const FOOD_EMOJI_MAP = [
   [['עוף','chicken','שניצל','קציצ'], '🍗'],
   [['בשר','סטייק','steak','כבד'], '🥩'],
   [['דג','fish','סלמון','salmon','טונה','tuna','בס','דניס','פילה דג'], '🐟'],

@@ -31,7 +31,7 @@ export function startIdleAnimations(petWrap) {
   petWrap._idleIntervals = intervals;
 }
 
-function stopIdleAnimations(petWrap) {
+export function stopIdleAnimations(petWrap) {
   if (!petWrap?._idleIntervals) return;
   petWrap._idleIntervals.forEach(clearInterval);
   petWrap._idleIntervals = [];
