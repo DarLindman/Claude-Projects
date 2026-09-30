@@ -1,6 +1,6 @@
 import { state } from '../state.js';
 import { apiFetch } from '../api.js';
-import { closeModal, openModal, showToast } from '../dom.js';
+import { closeModal, html, openModal, setHtml, showToast } from '../dom.js';
 import { calcRecommendedCal, updateSettingsProfileSub } from '../profile.js';
 import { messageFor } from '../errors.js';
 import { doLogout } from '../session.js';
@@ -19,20 +19,22 @@ export function populateProfileSelects() {
   ['reg-height', 'mp-height'].forEach(id => {
     const sel = document.getElementById(id);
     if (!sel) return;
-    sel.innerHTML = '<option value="">גובה</option>';
+    const options = [];
     for (let h = 220; h >= 100; h--) {
-      sel.innerHTML += `<option value="${h}">${h} ס"מ</option>`;
+      options.push(html`<option value="${h}">${h} ס"מ</option>`);
     }
+    setHtml(sel, html`<option value="">גובה</option>${options}`);
   });
   // Weight: 30–250 kg in 0.5 steps
   ['reg-weight'].forEach(id => {
     const sel = document.getElementById(id);
     if (!sel) return;
-    sel.innerHTML = '<option value="">משקל</option>';
+    const options = [];
     for (let w = 250; w >= 30; w -= 0.5) {
       const v = w.toFixed(1);
-      sel.innerHTML += `<option value="${v}">${v} ק"ג</option>`;
+      options.push(html`<option value="${v}">${v} ק"ג</option>`);
     }
+    setHtml(sel, html`<option value="">משקל</option>${options}`);
   });
   // Default registration selects/inputs to average values
   document.getElementById('reg-birthdate').value = todayISO;

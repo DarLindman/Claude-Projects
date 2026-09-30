@@ -1,7 +1,7 @@
 import { state } from '../state.js';
 import { apiFetch } from '../api.js';
 import { formatDate, formatDateShort, todayStr } from '../dates.js';
-import { escapeHtml, showToast } from '../dom.js';
+import { html, setHtml, showToast } from '../dom.js';
 import { updateSettingsProfileSub } from '../profile.js';
 import { loadDiary } from './home.js';
 import { messageFor } from '../errors.js';
@@ -59,7 +59,7 @@ export async function deleteWeightLog(id) {
 function renderWeightChart() {
   const el = document.getElementById('weight-chart');
   if (!state.weightLogs.length) {
-    el.innerHTML = `<div class="empty-state" style="padding:20px"><p>אין נתונים עדיין</p></div>`;
+    setHtml(el, html`<div class="empty-state" style="padding:20px"><p>אין נתונים עדיין</p></div>`);
     return;
   }
 
@@ -85,24 +85,24 @@ function renderWeightChart() {
 
   const showDots = n <= 20;
   const dots = showDots ? pts.map(p =>
-    `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="#5eead4" stroke="#0d0b09" stroke-width="1.5"/>`
-  ).join('') : '';
+    html`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="#5eead4" stroke="#0d0b09" stroke-width="1.5"/>`
+  ) : '';
 
   // Y labels on left side (min/max)
-  const yLabels = `
+  const yLabels = html`
     <text x="${LEFT - 4}" y="${(TOP + chartH).toFixed(1)}" text-anchor="end" font-size="8" fill="#7a6e62" font-family="IBM Plex Mono,monospace">${minW.toFixed(1)}</text>
     <text x="${LEFT - 4}" y="${(TOP + 8).toFixed(1)}" text-anchor="end" font-size="8" fill="#7a6e62" font-family="IBM Plex Mono,monospace">${maxW.toFixed(1)}</text>
   `;
 
   // X labels: first and last date (only show last if different from first)
-  const firstDate = escapeHtml(formatDateShort(state.weightLogs[0].logged_at));
-  const lastDate = escapeHtml(formatDateShort(state.weightLogs[n-1].logged_at));
-  const xLabels = n > 1 ? `
+  const firstDate = formatDateShort(state.weightLogs[0].logged_at);
+  const lastDate = formatDateShort(state.weightLogs[n-1].logged_at);
+  const xLabels = n > 1 ? html`
     <text x="${LEFT}" y="${H - 4}" text-anchor="start" font-size="8" fill="#7a6e62" font-family="IBM Plex Mono,monospace">${firstDate}</text>
-    ${firstDate !== lastDate ? `<text x="${W - RIGHT}" y="${H - 4}" text-anchor="end" font-size="8" fill="#7a6e62" font-family="IBM Plex Mono,monospace">${lastDate}</text>` : ''}
+    ${firstDate !== lastDate ? html`<text x="${W - RIGHT}" y="${H - 4}" text-anchor="end" font-size="8" fill="#7a6e62" font-family="IBM Plex Mono,monospace">${lastDate}</text>` : ''}
   ` : '';
 
-  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" overflow="visible" xmlns="http://www.w3.org/2000/svg">
+  setHtml(el, html`<svg viewBox="0 0 ${W} ${H}" overflow="visible" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="wgrad" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="#5eead4" stop-opacity="0.25"/>
@@ -114,13 +114,13 @@ function renderWeightChart() {
     ${dots}
     ${yLabels}
     ${xLabels}
-  </svg>`;
+  </svg>`);
 }
 
 function renderWeightList() {
   const el = document.getElementById('weight-list');
   if (!state.weightLogs.length) {
-    el.innerHTML = `<div class="empty-state"><div class="empty-icon">⚖️</div><p>אין מדידות עדיין</p></div>`;
+    setHtml(el, html`<div class="empty-state"><div class="empty-icon">⚖️</div><p>אין מדידות עדיין</p></div>`);
     return;
   }
   // Update profile weight from latest log (last item = newest, server orders ASC)
@@ -131,17 +131,17 @@ function renderWeightList() {
     apiFetch('/api/profile', { method: 'PUT', body: JSON.stringify(state.userProfile) }).catch(() => {});
   }
   // Display newest first
-  el.innerHTML = [...state.weightLogs].reverse().map(w => `
+  setHtml(el, html`${[...state.weightLogs].reverse().map(w => html`
     <div class="weight-entry">
       <button class="delete-btn" data-action="deleteWeightLog" data-id="${w.id}" aria-label="מחק">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
       </button>
       <div class="weight-entry-info">
         <div class="weight-val-big">${(+w.weight_kg).toFixed(1)} ק"ג</div>
-        <div class="weight-entry-date">${escapeHtml(formatDate(w.logged_at))}</div>
+        <div class="weight-entry-date">${formatDate(w.logged_at)}</div>
       </div>
     </div>
-  `).join('');
+  `)}`);
 }
 
 export const actions = {

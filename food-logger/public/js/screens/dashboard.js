@@ -1,7 +1,7 @@
 import { state } from '../state.js';
 import { apiFetch } from '../api.js';
 import { todayStr } from '../dates.js';
-import { escapeHtml } from '../dom.js';
+import { html, setHtml } from '../dom.js';
 import { animateCountUp, startFireCanvas, stopFireCanvas } from '../effects.js';
 import { getFoodEmoji } from '../format.js';
 import { PET_MESSAGES, cloneCapybara, getIdleWrap, getPetState, setIdleWrap, setPetState, startIdleAnimations } from '../pet.js';
@@ -15,19 +15,19 @@ export function renderDashLogPreview(entries) {
   const el = document.getElementById('dash-log-preview');
   if (!el) return;
   const last3 = entries.slice(-3).reverse();
-  if (!last3.length) { el.innerHTML = ''; return; }
-  el.innerHTML = last3.map(e => {
+  if (!last3.length) { el.replaceChildren(); return; }
+  setHtml(el, html`${last3.map(e => {
     const t = e.logged_at ? e.logged_at.slice(11, 16) : '';
-    return `<div class="dash-log-row">
+    return html`<div class="dash-log-row">
       <div class="dash-log-time-col">
         <div class="dash-log-icon">${getFoodEmoji(e.food_name)}</div>
         <div class="dash-log-time">${t}</div>
       </div>
-      <div class="dash-log-name">${escapeHtml(e.food_name || '')}</div>
+      <div class="dash-log-name">${e.food_name || ''}</div>
       <div class="dash-log-kcal">${Math.round(e.calories || 0)}</div>
       <div class="dash-log-macros">ח ${Math.round(e.protein_g||0)} · פ ${Math.round(e.carbs_g||0)} · ש ${Math.round(e.fat_g||0)}</div>
     </div>`;
-  }).join('');
+  })}`);
 }
 
 export function animateDashStagger() {

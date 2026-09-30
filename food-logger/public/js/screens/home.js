@@ -1,7 +1,7 @@
 import { state } from '../state.js';
 import { apiFetch } from '../api.js';
 import { addDays, formatDate, todayStr } from '../dates.js';
-import { closeModal, escapeHtml, openModal, showToast } from '../dom.js';
+import { closeModal, html, openModal, setHtml, showToast } from '../dom.js';
 import { getFoodEmoji } from '../format.js';
 import { cloneCapybara, setIdleWrap, setPetState, startIdleAnimations } from '../pet.js';
 import { calcRecommendedCal } from '../profile.js';
@@ -30,20 +30,20 @@ export async function loadDiary() {
 function renderMealList(entries) {
   const el = document.getElementById('meal-list');
   if (!entries.length) {
-    el.innerHTML = `<div class="empty-state"><div class="empty-icon">🍽️</div><p>אין ארוחות מתועדות<br>לחץ 📷 לצלם אוכל</p></div>`;
+    setHtml(el, html`<div class="empty-state"><div class="empty-icon">🍽️</div><p>אין ארוחות מתועדות<br>לחץ 📷 לצלם אוכל</p></div>`);
     return;
   }
   const ACCENT = { breakfast: 'meal-accent-breakfast', lunch: 'meal-accent-lunch', dinner: 'meal-accent-dinner', snack: 'meal-accent-snack' };
   _mealEntries.clear();
   entries.forEach(e => _mealEntries.set(e.id, e));
 
-  el.innerHTML = entries.map(e => `<div class="meal-item-row ${ACCENT[e.meal_type] || ''}" id="entry-${e.id}">
+  setHtml(el, html`${entries.map(e => html`<div class="meal-item-row ${ACCENT[e.meal_type] || ''}" id="entry-${e.id}">
   <div class="mir-time-col">
     <div class="mir-food-icon">${getFoodEmoji(e.food_name)}</div>
     <div class="mir-time">${e.logged_at ? e.logged_at.slice(11, 16) : ''}</div>
   </div>
   <div class="mir-body">
-    <div class="mir-name">${escapeHtml(e.food_name || '')}</div>
+    <div class="mir-name">${e.food_name || ''}</div>
     <div class="mir-macros"><span style="color:var(--protein)">ח ${Math.round(e.protein_g||0)}</span> · <span style="color:var(--carb)">פ ${Math.round(e.carbs_g||0)}</span> · <span style="color:var(--fat)">ש ${Math.round(e.fat_g||0)}</span> · <span style="color:var(--fiber)">ס ${Math.round(e.fiber_g||0)}</span></div>
   </div>
   <div class="mir-right">
@@ -61,7 +61,7 @@ function renderMealList(entries) {
       </button>
     </div>
   </div>
-</div>`).join('');
+</div>`)}`);
 }
 
 function getDiaryPetState(cal, goal) {
@@ -197,11 +197,11 @@ function updateEditButtons() {
   const nameChanged = document.getElementById('edit-name').value !== _editOriginalName;
   const row = document.getElementById('edit-btn-row');
   if (nameChanged) {
-    row.innerHTML = `
+    setHtml(row, html`
       <button class="btn btn-primary" style="flex:1" data-action="editRecalculate">חשב מחדש</button>
-      <button class="btn" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text2)" data-action="editSave">שמור מבלי לחשב מחדש</button>`;
+      <button class="btn" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text2)" data-action="editSave">שמור מבלי לחשב מחדש</button>`);
   } else {
-    row.innerHTML = `<button class="btn btn-primary" style="width:100%" data-action="editSave">שמור</button>`;
+    setHtml(row, html`<button class="btn btn-primary" style="width:100%" data-action="editSave">שמור</button>`);
   }
 }
 
@@ -212,8 +212,8 @@ export async function editRecalculate() {
   const closeBtn = document.getElementById('edit-modal-close');
   closeBtn.disabled = true;
   closeBtn.style.opacity = '0.4';
-  document.getElementById('edit-btn-row').innerHTML =
-    `<button class="btn btn-primary" style="width:100%" disabled>מחשב... 🔄</button>`;
+  setHtml(document.getElementById('edit-btn-row'),
+    html`<button class="btn btn-primary" style="width:100%" disabled>מחשב... 🔄</button>`);
 
   const foodName = document.getElementById('edit-name').value.trim();
   try {
@@ -227,8 +227,8 @@ export async function editRecalculate() {
     document.getElementById('edit-carb').value  = (+data.carbs_g   || 0).toFixed(1);
     document.getElementById('edit-fat').value   = (+data.fat_g     || 0).toFixed(1);
     document.getElementById('edit-fiber').value = (+data.fiber_g   || 0).toFixed(1);
-    document.getElementById('edit-btn-row').innerHTML =
-      `<button class="btn btn-primary" style="width:100%" data-action="editSave">שמור</button>`;
+    setHtml(document.getElementById('edit-btn-row'),
+      html`<button class="btn btn-primary" style="width:100%" data-action="editSave">שמור</button>`);
   } catch (e) {
     const msg = e?.status === 429
       ? 'הגעת למגבלת הניתוחים לשעה זו'

@@ -2,6 +2,7 @@ import { state } from '../state.js';
 import { apiFetch } from '../api.js';
 import { renderLineChart, renderStatAvgBox, renderStatMacros } from '../charts.js';
 import { addMonths, formatDateShort, formatMonth, todayStr } from '../dates.js';
+import { html, setHtml } from '../dom.js';
 import { cloneCapybara, setPetState } from '../pet.js';
 import { calcRecommendedCal } from '../profile.js';
 
@@ -105,7 +106,7 @@ async function loadWeeklyStats() {
       chartDays.push(found || { day: ds, calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
     }
     const hebrewDays = ['א','ב','ג','ד','ה','ו','ש'];
-    chartEl.innerHTML = renderLineChart(chartDays, {
+    setHtml(chartEl, renderLineChart(chartDays, {
       getValue: r => +r.calories || 0,
       getLabel: r => formatDateShort(r.day.slice(0, 10)),
       isToday: r => r.day.slice(0, 10) === todayDs,
@@ -115,7 +116,7 @@ async function loadWeeklyStats() {
         const d = new Date(+parts[0], +parts[1] - 1, +parts[2]);
         return hebrewDays[d.getDay()];
       }),
-    });
+    }));
     // Trigger draw-on animation for the polyline
     const polylineEl = chartEl.querySelector('polyline[id^="lc-"]');
     if (polylineEl) {
@@ -136,8 +137,7 @@ async function loadWeeklyStats() {
         const stage = document.createElement('div');
         stage.className = 'capy-walk-stage';
         stage.appendChild(cloneCapybara(56));
-        wrapEl.innerHTML = '';
-        wrapEl.appendChild(stage);
+        wrapEl.replaceChildren(stage);
       }
       const avgCal = rows.length
         ? rows.reduce((s, r) => s + (+r.calories || 0), 0) / rows.length
@@ -159,14 +159,14 @@ async function loadMonthlyStats() {
     const rec = calcRecommendedCal();
     renderStatAvgBox('monthly-avg-box', rows, rec, "ממוצע קל' יומי");
     const chartEl = document.getElementById('monthly-chart');
-    if (!rows.length) { chartEl.innerHTML = `<div class="empty-state"><p>אין נתונים</p></div>`; return; }
+    if (!rows.length) { setHtml(chartEl, html`<div class="empty-state"><p>אין נתונים</p></div>`); return; }
     const todayS = todayStr();
-    chartEl.innerHTML = renderLineChart(rows, {
+    setHtml(chartEl, renderLineChart(rows, {
       getValue: r => +r.calories || 0,
       getLabel: r => String(+r.day.slice(8, 10)),
       isToday: r => r.day.slice(0, 10) === todayS,
       recommended: rec,
-    });
+    }));
     const polylineEl = chartEl.querySelector('polyline[id^="lc-"]');
     if (polylineEl) {
       if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -196,19 +196,19 @@ async function loadYearlyStats() {
       if (rec > 0) {
         const diff = yearlyDailyAvg - rec;
         const cls = diff <= 0 ? 'under' : 'over';
-        diffHtml = `<div class="avg-diff ${cls}">${diff > 0 ? '+' : ''}${diff} קל'</div><div style="font-size:11px;color:var(--muted)">מהמומלץ</div>`;
+        diffHtml = html`<div class="avg-diff ${cls}">${diff > 0 ? '+' : ''}${diff} קל'</div><div style="font-size:11px;color:var(--muted)">מהמומלץ</div>`;
       }
-      yearlyAvgEl.innerHTML = `<div class="avg-box"><div class="avg-box-left"><div class="avg-val">${yearlyDailyAvg}</div><div class="avg-label">ממוצע קל' יומי</div></div><div class="avg-box-right">${diffHtml}</div></div>`;
+      setHtml(yearlyAvgEl, html`<div class="avg-box"><div class="avg-box-left"><div class="avg-val">${yearlyDailyAvg}</div><div class="avg-label">ממוצע קל' יומי</div></div><div class="avg-box-right">${diffHtml}</div></div>`);
     }
     const chartEl = document.getElementById('yearly-chart');
-    if (!rows.length) { chartEl.innerHTML = `<div class="empty-state"><p>אין נתונים</p></div>`; return; }
+    if (!rows.length) { setHtml(chartEl, html`<div class="empty-state"><p>אין נתונים</p></div>`); return; }
     const currentMonth = todayStr().slice(0, 7);
-    chartEl.innerHTML = renderLineChart(rows, {
+    setHtml(chartEl, renderLineChart(rows, {
       getValue: r => r.day_count > 0 ? Math.round((+r.calories || 0) / r.day_count) : 0,
       getLabel: r => monthNames[+(r.month.slice(5, 7)) - 1],
       isToday: r => r.month === currentMonth,
       recommended: rec,
-    });
+    }));
     renderStatMacros('yearly-macro', rows, `ממוצע יומי על בסיס ${totalDays} ימים`, totalDays);
   } catch { }
 }
