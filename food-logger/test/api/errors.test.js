@@ -56,6 +56,30 @@ test('an unknown thrown error becomes 500 INTERNAL with no message text and an X
   assert.match(String(logged[0][0]), /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/, 'the log line carries the request id');
 });
 
+test('client-error status on an unrelated error: URIError and 4xx map to 400 VALIDATION unlogged; 5xx stays 500 INTERNAL', async () => {
+  const app = express();
+  app.use(requestId);
+  app.get('/uri', () => { throw new URIError('URI malformed secret'); });
+  app.get('/teapot', () => { throw Object.assign(new Error('secret 418'), { status: 418 }); });
+  app.get('/five', () => { throw Object.assign(new Error('secret 503'), { status: 503 }); });
+  app.get('/plain', () => { throw new TypeError('secret type error'); });
+  app.use(errorHandler);
+  const logged = await withQuietErrors(async () => {
+    for (const path of ['/uri', '/teapot']) {
+      const res = await request(app).get(path);
+      assert.equal(res.status, 400, path);
+      assert.deepEqual(res.body, { error: { code: 'VALIDATION' } });
+    }
+    for (const path of ['/five', '/plain']) {
+      const res = await request(app).get(path);
+      assert.equal(res.status, 500, path);
+      assert.deepEqual(res.body, { error: { code: 'INTERNAL' } });
+      assert.ok(!res.text.includes('secret'));
+    }
+  });
+  assert.equal(logged.length, 2, 'only the two unexpected errors are logged');
+});
+
 test('each request gets its own X-Request-Id', async () => {
   const app = unitApp();
   const a = await request(app).get('/app-error');

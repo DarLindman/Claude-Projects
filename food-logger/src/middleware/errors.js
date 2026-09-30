@@ -33,7 +33,13 @@ function errorHandler(err, req, res, next) {
   if (res.headersSent) return next(err);
   let appError = err;
   if (!(err instanceof AppError)) {
-    if (err && BODY_PARSER_TYPES.has(err.type)) {
+    // Client-side failures raised by Express/body-parser rather than by us: known body-parser
+    // types, and any 4xx (e.g. the URIError Express raises for a malformed %-encoded route
+    // param, before auth or validate run). Not logged; the message is never sent.
+    const clientStatus = err && (err.status ?? err.statusCode);
+    const isClientError = err instanceof URIError
+      || (Number.isInteger(clientStatus) && clientStatus >= 400 && clientStatus <= 499);
+    if (err && (BODY_PARSER_TYPES.has(err.type) || isClientError)) {
       appError = new AppError(400, 'VALIDATION');
     } else {
       // The original message never reaches the client; only the request id links them.

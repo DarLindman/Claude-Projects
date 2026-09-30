@@ -79,6 +79,13 @@ const CASES = [
     [`weight DELETE id ${id}`, authed('delete', `/api/weight/${id}`), 400, VALIDATION, { id: 'INVALID' }],
   ]),
 
+  // Malformed percent-encoding fails inside Express routing (before auth/validate): still 400, never 500.
+  ...['/api/food/%E0', '/api/food/%E0%A4%A', '/api/weight/%ZZ'].flatMap((path) => [
+    [`DELETE ${path} (authenticated)`, authed('delete', path), 400, VALIDATION, undefined],
+    [`DELETE ${path} (no credentials)`, anon('delete', path), 400, VALIDATION, undefined],
+  ]),
+  ['food PUT bad percent-encoding (authenticated)', authed('put', '/api/food/%E0', entry()), 400, VALIDATION, undefined],
+
   // ── GET query strings ────────────────────────────────────────────────────
   ['food GET: date 2026-02-31', authed('get', '/api/food?date=2026-02-31'), 400, VALIDATION, { date: 'INVALID' }],
   ['food GET: date abc', authed('get', '/api/food?date=abc'), 400, VALIDATION, { date: 'INVALID' }],
