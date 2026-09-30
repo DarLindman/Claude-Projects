@@ -31,8 +31,8 @@ export function doRegister() {
   const u = document.getElementById('reg-user').value.trim();
   const p = document.getElementById('reg-pass').value;
   document.getElementById('auth-error2').textContent = '';
-  if (u.length < 3 || u.length > 50 || p.length < 6) {
-    document.getElementById('auth-error2').textContent = 'שם משתמש חייב להכיל 3–50 תווים, סיסמא לפחות 6';
+  if (u.length < 3 || u.length > 50 || p.length < 8) {
+    document.getElementById('auth-error2').textContent = 'שם משתמש חייב להכיל 3–50 תווים, סיסמא לפחות 8';
     return;
   }
   // Store credentials; advance to profile step WITHOUT creating the account yet

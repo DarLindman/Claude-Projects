@@ -142,7 +142,7 @@ const CASES = [
   ['register: username too short', anon('post', '/auth/register', { username: 'ab', password: PASSWORD }), 400, VALIDATION, { username: 'INVALID' }],
   ['register: username only spaces', anon('post', '/auth/register', { username: '     ', password: PASSWORD }), 400, VALIDATION, { username: 'INVALID' }],
   ['register: username 51 chars', anon('post', '/auth/register', { username: 'a'.repeat(51), password: PASSWORD }), 400, VALIDATION, { username: 'TOO_LONG' }],
-  ['register: password too short', anon('post', '/auth/register', { username: 'abc', password: 'abcde' }), 400, VALIDATION, { password: 'INVALID' }],
+  ['register: password too short', anon('post', '/auth/register', { username: 'abc', password: 'abcdefg' }), 400, { code: 'WEAK_PASSWORD' }, undefined],
   ['register: password 1025 chars', anon('post', '/auth/register', { username: 'abc', password: 'a'.repeat(1025) }), 400, VALIDATION, { password: 'TOO_LONG' }],
   ['register: password null', anon('post', '/auth/register', { username: 'abc', password: null }), 400, VALIDATION, { password: 'INVALID' }],
 
@@ -161,7 +161,7 @@ const CASES = [
 
   // ── auth: change-password ────────────────────────────────────────────────
   ['change-password: currentPassword missing', authed('post', '/auth/change-password', { newPassword: 'brand-new-pw' }), 400, VALIDATION, { currentPassword: 'REQUIRED' }],
-  ['change-password: newPassword too short', authed('post', '/auth/change-password', { currentPassword: PASSWORD, newPassword: 'abc' }), 400, VALIDATION, { newPassword: 'INVALID' }],
+  ['change-password: newPassword too short', authed('post', '/auth/change-password', { currentPassword: PASSWORD, newPassword: 'abcdefg' }), 400, { code: 'WEAK_PASSWORD' }, undefined],
   ['change-password: newPassword missing', authed('post', '/auth/change-password', { currentPassword: PASSWORD }), 400, VALIDATION, { newPassword: 'REQUIRED' }],
   ['change-password: numbers', authed('post', '/auth/change-password', { currentPassword: 12345, newPassword: 123456 }), 400, VALIDATION, { currentPassword: 'INVALID', newPassword: 'INVALID' }],
   ['change-password: NUL', authed('post', '/auth/change-password', { currentPassword: PASSWORD, newPassword: 'abc\u0000defgh' }), 400, VALIDATION, { newPassword: 'INVALID' }],
