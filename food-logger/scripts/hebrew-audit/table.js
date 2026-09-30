@@ -22,6 +22,23 @@ const locationText = (l) => `${l.file}:${l.line}${l.where ? ` (${l.where})` : ''
 
 const HEADER = ['#', 'location', 'current text', 'proposed text', 'reason', 'owner decision'];
 
+// Reviewer proposals are kept outside the generated table, in a JSON object that maps the
+// exact current text of a row to { proposed, reason }, so regenerating the table never
+// loses them. Returns the rows with `proposed` and `reason` filled in, plus the proposals
+// whose text no longer exists in the sources (stale). The owner decision is never set here.
+function mergeProposals(rows, proposals = {}) {
+  if (!proposals || typeof proposals !== 'object' || Array.isArray(proposals)) throw new Error('proposals must be an object keyed by the current text');
+  for (const [text, p] of Object.entries(proposals)) {
+    if (!p || typeof p.proposed !== 'string' || typeof p.reason !== 'string') throw new Error(`proposal for "${text}" needs string "proposed" and "reason"`);
+  }
+  const has = (t) => Object.prototype.hasOwnProperty.call(proposals, t);
+  const texts = new Set(rows.map((r) => r.text));
+  return {
+    rows: rows.map((r) => (has(r.text) ? { ...r, proposed: proposals[r.text].proposed, reason: proposals[r.text].reason } : r)),
+    stale: Object.keys(proposals).filter((t) => !texts.has(t)),
+  };
+}
+
 function renderTable(rows) {
   const lines = [
     `| ${HEADER.join(' | ')} |`,
@@ -29,7 +46,7 @@ function renderTable(rows) {
   ];
   rows.forEach((row, i) => {
     const loc = row.locations.map((l) => escapeCell(locationText(l))).join('<br>');
-    lines.push(`| ${i + 1} | ${loc} | ${escapeCell(row.text)} |  |  |  |`);
+    lines.push(`| ${i + 1} | ${loc} | ${escapeCell(row.text)} | ${escapeCell(row.proposed || '')} | ${escapeCell(row.reason || '')} |  |`);
   });
   return lines.join('\n');
 }
@@ -48,4 +65,4 @@ function renderSummary(stats) {
   return out.join('\n');
 }
 
-module.exports = { dedupe, escapeCell, renderTable, renderSummary, locationText };
+module.exports = { dedupe, escapeCell, mergeProposals, renderTable, renderSummary, locationText };

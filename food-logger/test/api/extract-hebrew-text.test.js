@@ -8,8 +8,8 @@ const assert = require('node:assert/strict');
 const { tokenize, bodyOf } = require('../../scripts/hebrew-audit/js');
 const { extractHtml, decodeEntities } = require('../../scripts/hebrew-audit/html');
 const { collectJs, account } = require('../../scripts/hebrew-audit/collect');
-const { dedupe, escapeCell, renderTable } = require('../../scripts/hebrew-audit/table');
-const { build } = require('../../scripts/extract-hebrew-text');
+const { dedupe, escapeCell, mergeProposals, renderTable } = require('../../scripts/hebrew-audit/table');
+const { build, functionLines } = require('../../scripts/extract-hebrew-text');
 
 const texts = (src) => tokenize(src).literals.map(bodyOf);
 
@@ -110,4 +110,46 @@ test('the real sources: every Hebrew line is accounted for and the table is not 
   assert.deepEqual(out.unaccounted.map((s) => [s.file, s.unaccounted]), []);
   assert.ok(out.rows.length > 100);
   assert.match(out.markdown, /## AI prompts \(not user-facing; excluded\)/);
+  assert.deepEqual(out.stale, [], 'every proposal in docs/hebrew-copy-proposals.json matches a row');
+});
+
+test('mergeProposals fills proposed text and reason by exact text, reports stale ones, leaves the owner column empty', () => {
+  const rows = dedupe([
+    { text: 'סיסמא', file: 'a.html', line: 1, where: 'label' },
+    { text: 'שמור', file: 'a.html', line: 2, where: 'button' },
+  ]);
+  const { rows: merged, stale } = mergeProposals(rows, {
+    'סיסמא': { proposed: 'סיסמה', reason: 'כתיב: תקני' },
+    'סיסמא ': { proposed: 'x', reason: 'y' }, // not the exact text: stale
+    'נמחק מהקוד': { proposed: 'x', reason: 'y' },
+  });
+  assert.deepEqual(stale, ['סיסמא ', 'נמחק מהקוד']);
+  assert.equal(merged[0].proposed, 'סיסמה');
+  assert.equal(merged[1].proposed, undefined);
+  const table = renderTable(merged).split('\n');
+  assert.equal(table[2], '| 1 | a.html:1 (label) | סיסמא | סיסמה | כתיב: תקני |  |');
+  assert.equal(table[3], '| 2 | a.html:2 (button) | שמור |  |  |  |');
+  assert.throws(() => mergeProposals(rows, { 'שמור': { proposed: 'שמירה' } }), /reason/);
+  assert.throws(() => mergeProposals(rows, []), /object/);
+});
+
+test('build merges given proposals and lists a stale one in the accounting section', () => {
+  const out = build(undefined, { proposals: {
+    'שגיאת שרת': { proposed: 'משהו השתבש', reason: 'בהירות: בדיקה' },
+    'טקסט שלא קיים באפליקציה': { proposed: 'x', reason: 'y' },
+  } });
+  assert.deepEqual(out.stale, ['טקסט שלא קיים באפליקציה']);
+  assert.match(out.markdown, /\| שגיאת שרת \| משהו השתבש \| בהירות: בדיקה \|  \|/);
+  assert.match(out.markdown, /Review proposals: 2 in `docs\/hebrew-copy-proposals\.json`, merged into 1 rows\. Stale proposals .*: 1\n\n- STALE: `טקסט שלא קיים באפליקציה`/);
+  const none = build(undefined, { proposals: {} });
+  assert.match(none.markdown, /Stale proposals .*: \(none\)/);
+});
+
+test('text inside a function the app never calls is marked not shown to users', () => {
+  assert.deepEqual(functionLines('a\nexport function f(x) {\n  y;\n}\nz', 'f'), { start: 2, end: 4 });
+  assert.equal(functionLines('a', 'f'), null);
+  const out = build(undefined, { proposals: {} });
+  const row = out.rows.find((r) => r.locations.some((l) => l.file === 'public/js/screens/dashboard.js'));
+  assert.ok(row.locations.every((l) => /not shown to users: renderDashLogPreview is never called/.test(l.where)));
+  assert.match(out.markdown, /`hebrewName\.js` `CONNECTORS` rows are connector words/);
 });
