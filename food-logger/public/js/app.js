@@ -1,19 +1,20 @@
 // ════════════════════════════════════════════════════
 // Config & State
 // ════════════════════════════════════════════════════
-const SCREEN_ORDER = ['welcome','auth','dashboard','home','camera','analysis','stats','weight','settings'];
-let token = localStorage.getItem('fl_token');
-let username = localStorage.getItem('fl_username');
 let pendingToken = null;
 let pendingUsername = null;
-configureApi({ getToken: () => token, onUnauthorized: () => doLogout() });
 
 import { state } from './state.js';
-import { apiFetch, configureApi } from './api.js';
+import { apiFetch } from './api.js';
+import { renderLineChart, renderStatAvgBox, renderStatMacros } from './charts.js';
 import { addDays, addMonths, formatDate, formatDateShort, formatMonth, todayStr } from './dates.js';
 import { closeModal, escapeHtml, openModal, showToast } from './dom.js';
+import { animateCountUp, spawnConfetti, startFireCanvas, stopFireCanvas } from './effects.js';
 import { getFoodEmoji } from './format.js';
+import { PET_MESSAGES, _cameraCapyState, cloneCapybara, getIdleWrap, getPetState, scheduleCameraHappy, setIdleWrap, setPetState, startIdleAnimations } from './pet.js';
 import { calcRecommendedCal, loadProfile, updateSettingsProfileSub } from './profile.js';
+import { navigate, registerScreen } from './router.js';
+import { doLogout, getToken, getUsername, setLoggedIn } from './session.js';
 
 // ════════════════════════════════════════════════════
 // Date helpers (timezone-safe, local time)
@@ -169,35 +170,6 @@ function finishLogin() {
   document.getElementById('auth-step2').style.display = 'none';
 }
 
-async function setLoggedIn(t, u) {
-  token = t; username = u;
-  localStorage.setItem('fl_token', t);
-  localStorage.setItem('fl_username', u);
-  document.getElementById('settings-user').textContent = `מחובר כ: ${u}`;
-  document.getElementById('bottom-nav').style.display = 'flex';
-  // Load profile from server; fall back to localStorage
-  try {
-    const serverProfile = await apiFetch('/api/profile');
-    if (serverProfile && Object.keys(serverProfile).length) {
-      state.userProfile = serverProfile;
-      localStorage.setItem('fl_profile', JSON.stringify(serverProfile));
-    }
-  } catch {}
-  // Load weight logs at startup so calcRecommendedCal always has current weight
-  try { state.weightLogs = await apiFetch('/api/weight'); } catch {}
-  updateSettingsProfileSub();
-  navigate('dashboard');
-}
-
-function doLogout() {
-  localStorage.removeItem('fl_token');
-  localStorage.removeItem('fl_username');
-  localStorage.removeItem('fl_profile');
-  token = null; username = null; state.userProfile = null;
-  document.getElementById('bottom-nav').style.display = 'none';
-  navigate('auth');
-}
-
 async function doChangePassword() {
   const cur = document.getElementById('cp-current').value;
   const nw = document.getElementById('cp-new').value;
@@ -319,135 +291,6 @@ function autoResizeTextarea(el) {
   el.style.height = el.scrollHeight + 'px';
 }
 
-// ── Idle animation refs ──────────────────────────────────────────────────────
-let _dashPetWrap    = null;
-let _diaryPetWrap   = null;
-let _cameraPetWrap  = null;
-let _cameraHappyTimer = null;
-
-function startIdleAnimations(petWrap) {
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  stopIdleAnimations(petWrap);
-  const intervals = [];
-  // Tail wag: random 5–8s
-  intervals.push(setInterval(() => {
-    petWrap.classList.add('pet-wagging');
-    setTimeout(() => petWrap.classList.remove('pet-wagging'), 600);
-  }, 5000 + Math.random() * 3000));
-  // Ear twitch: random 8–12s
-  intervals.push(setInterval(() => {
-    petWrap.classList.add('pet-ear-twitching');
-    setTimeout(() => petWrap.classList.remove('pet-ear-twitching'), 150);
-  }, 8000 + Math.random() * 4000));
-  petWrap._idleIntervals = intervals;
-}
-
-function stopIdleAnimations(petWrap) {
-  if (!petWrap?._idleIntervals) return;
-  petWrap._idleIntervals.forEach(clearInterval);
-  petWrap._idleIntervals = [];
-}
-
-// ── Capybara pet helpers ─────────────────────────
-function _cameraCapyState(state) {
-  const wrap = document.getElementById('pet-camera-wrap');
-  if (!wrap) return;
-  if (!wrap.querySelector('svg')) {
-    const pet = cloneCapybara(56);
-    wrap.appendChild(pet);
-    _cameraPetWrap = pet;
-    startIdleAnimations(pet);
-  }
-  const pet = wrap.querySelector('.pet-wrap');
-  if (!pet) return;
-  const baseState = state === 'thinking' ? 'neutral' : state;
-  setPetState(pet, baseState);
-  pet.classList.toggle('pet--thinking', state === 'thinking');
-  if (state === 'ecstatic') {
-    pet.style.animation = 'none';
-    void pet.offsetWidth;
-    pet.style.animation = 'pet-tap 0.4s var(--ease-spring) forwards';
-    setTimeout(() => {
-      pet.style.animation = 'none';
-      void pet.offsetWidth;
-      pet.style.animation = 'pet-tap 0.4s var(--ease-spring) forwards';
-    }, 450);
-  }
-}
-
-function cloneCapybara(size) {
-  const tpl = document.getElementById('capy-tpl');
-  const wrap = document.createElement('div');
-  wrap.className = 'pet-wrap';
-  const svg = tpl.content.querySelector('svg').cloneNode(true);
-  if (size) { svg.setAttribute('width', size); svg.setAttribute('height', Math.round(size * 0.91)); }
-  wrap.appendChild(svg);
-  wrap.addEventListener('click', () => {
-    wrap.classList.remove('tapped');
-    void wrap.offsetWidth; // force reflow
-    wrap.classList.add('tapped');
-    wrap.addEventListener('animationend', () => wrap.classList.remove('tapped'), { once: true });
-  });
-  return wrap;
-}
-
-function getPetState(pct, hasLoggedToday, hasLoggedYesterday, daysSinceLastLog) {
-  if (daysSinceLastLog >= 3) return 'sleeping';
-  if (!hasLoggedToday && !hasLoggedYesterday) return 'sad';
-  if (!hasLoggedToday) return 'neutral';
-  if (pct >= 1.0) return 'ecstatic';
-  return 'happy';
-}
-
-const PET_MESSAGES = {
-  ecstatic: name => `כל הכבוד ${name}! הגעת ליעד! 🎉`,
-  happy:    name => `כן ${name}, ככה זה! המשך כך 😊`,
-  neutral:  name => `עוד לא רשמת היום 😐`,
-  sad:      name => `פספסנו אתמול... נתחיל מחדש? 😢`,
-  sleeping: name => `כמה זמן לא ראיתי אותך ${name} 🥺`,
-};
-
-function setPetState(wrapEl, state) {
-  ['ecstatic','happy','neutral','sad','sleeping','surprised'].forEach(s =>
-    wrapEl.classList.toggle(`pet--${s}`, s === state)
-  );
-  // brief pop animation on state change
-  wrapEl.classList.remove('pet-state-pop');
-  void wrapEl.offsetWidth; // force reflow to restart animation
-  wrapEl.classList.add('pet-state-pop');
-  setTimeout(() => wrapEl.classList.remove('pet-state-pop'), 250);
-}
-
-function navigate(screen) {
-  // stop all idle animations unconditionally on every navigation
-  stopIdleAnimations(_dashPetWrap);
-  stopIdleAnimations(_diaryPetWrap);
-  stopIdleAnimations(_cameraPetWrap);
-  clearTimeout(_cameraHappyTimer);
-  document.querySelectorAll('.screen').forEach(s =>
-    s.classList.remove('active', 'screen-enter-right', 'screen-enter-left')
-  );
-  const el = document.getElementById(`screen-${screen}`);
-  el.classList.add('active');
-  const from = SCREEN_ORDER.indexOf(state.currentScreen);
-  const to   = SCREEN_ORDER.indexOf(screen);
-  if (from !== -1 && to !== -1 && from !== to) {
-    el.classList.add(to > from ? 'screen-enter-right' : 'screen-enter-left');
-  }
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  const navEl = document.getElementById(`nav-${screen}`);
-  if (navEl) navEl.classList.add('active');
-  state.currentScreen = screen;
-  if (screen === 'dashboard') { loadDashboard(); animateDashStagger(); }
-  else stopFireCanvas();
-  if (screen === 'home') loadDiary();
-  if (screen === 'stats') { loadStats(); }
-  else stopStatsCapyWalk();
-  if (screen === 'weight') loadWeightScreen();
-  if (screen === 'camera') animatePlaceholder();
-  if (screen === 'analysis' && typeof _cameraCapyState === 'function') _cameraCapyState('neutral');
-}
-
 // ════════════════════════════════════════════════════
 // Dashboard helpers
 // ════════════════════════════════════════════════════
@@ -471,20 +314,6 @@ function renderDashLogPreview(entries) {
 }
 
 // ════════════════════════════════════════════════════
-function animateCountUp(el, target, duration) {
-  duration = duration || 800;
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    el.textContent = target.toLocaleString('he-IL');
-    return;
-  }
-  var start = performance.now();
-  function tick(now) {
-    var t = Math.min((now - start) / duration, 1);
-    el.textContent = Math.round(t * target).toLocaleString('he-IL');
-    if (t < 1) requestAnimationFrame(tick);
-  }
-  requestAnimationFrame(tick);
-}
 
 function animateDashStagger() {
   var els = document.querySelectorAll('.dash-stagger');
@@ -495,71 +324,6 @@ function animateDashStagger() {
     if (reduced) { el.classList.add('anim-visible'); return; }
     setTimeout(function() { el.classList.add('anim-visible'); }, delays[i] || 0);
   });
-}
-
-var _fireAnimId = null;
-
-function startFireCanvas() {
-  var canvas = document.getElementById('dash-fire-canvas');
-  if (!canvas) return;
-  if (_fireAnimId) return; // already running
-  var ctx = canvas.getContext('2d');
-  var W = canvas.width;
-  var H = canvas.height;
-  var particles = [];
-
-  function spawn() {
-    return {
-      x: W / 2 + (Math.random() - 0.5) * 44,
-      y: H - 8,
-      vx: (Math.random() - 0.5) * 1.2,
-      vy: -(1.8 + Math.random() * 2.2),
-      life: 1,
-      decay: 0.013 + Math.random() * 0.009,
-      r: 9 + Math.random() * 7
-    };
-  }
-  // pre-seed particles at various lifecycle stages
-  for (var i = 0; i < 28; i++) {
-    var p = spawn();
-    p.y = H - Math.random() * H * 0.75;
-    p.life = Math.random();
-    particles.push(p);
-  }
-
-  function frame() {
-    ctx.clearRect(0, 0, W, H);
-    if (particles.length < 38) particles.push(spawn());
-    for (var i = particles.length - 1; i >= 0; i--) {
-      var p = particles[i];
-      p.x += p.vx + Math.sin(p.y * 0.028) * 0.6;
-      p.y += p.vy;
-      p.life -= p.decay;
-      p.r *= 0.994;
-      if (p.life <= 0) { particles.splice(i, 1); continue; }
-      var t = 1 - p.life; // 0=fresh 1=dying
-      var r, g, b;
-      if (t < 0.25)      { r = 255; g = Math.round(20 + t / 0.25 * 80);  b = 0; }
-      else if (t < 0.6)  { r = 255; g = Math.round(100 + (t - 0.25) / 0.35 * 130); b = 0; }
-      else               { r = 255; g = 230; b = Math.round((t - 0.6) / 0.4 * 180); }
-      var alpha = p.life * 0.82;
-      var grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
-      grad.addColorStop(0, 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')');
-      grad.addColorStop(1, 'rgba(' + r + ',' + g + ',' + b + ',0)');
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      ctx.fillStyle = grad;
-      ctx.fill();
-    }
-    _fireAnimId = requestAnimationFrame(frame);
-  }
-  frame();
-}
-
-function stopFireCanvas() {
-  if (_fireAnimId) { cancelAnimationFrame(_fireAnimId); _fireAnimId = null; }
-  var canvas = document.getElementById('dash-fire-canvas');
-  if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
 }
 
 // Dashboard
@@ -627,13 +391,13 @@ async function loadDashboard() {
     const wrapEl = document.getElementById('pet-dashboard-wrap');
     if (wrapEl && !wrapEl.querySelector('svg')) {
       wrapEl.appendChild(cloneCapybara(80));
-      _dashPetWrap = wrapEl.querySelector('.pet-wrap');
+      setIdleWrap('dash', wrapEl.querySelector('.pet-wrap'));
     }
-    if (_dashPetWrap) startIdleAnimations(_dashPetWrap);
+    if (getIdleWrap('dash')) startIdleAnimations(getIdleWrap('dash'));
     const petWrap = wrapEl?.querySelector('.pet-wrap');
     if (petWrap) setPetState(petWrap, petState);
 
-    const petUsername = username || '';
+    const petUsername = getUsername() || '';
     document.getElementById('pet-name-label').textContent = petUsername;
     document.getElementById('pet-status-text').textContent = PET_MESSAGES[petState](petUsername);
 
@@ -752,7 +516,7 @@ function renderDailySummary(entries) {
     if (!diaryWrapEl.querySelector('svg')) {
       const pet = cloneCapybara(48);
       diaryWrapEl.appendChild(pet);
-      _diaryPetWrap = pet;
+      setIdleWrap('diary', pet);
       startIdleAnimations(pet);
     }
     const pet = diaryWrapEl.querySelector('.pet-wrap');
@@ -949,8 +713,7 @@ async function analyzeText() {
   try {
     const data = await apiFetch('/api/analyze-text', { method: 'POST', body: JSON.stringify({ text }) });
     _cameraCapyState('ecstatic');
-    clearTimeout(_cameraHappyTimer);
-    _cameraHappyTimer = setTimeout(() => _cameraCapyState('happy'), 2000);
+    scheduleCameraHappy();
     const resName = document.getElementById('res-name');
     resName.value = data.foodName || '';
     requestAnimationFrame(() => autoResizeTextarea(resName));
@@ -1014,8 +777,7 @@ async function analyzeFood() {
     const rb = document.getElementById('receipt-body');
     if (rb) { rb.querySelectorAll('.receipt-entry').forEach(r => { r.style.animation = 'none'; r.offsetHeight; r.style.animation = ''; }); }
     _cameraCapyState('ecstatic');
-    clearTimeout(_cameraHappyTimer);
-    _cameraHappyTimer = setTimeout(() => _cameraCapyState('happy'), 2000);
+    scheduleCameraHappy();
     document.getElementById('analysis-result').style.display = 'block';
   } catch (e) {
     _cameraCapyState('sad');
@@ -1028,50 +790,6 @@ function selectMeal(btn) {
   document.querySelectorAll('.meal-opt').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
   state.selectedMeal = btn.dataset.meal;
-}
-
-let _confettiFrame = null; // module-scope so rapid calls cancel previous animation
-
-function spawnConfetti() {
-  const canvas = document.getElementById('confetti-canvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  canvas.width = canvas.offsetWidth;
-  canvas.height = canvas.offsetHeight;
-  const colors = ['#E8703A','#ffe066','#5eead4','#93c5fd','#C4956A','#f5a060'];
-  const particles = Array.from({ length: 22 }, () => ({
-    x: (0.1 + Math.random() * 0.8) * canvas.width,
-    y: -8,
-    r: 3 + Math.random() * 4,
-    color: colors[Math.floor(Math.random() * colors.length)],
-    vx: (Math.random() - 0.5) * 3,
-    vy: 2 + Math.random() * 3,
-    rot: Math.random() * Math.PI * 2,
-    vrot: (Math.random() - 0.5) * 0.2,
-    alpha: 1,
-    isRect: Math.random() > 0.5,
-  }));
-  function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    let alive = false;
-    for (const p of particles) {
-      p.x += p.vx; p.y += p.vy * 1.04; p.rot += p.vrot;
-      p.alpha = Math.max(0, 1 - p.y / (canvas.height * 0.85));
-      if (p.alpha > 0) alive = true;
-      ctx.save();
-      ctx.globalAlpha = p.alpha;
-      ctx.translate(p.x, p.y);
-      ctx.rotate(p.rot);
-      ctx.fillStyle = p.color;
-      if (p.isRect) ctx.fillRect(-p.r, -p.r * 0.5, p.r * 2, p.r);
-      else { ctx.beginPath(); ctx.arc(0, 0, p.r, 0, Math.PI * 2); ctx.fill(); }
-      ctx.restore();
-    }
-    if (alive) _confettiFrame = requestAnimationFrame(draw);
-    else ctx.clearRect(0, 0, canvas.width, canvas.height);
-  }
-  if (_confettiFrame) cancelAnimationFrame(_confettiFrame);
-  draw();
 }
 
 async function saveEntry() {
@@ -1211,31 +929,6 @@ async function loadStats() {
   if (state.currentStatsTab === 'yearly') await loadYearlyStats();
 }
 
-// ── Shared stat helpers ──────────────────────────────────────────────────────
-function renderStatAvgBox(elId, rows, rec, label, customAvg) {
-  const el = document.getElementById(elId);
-  if (!rows.length) { el.innerHTML = ''; return; }
-  const avgCal = customAvg !== undefined ? customAvg : Math.round(rows.reduce((s, r) => s + (+r.calories || 0), 0) / rows.length);
-  let diffHtml = '';
-  if (rec > 0) {
-    const diff = avgCal - rec;
-    const cls = diff <= 0 ? 'under' : 'over';
-    diffHtml = `<div class="avg-diff ${cls}">${diff > 0 ? '+' : ''}${diff} קל'</div><div style="font-size:11px;color:var(--muted)">מהמומלץ</div>`;
-  }
-  el.innerHTML = `<div class="avg-box"><div class="avg-box-left"><div class="avg-val">${avgCal}</div><div class="avg-label">${label}</div></div><div class="avg-box-right">${diffHtml}</div></div>`;
-}
-
-function renderStatMacros(elId, rows, footnote, divisor) {
-  const n = divisor || rows.length;
-  const sum = rows.reduce((a, r) => ({
-    pro: a.pro + (+r.protein_g || 0), carb: a.carb + (+r.carbs_g || 0),
-    fat: a.fat + (+r.fat_g || 0), fiber: a.fiber + (+r.fiber_g || 0),
-  }), { pro: 0, carb: 0, fat: 0, fiber: 0 });
-  const avgt = { protein_g: sum.pro / n, carbs_g: sum.carb / n, fat_g: sum.fat / n, fiber_g: sum.fiber / n };
-  document.getElementById(elId).innerHTML = renderMacroProgressBars(avgt) +
-    `<p style="font-size:11px;color:var(--muted);margin-top:10px;text-align:center">${footnote}</p>`;
-}
-
 async function loadWeeklyStats() {
   try {
     const rows = await apiFetch('/api/stats/weekly');
@@ -1327,84 +1020,6 @@ async function loadMonthlyStats() {
     }
     renderStatMacros('monthly-macro', rows, `ממוצע יומי ב-${rows.length} ימים`);
   } catch { }
-}
-
-// ════════════════════════════════════════════════════
-// SVG line chart with dots and date labels
-// ════════════════════════════════════════════════════
-function renderLineChart(rows, { getValue, getLabel, isToday, recommended, dayLetters }) {
-  const W = 320, H = 150, BOTTOM = 28, TOP = 16, LEFT = 8, RIGHT = 14;
-  const chartW = W - LEFT - RIGHT;
-  const chartH = H - BOTTOM - TOP;
-  const n = rows.length;
-  const values = rows.map(getValue);
-  const maxVal = Math.max(...values, recommended || 0, 1);
-  const range = maxVal || 1;
-
-  const pts = rows.map((r, i) => {
-    const x = n === 1 ? W / 2 : LEFT + (i / (n - 1)) * chartW;
-    const y = TOP + chartH - (getValue(r) / range) * chartH;
-    const hasData = getValue(r) > 0;
-    return { x, y, r, hasData };
-  });
-
-  // Polyline only for points that have data
-  const dataPoints = pts.filter(p => p.hasData);
-  const polyline = dataPoints.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-
-  // Estimated total path length for dashoffset animation
-  let pathLen = 0;
-  for (let i = 1; i < dataPoints.length; i++) {
-    const dx = dataPoints[i].x - dataPoints[i-1].x;
-    const dy = dataPoints[i].y - dataPoints[i-1].y;
-    pathLen += Math.sqrt(dx*dx + dy*dy);
-  }
-
-  const dots = pts.map(p => {
-    const isT = isToday(p.r);
-    if (p.hasData) {
-      return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${isT ? 4.5 : 3.5}"
-        fill="${isT ? 'var(--accent)' : 'rgba(232,112,58,0.8)'}" stroke="var(--bg)" stroke-width="1.5"/>`;
-    } else {
-      return `<circle cx="${p.x.toFixed(1)}" cy="${(TOP + chartH).toFixed(1)}" r="2"
-        fill="var(--muted)" opacity="0.5"/>`;
-    }
-  }).join('');
-
-  // Labels: prefer dayLetters if provided, else getLabel
-  const step = n <= 10 ? 1 : n <= 20 ? 2 : 5;
-  const labels = pts.map((p, i) => {
-    if (i % step !== 0 && i !== n - 1) return '';
-    const isT = isToday(p.r);
-    const lbl = (dayLetters && dayLetters[i]) ? dayLetters[i] : getLabel(p.r);
-    return `<text x="${p.x.toFixed(1)}" y="${H - 6}" text-anchor="middle"
-      font-size="9" fill="${isT ? 'var(--accent)' : 'var(--muted)'}"
-      font-family="IBM Plex Mono,monospace">${lbl}</text>`;
-  }).join('');
-
-  let recLine = '';
-  if (recommended > 0) {
-    const ry = TOP + chartH - (recommended / range) * chartH;
-    const labelY = ry < TOP + 12 ? ry + 10 : ry - 3;
-    recLine = `<line x1="${LEFT}" y1="${ry.toFixed(1)}" x2="${W - RIGHT}" y2="${ry.toFixed(1)}"
-      stroke="var(--gold)" stroke-dasharray="4,3" opacity="0.7" stroke-width="1"/>
-      <text x="${W - RIGHT - 2}" y="${labelY.toFixed(1)}" text-anchor="end"
-      font-size="8" fill="var(--gold)" opacity="0.9" font-family="IBM Plex Mono,monospace">${recommended}</text>`;
-  }
-
-  const polylineId = 'lc-' + Math.random().toString(36).slice(2, 7);
-
-  return `<svg viewBox="0 0 ${W} ${H}" overflow="visible" xmlns="http://www.w3.org/2000/svg">
-    ${recLine}
-    ${dataPoints.length > 1 ? `<polyline id="${polylineId}" points="${polyline}" fill="none"
-      stroke="rgba(232,112,58,0.7)" stroke-width="1.8"
-      stroke-linejoin="round" stroke-linecap="round"
-      stroke-dasharray="${pathLen.toFixed(0)}"
-      stroke-dashoffset="${pathLen.toFixed(0)}"
-      style="transition: stroke-dashoffset 0.6s var(--ease-out, cubic-bezier(0.22,1,0.36,1))"/>` : ''}
-    ${dots}
-    ${labels}
-  </svg>`;
 }
 
 async function loadYearlyStats() {
@@ -1578,128 +1193,26 @@ function renderWeightList() {
 }
 
 // ════════════════════════════════════════════════════
-// Plate chart (arc SVG with tap tooltips)
-// ════════════════════════════════════════════════════
-function renderPlate(svgId, legendId, tooltipId, totals) {
-  const macros = [
-    { key: 'pro',   label: 'חלבון',   color: '#5eead4', grams: Math.round(totals.pro   || 0), target: (window.userProfile?.protein_g  || 0) },
-    { key: 'carb',  label: 'פחמימות', color: '#93c5fd', grams: Math.round(totals.carb  || 0), target: (window.userProfile?.carbs_g    || 0) },
-    { key: 'fat',   label: 'שומן',    color: '#fca5a5', grams: Math.round(totals.fat   || 0), target: (window.userProfile?.fat_g      || 0) },
-    { key: 'fiber', label: 'סיבים',   color: '#c4b5fd', grams: Math.round(totals.fiber || 0), target: 25 },
-  ];
-
-  const totalGrams = macros.reduce((s, m) => s + m.grams, 0) || 1;
-  const CX = 100, CY = 100, R = 72, GAP_DEG = 3;
-  const SVG_NS = 'http://www.w3.org/2000/svg';
-
-  function degToRad(d) { return d * Math.PI / 180; }
-  function arcPath(startDeg, sweepDeg, cx, cy, r) {
-    if (sweepDeg <= 0) return null;
-    const s = degToRad(startDeg);
-    const e = degToRad(startDeg + sweepDeg);
-    const x1 = cx + r * Math.cos(s), y1 = cy + r * Math.sin(s);
-    const x2 = cx + r * Math.cos(e), y2 = cy + r * Math.sin(e);
-    const large = sweepDeg > 180 ? 1 : 0;
-    return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
-  }
-
-  const svgEl = document.getElementById(svgId);
-  if (!svgEl) return;
-  svgEl.innerHTML = '';
-
-  // Background ring
-  const bg = document.createElementNS(SVG_NS, 'circle');
-  bg.setAttribute('cx', CX); bg.setAttribute('cy', CY); bg.setAttribute('r', R);
-  bg.setAttribute('fill', 'none'); bg.setAttribute('stroke', 'var(--surface2)'); bg.setAttribute('stroke-width', '20');
-  svgEl.appendChild(bg);
-
-  let currentDeg = -90;
-  macros.forEach((m, i) => {
-    const pct = m.grams / totalGrams;
-    const sweepDeg = pct * 360 - GAP_DEG;
-    if (sweepDeg <= 0) { currentDeg += pct * 360; return; }
-
-    const d = arcPath(currentDeg, sweepDeg, CX, CY, R);
-    if (!d) { currentDeg += pct * 360; return; }
-
-    const path = document.createElementNS(SVG_NS, 'path');
-    path.setAttribute('d', d);
-    path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', m.color);
-    path.setAttribute('stroke-width', '20');
-    path.setAttribute('stroke-linecap', 'round');
-    path.setAttribute('data-macro', i);
-    path.setAttribute('data-label', `${m.label}: ${m.grams}גר׳${m.target ? ' / ' + m.target + 'גר׳' : ''}`);
-    path.style.cursor = 'pointer';
-
-    // Tap/click handler — inline tooltip
-    path.addEventListener('click', (e) => {
-      const tip = document.getElementById(tooltipId);
-      if (!tip) return;
-      const active = path.getAttribute('data-active') === '1';
-      // Clear all
-      svgEl.querySelectorAll('[data-macro]').forEach(p => p.removeAttribute('data-active'));
-      if (active) { tip.style.display = 'none'; return; }
-      path.setAttribute('data-active', '1');
-      tip.textContent = path.getAttribute('data-label');
-      tip.style.display = 'block';
-    });
-
-    svgEl.appendChild(path);
-    currentDeg += pct * 360;
-  });
-
-  // Close click-outside — use a stored handler to avoid duplicates
-  if (svgEl._plateClickHandler) {
-    svgEl.removeEventListener('click', svgEl._plateClickHandler);
-  }
-  svgEl._plateClickHandler = (e) => {
-    if (!e.target.hasAttribute('data-macro')) {
-      const tip = document.getElementById(tooltipId);
-      if (tip) tip.style.display = 'none';
-      svgEl.querySelectorAll('[data-macro]').forEach(p => p.removeAttribute('data-active'));
-    }
-  };
-  svgEl.addEventListener('click', svgEl._plateClickHandler);
-
-  // Legend
-  const legendEl = document.getElementById(legendId);
-  if (legendEl) {
-    legendEl.innerHTML = macros.map(m => `
-      <div class="plate-legend-item">
-        <div class="plate-legend-dot" style="background:${m.color}"></div>
-        <span>${m.label} ${m.grams}גר׳</span>
-      </div>`).join('');
-  }
-}
-
-function renderMacroProgressBars(t) {
-  const items = [
-    { label: 'חלבון',    val: Math.round(t.protein_g || 0), target: 50,  color: '#5eead4' },
-    { label: 'פחמימות', val: Math.round(t.carbs_g || 0),   target: 250, color: '#93c5fd' },
-    { label: 'שומן',    val: Math.round(t.fat_g || 0),     target: 65,  color: '#fca5a5' },
-    { label: 'סיבים',   val: Math.round(t.fiber_g || 0),   target: 25,  color: '#c4b5fd' },
-  ];
-  return items.map(item => `
-    <div class="prog-row">
-      <div class="prog-label"><span>${item.label}</span><span style="font-family:'IBM Plex Mono',monospace">${item.val} גרם</span></div>
-      <div class="prog-track"><div class="prog-fill" style="width:${Math.min(item.val / item.target * 100, 100)}%;background:${item.color}"></div></div>
-    </div>
-  `).join('');
-}
-
-// ════════════════════════════════════════════════════
 // Modals & Toast
 // ════════════════════════════════════════════════════
 
 // ════════════════════════════════════════════════════
 // Init
 // ════════════════════════════════════════════════════
+// Screen hooks: the per-screen enter/leave behaviour that navigate() used to hard-code.
+// Registration order matches the order of the original if/else chain in navigate().
+registerScreen('dashboard', { enter: () => { loadDashboard(); animateDashStagger(); }, leave: stopFireCanvas });
+registerScreen('home',      { enter: loadDiary });
+registerScreen('stats',     { enter: () => { loadStats(); }, leave: stopStatsCapyWalk });
+registerScreen('weight',    { enter: loadWeightScreen });
+registerScreen('camera',    { enter: animatePlaceholder });
+registerScreen('analysis',  { enter: () => _cameraCapyState('neutral') });
+
 populateProfileSelects();
 loadProfile();
 
-if (token) {
-  setLoggedIn(token, username);
+if (getToken()) {
+  setLoggedIn(getToken(), getUsername());
 } else {
   navigate('welcome');
 }

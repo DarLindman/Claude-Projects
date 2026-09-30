@@ -4,8 +4,8 @@ const API = ''; // Same origin
 // module does not import session.js, which itself imports apiFetch (keeps the graph acyclic).
 let _getToken = () => null;
 let _onUnauthorized = () => {};
-export function configureApi({ getToken, onUnauthorized }) {
-  _getToken = getToken;
+export function configureApi({ readToken, onUnauthorized }) {
+  _getToken = readToken;
   _onUnauthorized = onUnauthorized;
 }
 
