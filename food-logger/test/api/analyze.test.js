@@ -1,24 +1,28 @@
 'use strict';
 
-const { test, before, after } = require('node:test');
+const { test, before, after, mock } = require('node:test');
 const assert = require('node:assert/strict');
 const request = require('supertest');
 const { buildTestApp, signedIn, csrfHeaders } = require('../helpers/app');
 const { MODEL } = require('../../src/lib/anthropic');
 const { IMAGE_SYSTEM_PROMPT, TEXT_SYSTEM_PROMPT } = require('../../src/lib/analysis');
+const { REPAIR_SYSTEM_PROMPT } = require('../../src/lib/hebrewName');
 
 // Real JPEG magic bytes (FF D8 FF E0 ... JFIF) so a future magic-byte check accepts it.
 const JPEG_BASE64 = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01]).toString('base64');
 
 let ctx;
-before(async () => { ctx = await buildTestApp({ limits: { analyzePerHour: 1000 } }); });
-after(async () => { await ctx.pool.end(); });
+before(async () => {
+  ctx = await buildTestApp({ limits: { analyzePerHour: 1000 } });
+  mock.method(console, 'warn', () => {}); // the name guard logs every repaired or cleaned name
+});
+after(async () => { mock.restoreAll(); await ctx.pool.end(); });
 
 test('MODEL is the pinned Haiku id', () => {
   assert.equal(MODEL, 'claude-haiku-4-5-20251001');
 });
 
-test('POST /api/analyze sums items, strips non-Hebrew from names, sends model and image prompt', async () => {
+test('POST /api/analyze sums items, returns the clean dish name, sends model and image prompt', async () => {
   const c = await signedIn(ctx.app, 'imgUser');
   ctx.anthropic.calls.length = 0;
   const res = await c.post('/api/analyze', { imageBase64: JPEG_BASE64, mimeType: 'image/jpeg' });
@@ -56,7 +60,9 @@ test('POST /api/analyze without image returns 400', async () => {
   assert.deepEqual(res.body, { error: { code: 'VALIDATION' }, fields: { imageBase64: 'REQUIRED' } });
 });
 
-test('POST /api/analyze-text translates a non-Hebrew name via ensureHebrewFoodName', async () => {
+// The old silent "translator" call was replaced by the guard's repair call
+// (see hebrewName.js): same trigger (foreign script only), same number of calls.
+test('POST /api/analyze-text repairs a non-Hebrew name with the guard repair call', async () => {
   const c = await signedIn(ctx.app, 'txtUser');
   ctx.anthropic.calls.length = 0;
   const res = await c.post('/api/analyze-text', { text: 'salad' });
@@ -65,7 +71,7 @@ test('POST /api/analyze-text translates a non-Hebrew name via ensureHebrewFoodNa
   assert.equal(ctx.anthropic.calls.length, 2);
   assert.equal(ctx.anthropic.calls[0].model, MODEL);
   assert.equal(ctx.anthropic.calls[0].system, TEXT_SYSTEM_PROMPT);
-  assert.ok(ctx.anthropic.calls[1].system.startsWith('You are a translator'));
+  assert.equal(ctx.anthropic.calls[1].system, REPAIR_SYSTEM_PROMPT);
 });
 
 test('POST /api/analyze-text keeps a Hebrew name unchanged (no translation call)', async () => {

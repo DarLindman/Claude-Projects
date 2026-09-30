@@ -1,6 +1,7 @@
 'use strict';
 
 const { MODEL } = require('./anthropic');
+const { ensureHebrewDishName, cleanDishName } = require('./hebrewName');
 
 // Thrown when the model's reply cannot be turned into nutrition items. Routes
 // map it to the "could not analyze the AI response" 500; any other error maps
@@ -67,25 +68,6 @@ const sumItems = (items) => items.reduce((acc, item) => ({
   fiber_g: acc.fiber_g + (Number(item.fiber_g) || 0),
 }), { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
 
-// ─── Hebrew name sanitizer ────────────────────────────────────────────────────
-async function ensureHebrewFoodName(anthropic, name) {
-  // detect Latin, CJK (Chinese/Japanese/Korean), Arabic, or other non-Hebrew foreign scripts
-  if (!name || !/[a-zA-Z一-鿿぀-ヿ؀-ۿ]/.test(name)) return name;
-  try {
-    const msg = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 60,
-      temperature: 0,
-      system: 'You are a translator. Output ONLY the translated Hebrew food name. No explanations, no punctuation, no extra words. Just the name.',
-      messages: [{ role: 'user', content: `Translate to Hebrew (food name only, no explanation):\n${name}` }]
-    });
-    const raw = msg.content[0].text.trim().replace(/^["']|["']$/g, '');
-    // take only the first line in case the model adds explanation
-    const translated = raw.split('\n')[0].trim();
-    return translated || name;
-  } catch (e) { console.error('ensureHebrewFoodName failed:', e.message); return name; }
-}
-
 // ─── Analyze food image ───────────────────────────────────────────────────────
 async function analyzeImage(anthropic, { imageBase64, mimeType }) {
   const message = await anthropic.messages.create({
@@ -125,11 +107,11 @@ async function analyzeImage(anthropic, { imageBase64, mimeType }) {
   if (!Array.isArray(items) || items.length === 0) {
     throw new AnalysisParseError('no items');
   }
-  // strip any non-Hebrew chars from item names (defensive, for display)
-  const cleanHebrew = s => (s || '').replace(/[^֐-׿\s\d\-'"(),./]/g, '').replace(/\s{2,}/g, ' ').trim();
-  items.forEach(item => { item.name = cleanHebrew(item.name); });
+  // item names are cleaned defensively but not returned; dish_name goes through the
+  // guard as is (missing or of any type it becomes the default name)
+  items.forEach(item => { item.name = cleanDishName(item.name); });
   const totals = sumItems(items);
-  const foodName = cleanHebrew((parsed.dish_name || '').trim()) || 'מנה';
+  const { name: foodName } = await ensureHebrewDishName(anthropic, parsed.dish_name, {});
   return { foodName, ...totals };
 }
 
@@ -159,7 +141,9 @@ async function analyzeText(anthropic, text) {
   }
   if (!Array.isArray(items) || items.length === 0) throw new AnalysisParseError('no items');
   const totals = sumItems(items);
-  const foodName = await ensureHebrewFoodName(anthropic, text.trim());
+  // The shown name is the user's own text: no word limit, at most the food-name limit
+  // of 200 characters, and a text without letters (such as "100") stays as typed.
+  const { name: foodName } = await ensureHebrewDishName(anthropic, text.trim(), { maxWords: Infinity, maxChars: 200, requireHebrewLetter: false });
   return { foodName, ...totals };
 }
 
@@ -169,5 +153,4 @@ module.exports = {
   AnalysisParseError,
   analyzeImage,
   analyzeText,
-  ensureHebrewFoodName,
 };

@@ -5,8 +5,8 @@
 //   - system prompt starts with the repair-prompt prefix -> `fake.repairReply`
 //     (string; a function called with the request that returns a string/response
 //     or throws; an Error instance makes the call reject). Default: 'סלט'
-//   - system prompt starts with "You are a translator" -> plain Hebrew name
-//   - user content is an array (image request)         -> JSON object with items
+//   - user content is an array (image request)         -> `fake.imageReply` when set (a
+//     string, for malformed-reply tests), else a JSON object with dish_name and items
 //   - otherwise (text request)                         -> JSON array of items
 const { REPAIR_PROMPT_PREFIX } = require('../../src/lib/hebrewName');
 
@@ -25,6 +25,7 @@ function fakeAnthropic() {
   const fake = {
     calls,
     repairReply: 'סלט',
+    imageReply: undefined,
     messages: {
       async create(args) {
         calls.push(args);
@@ -34,11 +35,9 @@ function fakeAnthropic() {
           const out = typeof r === 'function' ? r(args) : r;
           return typeof out === 'string' ? reply(out) : out;
         }
-        if (typeof args.system === 'string' && args.system.startsWith('You are a translator')) {
-          return reply('סלט');
-        }
         const content = args.messages?.[0]?.content;
         if (Array.isArray(content)) {
+          if (fake.imageReply !== undefined) return reply(fake.imageReply);
           return reply(JSON.stringify({ dish_name: 'עוף עם אורז', items: IMAGE_ITEMS }));
         }
         return reply(JSON.stringify(TEXT_ITEMS));
