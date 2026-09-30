@@ -2,7 +2,7 @@
 
 require('dotenv').config();
 const path = require('path');
-const { loadConfig } = require('./src/config');
+const { loadConfig, deployWarnings } = require('./src/config');
 const { createPool } = require('./src/db/pool');
 const { migrate } = require('./src/db/migrate');
 const { createAnthropic } = require('./src/lib/anthropic');
@@ -11,6 +11,9 @@ const { createApp } = require('./src/app');
 
 async function main() {
   const config = loadConfig();
+  // What the deploy actually runs with (never secrets); a wrong ORIGIN or NODE_ENV otherwise shows up only as 403s.
+  console.log(`config: nodeEnv=${config.nodeEnv} origin=${config.origin} trustProxy=${config.trustProxy}`);
+  for (const w of deployWarnings(config)) console.warn(`WARNING: ${w}`);
   const pool = createPool(config);
   // An error on an idle pooled client must be logged, not crash silently.
   pool.on('error', (err) => console.error('Unexpected idle database client error:', err));

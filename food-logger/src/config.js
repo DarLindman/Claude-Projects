@@ -112,4 +112,19 @@ function loadConfig(env = process.env) {
   });
 }
 
-module.exports = { loadConfig };
+// Warnings about a deploy that loaded a valid config but is probably misconfigured.
+// Railway sets RAILWAY_ENVIRONMENT / RAILWAY_PUBLIC_DOMAIN; without NODE_ENV=production the
+// app treats ORIGIN as optional (defaulting to localhost), so every browser POST fails the CSRF check.
+function deployWarnings(config, env = process.env) {
+  const warnings = [];
+  const onRailway = read(env, 'RAILWAY_ENVIRONMENT') !== undefined || read(env, 'RAILWAY_PUBLIC_DOMAIN') !== undefined;
+  if (onRailway && config.nodeEnv !== 'production') {
+    warnings.push(
+      `Railway deploy detected but NODE_ENV=${config.nodeEnv}. Set NODE_ENV=production and ORIGIN to the public URL; ` +
+      `otherwise ORIGIN defaults to ${config.origin} and every POST is rejected with 403 (CSRF).`
+    );
+  }
+  return warnings;
+}
+
+module.exports = { loadConfig, deployWarnings };

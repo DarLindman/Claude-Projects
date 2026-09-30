@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { loadConfig } = require('../../src/config');
+const { loadConfig, deployWarnings } = require('../../src/config');
 
 const base = {
   DATABASE_URL: 'postgresql://u:p@localhost:5432/db',
@@ -147,4 +147,15 @@ test('.env.example placeholder JWT_SECRET is rejected, so it cannot be deployed 
   const line = text.split(/\r?\n/).find((l) => l.startsWith('JWT_SECRET='));
   assert.ok(line, 'JWT_SECRET line present');
   assert.throws(() => loadConfig({ ...base, JWT_SECRET: line.slice('JWT_SECRET='.length) }), /JWT_SECRET/);
+});
+
+test('deployWarnings: a Railway deploy without NODE_ENV=production warns, production and non-Railway do not', () => {
+  const dev = loadConfig({ ...base });
+  const prod = loadConfig({ ...base, NODE_ENV: 'production', ORIGIN: 'https://app.example.com' });
+  assert.equal(deployWarnings(dev, { RAILWAY_ENVIRONMENT: 'production' }).length, 1);
+  assert.match(deployWarnings(dev, { RAILWAY_ENVIRONMENT: 'production' })[0], /NODE_ENV=production/);
+  assert.equal(deployWarnings(dev, { RAILWAY_PUBLIC_DOMAIN: 'x.up.railway.app' }).length, 1);
+  assert.deepEqual(deployWarnings(dev, {}), []);
+  assert.deepEqual(deployWarnings(dev, { RAILWAY_ENVIRONMENT: '' }), []);
+  assert.deepEqual(deployWarnings(prod, { RAILWAY_ENVIRONMENT: 'production', RAILWAY_PUBLIC_DOMAIN: 'x' }), []);
 });
