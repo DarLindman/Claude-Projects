@@ -52,3 +52,10 @@ test('protected route without a session cookie returns 401', async () => {
   assert.equal(res.status, 401);
   assert.deepEqual(res.body, { error: { code: 'UNAUTHORIZED' } });
 });
+
+test('login trims the username (" alice " logs in as alice)', async () => {
+  await request(ctx.app).post('/auth/register').set(csrfHeaders(ctx.config)).send({ username: 'trimmed', password: PASSWORD });
+  const res = await request(ctx.app).post('/auth/login').set(csrfHeaders(ctx.config)).send({ username: '  Trimmed  ', password: PASSWORD });
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body, { username: 'trimmed' });
+});

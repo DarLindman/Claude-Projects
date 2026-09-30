@@ -50,7 +50,7 @@ module.exports = function authRoutes({ pool, config, auth, ipLimiter, usernameLi
   router.post('/login', ipLimiter, validate({ body: loginBody }), asyncHandler(async (req, res) => {
     const { username, password } = req.valid.body;
     usernameLimiter.check(username); // before any DB or bcrypt work
-    const { rows } = await pool.query('SELECT * FROM users WHERE username = $1', [username.toLowerCase()]);
+    const { rows } = await pool.query('SELECT * FROM users WHERE username = $1', [username.trim().toLowerCase()]);
     const user = rows[0];
     // Always run bcrypt to prevent timing-based username enumeration
     const valid = await passwords.verifyPassword(password, user ? user.password_hash : passwords.DUMMY_HASH);
