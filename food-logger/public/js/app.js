@@ -1,113 +1,27 @@
 // ════════════════════════════════════════════════════
 // Config & State
 // ════════════════════════════════════════════════════
-const API = ''; // Same origin
 const SCREEN_ORDER = ['welcome','auth','dashboard','home','camera','analysis','stats','weight','settings'];
 let token = localStorage.getItem('fl_token');
 let username = localStorage.getItem('fl_username');
-let currentScreen = 'auth';
-let diaryDate = todayStr();
-let statsMonth = todayStr().slice(0, 7);
-let selectedMeal = 'lunch';
-let capturedImageBase64 = null;
-let capturedMime = 'image/jpeg';
-let currentStatsTab = 'weekly';
-let userProfile = null;
 let pendingToken = null;
 let pendingUsername = null;
-let pendingRegUser = null;
-let pendingRegPass = null;
-let regGender = 'male';
-let regActivity = 'light';
-let regGoalKg = 0;
-let mpGender = 'male';
-let mpActivity = 'light';
-let mpGoalKg = 0;
-let statsYear = new Date().getFullYear().toString();
-let weightLogs = [];
+configureApi({ getToken: () => token, onUnauthorized: () => doLogout() });
+
+import { state } from './state.js';
+import { apiFetch, configureApi } from './api.js';
+import { addDays, addMonths, formatDate, formatDateShort, formatMonth, todayStr } from './dates.js';
+import { closeModal, escapeHtml, openModal, showToast } from './dom.js';
+import { getFoodEmoji } from './format.js';
+import { calcRecommendedCal, loadProfile, updateSettingsProfileSub } from './profile.js';
 
 // ════════════════════════════════════════════════════
 // Date helpers (timezone-safe, local time)
 // ════════════════════════════════════════════════════
-function todayStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-
-function formatDate(str) {
-  const [y, m, d] = str.split('-').map(Number);
-  const date = new Date(y, m - 1, d);
-  const days = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
-  const months = ['ינו','פבר','מרץ','אפר','מאי','יונ','יול','אוג','ספט','אוק','נוב','דצמ'];
-  const isToday = str === todayStr();
-  const label = isToday ? 'היום' : `יום ${days[date.getDay()]}`;
-  return `${label}, ${date.getDate()} ${months[date.getMonth()]}`;
-}
-
-function formatMonth(str) {
-  const [y, m] = str.split('-');
-  const months = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
-  return `${months[+m - 1]} ${y}`;
-}
-
-function addDays(str, n) {
-  const [y, m, d] = str.split('-').map(Number);
-  const date = new Date(y, m - 1, d + n);
-  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
-}
-
-function addMonths(str, n) {
-  const [y, m] = str.split('-').map(Number);
-  const d = new Date(y, m - 1 + n, 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
-
-function formatDateShort(str) {
-  const [y, m, d] = str.split('-').map(Number);
-  return `${d}/${m}`;
-}
 
 // ════════════════════════════════════════════════════
 // Profile & TDEE
 // ════════════════════════════════════════════════════
-function loadProfile() {
-  try { userProfile = JSON.parse(localStorage.getItem('fl_profile')); } catch {}
-}
-
-function profileAge(p) {
-  const pr = p || userProfile;
-  if (!pr) return 0;
-  if (pr.birthDate) {
-    const [by, bm, bd] = pr.birthDate.split('-').map(Number);
-    const t = new Date();
-    let age = t.getFullYear() - by;
-    if (t.getMonth() + 1 < bm || (t.getMonth() + 1 === bm && t.getDate() < bd)) age--;
-    return age;
-  }
-  if (pr.birthYear) return new Date().getFullYear() - +pr.birthYear; // backwards compat
-  return +pr.age || 0;
-}
-
-function calcRecommendedCal(profile) {
-  const p = profile || userProfile;
-  if (!p) return 0;
-  const { gender, height, activity, goalKg } = p;
-  // Always use latest weight log for current user; fall back to stored profile weight
-  // weightLogs is ordered ASC by date from server, so last element is newest
-  let weight = +p.weight || 0;
-  if (!profile && weightLogs.length) {
-    const latestLog = weightLogs[weightLogs.length - 1];
-    if (+latestLog.weight_kg > 0) weight = +latestLog.weight_kg;
-  }
-  const age = profileAge(p);
-  if (!age || !height || !weight) return 0;
-  let bmr = 10 * weight + 6.25 * (+height) - 5 * age;
-  bmr += gender === 'male' ? 5 : -161;
-  const mult = { sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725, vactive: 1.9 };
-  const tdee = bmr * (mult[activity] || 1.2);
-  const adj = (+goalKg || 0) * 7700 / 7;
-  return Math.max(Math.round(tdee + adj), 1000);
-}
 
 // Populate dropdown selects for profile fields
 function populateProfileSelects() {
@@ -144,43 +58,13 @@ function populateProfileSelects() {
   document.getElementById('reg-weight').value = '70.0';
 }
 
-function updateSettingsProfileSub() {
-  const sub = document.getElementById('settings-profile-sub');
-  if (!sub) return;
-  const rec = calcRecommendedCal();
-  sub.textContent = rec > 0 ? `${rec} קל' מומלצות ביום` : 'לא הוגדר';
-}
-
 // ════════════════════════════════════════════════════
 // Security helpers
 // ════════════════════════════════════════════════════
-function escapeHtml(str) {
-  return String(str ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-    .replace(/'/g, '&#39;');
-}
 
 // ════════════════════════════════════════════════════
 // API helpers
 // ════════════════════════════════════════════════════
-async function apiFetch(path, opts = {}) {
-  const res = await fetch(API + path, {
-    ...opts,
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...(opts.headers || {}) }
-  });
-  if (res.status === 401) {
-    if (token) { doLogout(); return; }
-    const errData = await res.json();
-    const err = new Error(errData.error || 'שם משתמש או סיסמא שגויים'); err.status = 401; throw err;
-  }
-  const data = await res.json();
-  if (!res.ok) { const err = new Error(data.error || 'שגיאת שרת'); err.status = res.status; throw err; }
-  return data;
-}
 
 // ════════════════════════════════════════════════════
 // Auth
@@ -215,12 +99,12 @@ function doRegister() {
     return;
   }
   // Store credentials; advance to profile step WITHOUT creating the account yet
-  pendingRegUser = u;
-  pendingRegPass = p;
+  state.pendingRegUser = u;
+  state.pendingRegPass = p;
   document.getElementById('auth-step1').style.display = 'none';
   document.getElementById('auth-step2').style.display = '';
   document.getElementById('auth-error3').textContent = '';
-  regGender = 'male'; regActivity = 'light'; regGoalKg = 0;
+  state.regGender = 'male'; state.regActivity = 'light'; state.regGoalKg = 0;
   document.getElementById('reg-male-btn').classList.add('selected');
   document.getElementById('reg-female-btn').classList.remove('selected');
   document.querySelectorAll('#reg-activity-list .activity-opt').forEach(b => {
@@ -231,20 +115,20 @@ function doRegister() {
 }
 
 function setRegGender(g) {
-  regGender = g;
+  state.regGender = g;
   document.getElementById('reg-male-btn').classList.toggle('selected', g === 'male');
   document.getElementById('reg-female-btn').classList.toggle('selected', g === 'female');
 }
 
 function setRegActivity(a) {
-  regActivity = a;
+  state.regActivity = a;
   document.querySelectorAll('#reg-activity-list .activity-opt').forEach(b => {
     b.classList.toggle('selected', b.dataset.val === a);
   });
 }
 
 function setRegGoal(v) {
-  regGoalKg = v;
+  state.regGoalKg = v;
   const sel = document.getElementById('reg-goal-select');
   if (sel) sel.value = String(v);
 }
@@ -252,13 +136,13 @@ function setRegGoal(v) {
 async function saveRegProfile() {
   document.getElementById('auth-error3').textContent = '';
   try {
-    const data = await apiFetch('/auth/register', { method: 'POST', body: JSON.stringify({ username: pendingRegUser, password: pendingRegPass }) });
+    const data = await apiFetch('/auth/register', { method: 'POST', body: JSON.stringify({ username: state.pendingRegUser, password: state.pendingRegPass }) });
     pendingToken = data.token; pendingUsername = data.username;
   } catch(e) { document.getElementById('auth-error3').textContent = e.message; return; }
   const birthDate = document.getElementById('reg-birthdate').value || '';
   const height = +document.getElementById('reg-height').value || 0;
   const weight = +document.getElementById('reg-weight').value || 0;
-  const profile = { gender: regGender, birthDate, height, weight, activity: regActivity, goalKg: regGoalKg };
+  const profile = { gender: state.regGender, birthDate, height, weight, activity: state.regActivity, goalKg: state.regGoalKg };
   localStorage.setItem('fl_profile', JSON.stringify(profile));
   const authHeader = { Authorization: `Bearer ${pendingToken}` };
   try { await apiFetch('/api/profile', { method: 'PUT', body: JSON.stringify(profile), headers: authHeader }); } catch(e) {}
@@ -271,7 +155,7 @@ async function saveRegProfile() {
 async function skipRegProfile() {
   document.getElementById('auth-error3').textContent = '';
   try {
-    const data = await apiFetch('/auth/register', { method: 'POST', body: JSON.stringify({ username: pendingRegUser, password: pendingRegPass }) });
+    const data = await apiFetch('/auth/register', { method: 'POST', body: JSON.stringify({ username: state.pendingRegUser, password: state.pendingRegPass }) });
     pendingToken = data.token; pendingUsername = data.username;
   } catch(e) { document.getElementById('auth-error3').textContent = e.message; return; }
   finishLogin();
@@ -280,7 +164,7 @@ async function skipRegProfile() {
 function finishLogin() {
   loadProfile();
   setLoggedIn(pendingToken, pendingUsername);
-  pendingToken = null; pendingUsername = null; pendingRegUser = null; pendingRegPass = null;
+  pendingToken = null; pendingUsername = null; state.pendingRegUser = null; state.pendingRegPass = null;
   document.getElementById('auth-step1').style.display = '';
   document.getElementById('auth-step2').style.display = 'none';
 }
@@ -295,12 +179,12 @@ async function setLoggedIn(t, u) {
   try {
     const serverProfile = await apiFetch('/api/profile');
     if (serverProfile && Object.keys(serverProfile).length) {
-      userProfile = serverProfile;
+      state.userProfile = serverProfile;
       localStorage.setItem('fl_profile', JSON.stringify(serverProfile));
     }
   } catch {}
   // Load weight logs at startup so calcRecommendedCal always has current weight
-  try { weightLogs = await apiFetch('/api/weight'); } catch {}
+  try { state.weightLogs = await apiFetch('/api/weight'); } catch {}
   updateSettingsProfileSub();
   navigate('dashboard');
 }
@@ -309,7 +193,7 @@ function doLogout() {
   localStorage.removeItem('fl_token');
   localStorage.removeItem('fl_username');
   localStorage.removeItem('fl_profile');
-  token = null; username = null; userProfile = null;
+  token = null; username = null; state.userProfile = null;
   document.getElementById('bottom-nav').style.display = 'none';
   navigate('auth');
 }
@@ -330,44 +214,44 @@ async function doChangePassword() {
 // ════════════════════════════════════════════════════
 function openProfileModal() {
   // Prefill from current profile
-  if (userProfile) {
-    mpGender = userProfile.gender || 'male';
-    mpActivity = userProfile.activity || 'light';
-    mpGoalKg = userProfile.goalKg || 0;
-    const bd = userProfile.birthDate || (userProfile.birthYear ? `${userProfile.birthYear}-01-01` : '');
+  if (state.userProfile) {
+    state.mpGender = state.userProfile.gender || 'male';
+    state.mpActivity = state.userProfile.activity || 'light';
+    state.mpGoalKg = state.userProfile.goalKg || 0;
+    const bd = state.userProfile.birthDate || (state.userProfile.birthYear ? `${state.userProfile.birthYear}-01-01` : '');
     document.getElementById('mp-birthdate').value = bd;
-    document.getElementById('mp-height').value = userProfile.height || '';
+    document.getElementById('mp-height').value = state.userProfile.height || '';
   } else {
-    mpGender = 'male';
-    mpActivity = 'light';
-    mpGoalKg = 0;
+    state.mpGender = 'male';
+    state.mpActivity = 'light';
+    state.mpGoalKg = 0;
     document.getElementById('mp-birthdate').value = '';
     document.getElementById('mp-height').value = '';
   }
-  document.getElementById('mp-male-btn').classList.toggle('selected', mpGender === 'male');
-  document.getElementById('mp-female-btn').classList.toggle('selected', mpGender === 'female');
+  document.getElementById('mp-male-btn').classList.toggle('selected', state.mpGender === 'male');
+  document.getElementById('mp-female-btn').classList.toggle('selected', state.mpGender === 'female');
   document.querySelectorAll('#mp-activity-list .activity-opt').forEach(b => {
-    b.classList.toggle('selected', b.dataset.val === mpActivity);
+    b.classList.toggle('selected', b.dataset.val === state.mpActivity);
   });
   // Find closest goal option
   const goalOpts = [-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1];
-  const closest = goalOpts.reduce((a, b) => Math.abs(b - mpGoalKg) < Math.abs(a - mpGoalKg) ? b : a);
-  mpGoalKg = closest;
+  const closest = goalOpts.reduce((a, b) => Math.abs(b - state.mpGoalKg) < Math.abs(a - state.mpGoalKg) ? b : a);
+  state.mpGoalKg = closest;
   const goalSel = document.getElementById('mp-goal-select');
-  if (goalSel) goalSel.value = String(mpGoalKg);
+  if (goalSel) goalSel.value = String(state.mpGoalKg);
   updateMpPreview();
   openModal('modal-profile');
 }
 
 function setMpGender(g) {
-  mpGender = g;
+  state.mpGender = g;
   document.getElementById('mp-male-btn').classList.toggle('selected', g === 'male');
   document.getElementById('mp-female-btn').classList.toggle('selected', g === 'female');
   updateMpPreview();
 }
 
 function setMpActivity(a) {
-  mpActivity = a;
+  state.mpActivity = a;
   document.querySelectorAll('#mp-activity-list .activity-opt').forEach(b => {
     b.classList.toggle('selected', b.dataset.val === a);
   });
@@ -375,38 +259,38 @@ function setMpActivity(a) {
 }
 
 function setMpGoal(v) {
-  mpGoalKg = v;
+  state.mpGoalKg = v;
   const sel = document.getElementById('mp-goal-select');
   if (sel) sel.value = String(v);
   updateMpPreview();
 }
 
 function updateMpPreview() {
-  const currentWeight = weightLogs.length ? +weightLogs[weightLogs.length - 1].weight_kg : (userProfile ? +userProfile.weight || 0 : 0);
+  const currentWeight = state.weightLogs.length ? +state.weightLogs[state.weightLogs.length - 1].weight_kg : (state.userProfile ? +state.userProfile.weight || 0 : 0);
   const profile = {
-    gender: mpGender,
+    gender: state.mpGender,
     birthDate: document.getElementById('mp-birthdate').value || '',
     height: +document.getElementById('mp-height').value || 0,
     weight: currentWeight,
-    activity: mpActivity,
-    goalKg: mpGoalKg,
+    activity: state.mpActivity,
+    goalKg: state.mpGoalKg,
   };
   const rec = calcRecommendedCal(profile);
   document.getElementById('mp-cal-preview').textContent = rec > 0 ? `${rec} קל'` : '—';
 }
 
 async function saveMpProfile() {
-  const currentWeight = weightLogs.length ? +weightLogs[weightLogs.length - 1].weight_kg : (userProfile ? +userProfile.weight || 0 : 0);
+  const currentWeight = state.weightLogs.length ? +state.weightLogs[state.weightLogs.length - 1].weight_kg : (state.userProfile ? +state.userProfile.weight || 0 : 0);
   const profile = {
-    gender: mpGender,
+    gender: state.mpGender,
     birthDate: document.getElementById('mp-birthdate').value || '',
     height: +document.getElementById('mp-height').value || 0,
     weight: currentWeight,
-    activity: mpActivity,
-    goalKg: mpGoalKg,
+    activity: state.mpActivity,
+    goalKg: state.mpGoalKg,
   };
   localStorage.setItem('fl_profile', JSON.stringify(profile));
-  userProfile = profile;
+  state.userProfile = profile;
   try { await apiFetch('/api/profile', { method: 'PUT', body: JSON.stringify(profile) }); } catch {}
   updateSettingsProfileSub();
   closeModal('modal-profile');
@@ -545,7 +429,7 @@ function navigate(screen) {
   );
   const el = document.getElementById(`screen-${screen}`);
   el.classList.add('active');
-  const from = SCREEN_ORDER.indexOf(currentScreen);
+  const from = SCREEN_ORDER.indexOf(state.currentScreen);
   const to   = SCREEN_ORDER.indexOf(screen);
   if (from !== -1 && to !== -1 && from !== to) {
     el.classList.add(to > from ? 'screen-enter-right' : 'screen-enter-left');
@@ -553,7 +437,7 @@ function navigate(screen) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const navEl = document.getElementById(`nav-${screen}`);
   if (navEl) navEl.classList.add('active');
-  currentScreen = screen;
+  state.currentScreen = screen;
   if (screen === 'dashboard') { loadDashboard(); animateDashStagger(); }
   else stopFireCanvas();
   if (screen === 'home') loadDiary();
@@ -696,7 +580,7 @@ async function loadDashboard() {
       { cal: 0, pro: 0, carb: 0, fat: 0, fiber: 0 }
     );
     cal = c;
-    goal = calcRecommendedCal(userProfile);
+    goal = calcRecommendedCal(state.userProfile);
     const calEl  = document.getElementById('dash-cal-remaining');
     const sepEl  = document.getElementById('dash-cal-sep');
     const goalEl = document.getElementById('dash-cal-goal-label');
@@ -739,7 +623,7 @@ async function loadDashboard() {
       ? Math.round((new Date(today) - new Date(lastLogDate)) / 86400000)
       : 999;
 
-    const state = getPetState(cal / (goal || 2000), hasLoggedToday, hasLoggedYesterday, daysSinceLastLog);
+    const petState = getPetState(cal / (goal || 2000), hasLoggedToday, hasLoggedYesterday, daysSinceLastLog);
     const wrapEl = document.getElementById('pet-dashboard-wrap');
     if (wrapEl && !wrapEl.querySelector('svg')) {
       wrapEl.appendChild(cloneCapybara(80));
@@ -747,11 +631,11 @@ async function loadDashboard() {
     }
     if (_dashPetWrap) startIdleAnimations(_dashPetWrap);
     const petWrap = wrapEl?.querySelector('.pet-wrap');
-    if (petWrap) setPetState(petWrap, state);
+    if (petWrap) setPetState(petWrap, petState);
 
     const petUsername = username || '';
     document.getElementById('pet-name-label').textContent = petUsername;
-    document.getElementById('pet-status-text').textContent = PET_MESSAGES[state](petUsername);
+    document.getElementById('pet-status-text').textContent = PET_MESSAGES[petState](petUsername);
 
   } catch {}
 }
@@ -760,76 +644,20 @@ async function loadDashboard() {
 // Diary
 // ════════════════════════════════════════════════════
 function changeDay(n) {
-  const next = addDays(diaryDate, n);
+  const next = addDays(state.diaryDate, n);
   if (next > todayStr()) return; // no future
-  diaryDate = next;
+  state.diaryDate = next;
   loadDiary();
 }
 
 async function loadDiary() {
   try {
     const label = document.getElementById('diary-date-label');
-    if (label) label.textContent = formatDate(diaryDate);
-    const entries = await apiFetch(`/api/food?date=${diaryDate}`);
+    if (label) label.textContent = formatDate(state.diaryDate);
+    const entries = await apiFetch(`/api/food?date=${state.diaryDate}`);
     renderMealList(entries);
     renderDailySummary(entries);
   } catch (e) { showToast('שגיאה בטעינת היומן'); }
-}
-
-const MEAL_LABELS = { breakfast: 'בוקר', lunch: 'צהריים', dinner: 'ערב', snack: 'חטיף' };
-const MEAL_BADGE = { breakfast: 'badge-breakfast', lunch: 'badge-lunch', dinner: 'badge-dinner', snack: 'badge-snack' };
-
-const FOOD_EMOJI_MAP = [
-  [['עוף','chicken','שניצל','קציצ'], '🍗'],
-  [['בשר','סטייק','steak','כבד'], '🥩'],
-  [['דג','fish','סלמון','salmon','טונה','tuna','בס','דניס','פילה דג'], '🐟'],
-  [['סלט','salad'], '🥗'],
-  [['פסטה','pasta','ספגטי','spaghetti','פנה','לזניה'], '🍝'],
-  [['פיצה','pizza'], '🍕'],
-  [['סושי','sushi','מאקי'], '🍱'],
-  [['בורגר','המבורגר','burger','hamburger'], '🍔'],
-  [['אורז','rice'], '🍚'],
-  [['לחם','toast','טוסט','כריך','sandwich','פיתה','לאפה','בגט'], '🥪'],
-  [['קרואסון','croissant'], '🥐'],
-  [['ביצה','egg','חביתה','שקשוקה'], '🍳'],
-  [['גבינה','cheese'], '🧀'],
-  [['אבוקדו','avocado'], '🥑'],
-  [['חומוס','hummus'], '🫘'],
-  [['פלאפל','falafel'], '🧆'],
-  [['מרק','soup'], '🍲'],
-  [['יוגורט','yogurt','גביע'], '🥛'],
-  [['שייק חלבון','protein shake','אבקת חלבון'], '💪'],
-  [['שייק','smoothie','shake'], '🥤'],
-  [['קפה','coffee','לאטה','קפוצ'], '☕'],
-  [['תה','tea'], '🍵'],
-  [['מיץ','juice'], '🧃'],
-  [['שוקולד','chocolate'], '🍫'],
-  [['עוגה','cake','קינוח','brownie'], '🎂'],
-  [['גלידה','ice cream','ארטיק'], '🍦'],
-  [['חטיף','chips','צ\'יפס','בייגל'], '🍿'],
-  [['שקדים','almonds','אגוז','nuts','קשיו','פיסטוק'], '🥜'],
-  [['בננה','banana'], '🍌'],
-  [['תפוח','apple'], '🍎'],
-  [['תות','strawberry'], '🍓'],
-  [['ענב','grape'], '🍇'],
-  [['מנגו','mango'], '🥭'],
-  [['תפוז','orange','מיץ תפוזים'], '🍊'],
-  [['אננס','pineapple'], '🍍'],
-  [['אבטיח','watermelon'], '🍉'],
-  [['ירקות','vegetable','ברוקולי','כרוב','גזר'], '🥦'],
-  [['תירס','corn'], '🌽'],
-  [['בטטה','sweet potato'], '🍠'],
-  [['תפוח אדמה','potato'], '🥔'],
-  [['וופל','waffle'], '🧇'],
-  [['פנקייק','pancake'], '🥞'],
-];
-
-function getFoodEmoji(name) {
-  const n = (name || '').toLowerCase();
-  for (const [keywords, emoji] of FOOD_EMOJI_MAP) {
-    if (keywords.some(k => n.includes(k))) return emoji;
-  }
-  return '🍽️';
 }
 
 function renderMealList(entries) {
@@ -1081,7 +909,7 @@ async function editSave() {
 function onImageSelected(e) {
   const file = e.target.files[0];
   if (!file) return;
-  capturedMime = 'image/jpeg';
+  state.capturedMime = 'image/jpeg';
   const reader = new FileReader();
   reader.onload = ev => {
     const img = new Image();
@@ -1096,7 +924,7 @@ function onImageSelected(e) {
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
       const compressed = canvas.toDataURL('image/jpeg', 0.8);
-      capturedImageBase64 = compressed.split(',')[1];
+      state.capturedImageBase64 = compressed.split(',')[1];
       document.getElementById('preview-img').src = compressed;
       document.getElementById('preview-img').style.display = 'block';
       document.querySelector('.cam-placeholder').style.display = 'none';
@@ -1152,10 +980,10 @@ async function analyzeText() {
 }
 
 async function analyzeFood() {
-  if (!capturedImageBase64) return;
+  if (!state.capturedImageBase64) return;
   navigate('analysis');
   _cameraCapyState('thinking');
-  document.getElementById('analysis-img').src = `data:${capturedMime};base64,${capturedImageBase64}`;
+  document.getElementById('analysis-img').src = `data:${state.capturedMime};base64,${state.capturedImageBase64}`;
   document.getElementById('analysis-img').style.display = 'block';
   document.getElementById('analysis-loading').style.display = 'block';
   document.getElementById('analysis-result').style.display = 'none';
@@ -1164,7 +992,7 @@ async function analyzeFood() {
   try {
     const data = await apiFetch('/api/analyze', {
       method: 'POST',
-      body: JSON.stringify({ imageBase64: capturedImageBase64, mimeType: capturedMime })
+      body: JSON.stringify({ imageBase64: state.capturedImageBase64, mimeType: state.capturedMime })
     });
     const resName = document.getElementById('res-name');
     resName.value = data.foodName || '';
@@ -1199,11 +1027,10 @@ async function analyzeFood() {
 function selectMeal(btn) {
   document.querySelectorAll('.meal-opt').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
-  selectedMeal = btn.dataset.meal;
+  state.selectedMeal = btn.dataset.meal;
 }
 
 let _confettiFrame = null; // module-scope so rapid calls cancel previous animation
-
 
 function spawnConfetti() {
   const canvas = document.getElementById('confetti-canvas');
@@ -1253,7 +1080,7 @@ async function saveEntry() {
   saveBtn.disabled = true;
   saveBtn.textContent = 'שומר...';
   const body = {
-    meal_type: selectedMeal,
+    meal_type: state.selectedMeal,
     food_name: document.getElementById('res-name').value.trim() || 'אוכל לא ידוע',
     calories: +document.getElementById('res-cal').value || 0,
     protein_g: +document.getElementById('res-pro').value || 0,
@@ -1266,7 +1093,7 @@ async function saveEntry() {
     await apiFetch('/api/food', { method: 'POST', body: JSON.stringify(body) });
     saveBtn.disabled = false;
     saveBtn.textContent = 'שמור ביומן';
-    diaryDate = todayStr();
+    state.diaryDate = todayStr();
     // Fly-in celebration popup
     const savePopup = document.getElementById('capy-save-popup');
     const savePetSlot = document.getElementById('capy-save-pet');
@@ -1288,7 +1115,7 @@ async function saveEntry() {
     spawnConfetti();
     setTimeout(() => navigate('home'), 2700);
     showToast('✅ נשמר ביומן!');
-    capturedImageBase64 = null;
+    state.capturedImageBase64 = null;
     document.getElementById('preview-img').style.display = 'none';
     document.querySelector('.cam-placeholder').style.display = '';
     document.getElementById('analyze-btn').disabled = true;
@@ -1354,7 +1181,7 @@ function stopStatsCapyWalk() {
 // Stats
 // ════════════════════════════════════════════════════
 function switchStats(tab) {
-  currentStatsTab = tab;
+  state.currentStatsTab = tab;
   const tabs = document.querySelectorAll('.stats-tab');
   tabs.forEach(t => t.classList.remove('active'));
   const idx = ['weekly','monthly','yearly'].indexOf(tab);
@@ -1366,22 +1193,22 @@ function switchStats(tab) {
 }
 
 function statsChangeMonth(n) {
-  const next = addMonths(statsMonth, n);
+  const next = addMonths(state.statsMonth, n);
   if (next > todayStr().slice(0, 7)) return; // no future month
-  statsMonth = next;
+  state.statsMonth = next;
   loadStats();
 }
 function statsChangeYear(n) {
-  const next = +statsYear + n;
+  const next = +state.statsYear + n;
   if (next > new Date().getFullYear()) return; // no future year
-  statsYear = String(next);
+  state.statsYear = String(next);
   loadStats();
 }
 
 async function loadStats() {
-  if (currentStatsTab === 'weekly') await loadWeeklyStats();
-  if (currentStatsTab === 'monthly') await loadMonthlyStats();
-  if (currentStatsTab === 'yearly') await loadYearlyStats();
+  if (state.currentStatsTab === 'weekly') await loadWeeklyStats();
+  if (state.currentStatsTab === 'monthly') await loadMonthlyStats();
+  if (state.currentStatsTab === 'yearly') await loadYearlyStats();
 }
 
 // ── Shared stat helpers ──────────────────────────────────────────────────────
@@ -1474,9 +1301,9 @@ async function loadWeeklyStats() {
 }
 
 async function loadMonthlyStats() {
-  document.getElementById('stats-month-label').textContent = formatMonth(statsMonth);
+  document.getElementById('stats-month-label').textContent = formatMonth(state.statsMonth);
   try {
-    const rows = await apiFetch(`/api/stats/monthly?month=${statsMonth}`);
+    const rows = await apiFetch(`/api/stats/monthly?month=${state.statsMonth}`);
     const rec = calcRecommendedCal();
     renderStatAvgBox('monthly-avg-box', rows, rec, "ממוצע קל' יומי");
     const chartEl = document.getElementById('monthly-chart');
@@ -1581,9 +1408,9 @@ function renderLineChart(rows, { getValue, getLabel, isToday, recommended, dayLe
 }
 
 async function loadYearlyStats() {
-  document.getElementById('stats-year-label').textContent = statsYear;
+  document.getElementById('stats-year-label').textContent = state.statsYear;
   try {
-    const rows = await apiFetch(`/api/stats/yearly?year=${statsYear}`);
+    const rows = await apiFetch(`/api/stats/yearly?year=${state.statsYear}`);
     const rec = calcRecommendedCal();
     const monthNames = ['ינו','פבר','מרץ','אפר','מאי','יונ','יול','אוג','ספט','אוק','נוב','דצמ'];
     const totalCal = rows.reduce((s, r) => s + (+r.calories || 0), 0);
@@ -1621,7 +1448,7 @@ async function loadWeightScreen() {
   dateEl.value = todayStr();
   dateEl.max = todayStr();
   try {
-    weightLogs = await apiFetch('/api/weight');
+    state.weightLogs = await apiFetch('/api/weight');
     renderWeightChart();
     renderWeightList();
   } catch (e) { showToast('שגיאה בטעינת נתוני משקל'); }
@@ -1642,7 +1469,7 @@ async function addWeightLog() {
   try {
     await apiFetch('/api/weight', { method: 'POST', body: JSON.stringify({ weight_kg: +val, logged_at: date || null }) });
     document.getElementById('weight-val').value = '';
-    weightLogs = await apiFetch('/api/weight');
+    state.weightLogs = await apiFetch('/api/weight');
     renderWeightChart();
     renderWeightList();
     // weightLogs refreshed — update all calorie displays
@@ -1655,7 +1482,7 @@ async function addWeightLog() {
 async function deleteWeightLog(id) {
   try {
     await apiFetch(`/api/weight/${id}`, { method: 'DELETE' });
-    weightLogs = weightLogs.filter(w => w.id !== id);
+    state.weightLogs = state.weightLogs.filter(w => w.id !== id);
     renderWeightChart();
     renderWeightList();
     showToast('המדידה נמחקה');
@@ -1664,7 +1491,7 @@ async function deleteWeightLog(id) {
 
 function renderWeightChart() {
   const el = document.getElementById('weight-chart');
-  if (!weightLogs.length) {
+  if (!state.weightLogs.length) {
     el.innerHTML = `<div class="empty-state" style="padding:20px"><p>אין נתונים עדיין</p></div>`;
     return;
   }
@@ -1672,13 +1499,13 @@ function renderWeightChart() {
   const W = 300, H = 130, LEFT = 38, RIGHT = 24, TOP = 12, BOTTOM = 24;
   const chartW = W - LEFT - RIGHT;
   const chartH = H - BOTTOM - TOP;
-  const n = weightLogs.length;
-  const weights = weightLogs.map(w => +w.weight_kg);
+  const n = state.weightLogs.length;
+  const weights = state.weightLogs.map(w => +w.weight_kg);
   const minW = Math.min(...weights);
   const maxW = Math.max(...weights);
   const range = maxW - minW || 1;
 
-  const pts = weightLogs.map((w, i) => {
+  const pts = state.weightLogs.map((w, i) => {
     const x = LEFT + (n === 1 ? chartW / 2 : (i / (n - 1)) * chartW);
     const y = TOP + chartH - ((+w.weight_kg - minW) / range) * chartH;
     return { x, y, w };
@@ -1701,8 +1528,8 @@ function renderWeightChart() {
   `;
 
   // X labels: first and last date (only show last if different from first)
-  const firstDate = escapeHtml(formatDateShort(weightLogs[0].logged_at));
-  const lastDate = escapeHtml(formatDateShort(weightLogs[n-1].logged_at));
+  const firstDate = escapeHtml(formatDateShort(state.weightLogs[0].logged_at));
+  const lastDate = escapeHtml(formatDateShort(state.weightLogs[n-1].logged_at));
   const xLabels = n > 1 ? `
     <text x="${LEFT}" y="${H - 4}" text-anchor="start" font-size="8" fill="#7a6e62" font-family="IBM Plex Mono,monospace">${firstDate}</text>
     ${firstDate !== lastDate ? `<text x="${W - RIGHT}" y="${H - 4}" text-anchor="end" font-size="8" fill="#7a6e62" font-family="IBM Plex Mono,monospace">${lastDate}</text>` : ''}
@@ -1725,19 +1552,19 @@ function renderWeightChart() {
 
 function renderWeightList() {
   const el = document.getElementById('weight-list');
-  if (!weightLogs.length) {
+  if (!state.weightLogs.length) {
     el.innerHTML = `<div class="empty-state"><div class="empty-icon">⚖️</div><p>אין מדידות עדיין</p></div>`;
     return;
   }
   // Update profile weight from latest log (last item = newest, server orders ASC)
-  const latestWeight = +weightLogs[weightLogs.length - 1].weight_kg;
-  if (userProfile && latestWeight) {
-    userProfile.weight = latestWeight;
-    localStorage.setItem('fl_profile', JSON.stringify(userProfile));
-    apiFetch('/api/profile', { method: 'PUT', body: JSON.stringify(userProfile) }).catch(() => {});
+  const latestWeight = +state.weightLogs[state.weightLogs.length - 1].weight_kg;
+  if (state.userProfile && latestWeight) {
+    state.userProfile.weight = latestWeight;
+    localStorage.setItem('fl_profile', JSON.stringify(state.userProfile));
+    apiFetch('/api/profile', { method: 'PUT', body: JSON.stringify(state.userProfile) }).catch(() => {});
   }
   // Display newest first
-  el.innerHTML = [...weightLogs].reverse().map(w => `
+  el.innerHTML = [...state.weightLogs].reverse().map(w => `
     <div class="weight-entry">
       <button class="delete-btn" onclick="deleteWeightLog(${w.id})" aria-label="מחק">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
@@ -1864,17 +1691,6 @@ function renderMacroProgressBars(t) {
 // ════════════════════════════════════════════════════
 // Modals & Toast
 // ════════════════════════════════════════════════════
-function openModal(id) { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-
-let toastTimer;
-function showToast(msg) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
-}
 
 // ════════════════════════════════════════════════════
 // Init
@@ -1935,9 +1751,10 @@ Object.assign(window, {
   switchStats,
   updateMpPreview,
 });
-// One inline handler (the register step-2 "back" button) assigns to these top-level
-// `let` bindings by name; keep that assignment hitting the module bindings.
+// TEMPORARY bridge accessors, removed in Task 12 together with the inline handlers.
+// One inline handler (the register step-2 "back" button) assigns to these names by bare
+// name (pendingRegUser=null;...); the accessors delegate to state.pendingRegUser/Pass.
 Object.defineProperties(window, {
-  pendingRegUser: { get: () => pendingRegUser, set: v => { pendingRegUser = v; }, configurable: true },
-  pendingRegPass: { get: () => pendingRegPass, set: v => { pendingRegPass = v; }, configurable: true },
+  pendingRegUser: { get: () => state.pendingRegUser, set: v => { state.pendingRegUser = v; }, configurable: true },
+  pendingRegPass: { get: () => state.pendingRegPass, set: v => { state.pendingRegPass = v; }, configurable: true },
 });
