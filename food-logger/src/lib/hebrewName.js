@@ -4,6 +4,12 @@
 // repair it with one small AI call only when needed, otherwise clean carefully
 // (removing a foreign character together with the whole word it touches) and,
 // as a last resort, use a neutral default. Never throws on a bad name.
+//
+// Two modes. 'dish' (default) is for AI dish names and is strict: the allowed set
+// below, at most six words. 'userText' is for text the user typed: it is shown as
+// typed, only letters of a non-Hebrew script and unsafe invisible characters count
+// as foreign (emoji, punctuation, symbols and digits are kept), the repair is a
+// translation that must keep every other word, and there is no word limit.
 
 const { MODEL } = require('./anthropic');
 
@@ -13,6 +19,10 @@ const REPAIR_SYSTEM_PROMPT = `${REPAIR_PROMPT_PREFIX} You receive a food or dish
   'Rewrite it using Hebrew letters only, as the everyday name an average Israeli would say for this food. ' +
   'Do not transliterate letter by letter when Israelis use a different common name. ' +
   'Keep it short (at most six words). Output only the name: no quotes, no explanation, no other language.';
+const REPAIR_TEXT_SYSTEM_PROMPT = `${REPAIR_PROMPT_PREFIX} You receive a short text in which a person describes what they ate. ` +
+  'Some words in it are not in Hebrew. Translate every non-Hebrew word into Hebrew, using the everyday name an average Israeli would say. ' +
+  'Keep all other words, numbers and punctuation exactly as they are. Do not shorten, summarise or reorder the text. ' +
+  'Output only the text: no quotes, no explanation.';
 
 // The one definition of the allowed set: Hebrew block (letters, final forms,
 // nikud, geresh, gershayim), ASCII digits, plain ASCII whitespace (space, tab,
@@ -25,6 +35,19 @@ const CONTROL_CHAR = /[\u0000-\u001F\u007F-\u009F]/;
 // Something worth asking the AI about: a letter of any script or an emoji.
 const RECOVERABLE = /[\p{L}\p{Extended_Pictographic}]/u;
 
+// userText mode. Foreign = a letter outside the Hebrew block, or a character that
+// cannot be shown safely: controls, soft hyphen, zero-width, bidi and BOM, line and
+// paragraph separators, lone surrogates. (A zero-width joiner between two emoji is
+// part of the emoji and is kept.) Non-ASCII spaces are whitespace and are normalised.
+const FOREIGN_LETTER = /(?![֐-׿])\p{L}/u;
+const UNSAFE_SRC = '[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u00AD\\u180E\\u200B-\\u200F\\u2028\\u2029\\u202A-\\u202E\\u2060-\\u206F\\uFEFF\\uD800-\\uDFFF]';
+const UNSAFE_OR_JOINER = new RegExp(`((?<=\\p{Extended_Pictographic}\\uFE0F?)\\u200D(?=\\p{Extended_Pictographic}))|${UNSAFE_SRC}`, 'gu');
+const SPACES = /[ \t\r\n   -   　]+/g;
+const stripUnsafe = (s) => s.replace(UNSAFE_OR_JOINER, (m, joiner) => (joiner ? m : ''));
+const hasForeignText = (s) => FOREIGN_LETTER.test(s) || stripUnsafe(s) !== s;
+const normalizeSpaces = (s) => s.replace(SPACES, ' ').trim();
+const keyOf = (w) => w.replace(/[^\p{L}\p{N}]/gu, '');
+
 const MAX_INPUT_CHARS = 500; // anything longer is cut before any processing
 const MAX_LOG_CHARS = 80;
 const WS = new Set([' ', '\t', '\r', '\n']);
@@ -34,6 +57,7 @@ const STRAY = "-\u2013\u2014'\"\u2019\u201C\u201D,.:;/+&";
 const STRAY_START = new Set([...STRAY, ')']);
 const STRAY_END = new Set([...STRAY, '(']);
 const CONNECTORS = ['עם', 'של', 'על', 'את', 'או'];
+const HAS_QUOTE_EDGE = /^["'“”‘’״]|["'“”‘’״]$/;
 const QUOTE_EDGES = /^["'\u201C\u201D\u2018\u2019\u05F4]+|["'\u201C\u201D\u2018\u2019\u05F4]+$/g;
 
 const words = (s) => s.split(/[ \t\r\n]+/).filter(Boolean);
@@ -53,13 +77,13 @@ function isValidDishName(name, { maxWords = 6, maxChars = 60, requireHebrewLette
 
 // Strip stray punctuation and dangling connector words at both ends until
 // stable. Index-based, so it is linear in the input length.
-function trimEdges(s) {
+function trimEdges(s, punctuation = true) {
   let start = 0;
   let end = s.length;
   for (let changed = true; changed;) {
     changed = false;
-    while (start < end && (WS.has(s[start]) || STRAY_START.has(s[start]))) { start++; changed = true; }
-    while (end > start && (WS.has(s[end - 1]) || STRAY_END.has(s[end - 1]))) { end--; changed = true; }
+    while (start < end && (WS.has(s[start]) || (punctuation && STRAY_START.has(s[start])))) { start++; changed = true; }
+    while (end > start && (WS.has(s[end - 1]) || (punctuation && STRAY_END.has(s[end - 1])))) { end--; changed = true; }
     for (const c of CONNECTORS) {
       if (end - start >= 2 && s.startsWith(c, start) && (end - start === 2 || WS.has(s[start + 2]))) { start += 2; changed = true; break; }
     }
@@ -77,7 +101,7 @@ function cleanDishName(name) {
 
 // Keep the first maxWords words and at most maxChars characters, cut at a
 // word boundary, then drop a connector left dangling by the cut.
-function shortenName(clean, { maxWords, maxChars }) {
+function shortenName(clean, { maxWords, maxChars, punctuation = true }) {
   let out = '';
   for (const w of words(clean).slice(0, maxWords)) {
     const next = out ? `${out} ${w}` : w;
@@ -87,23 +111,37 @@ function shortenName(clean, { maxWords, maxChars }) {
     }
     out = next;
   }
-  return trimEdges(out);
+  return trimEdges(out, punctuation);
+}
+
+// userText: drop unsafe characters and only the words that contain foreign letters;
+// emoji, punctuation and every other word stay. Only dangling connectors are trimmed.
+function cleanUserText(name) {
+  const visible = stripUnsafe(normalizeSpaces(name.slice(0, MAX_INPUT_CHARS)));
+  return trimEdges(words(visible).filter((w) => !FOREIGN_LETTER.test(w)).join(' '), false);
+}
+
+// A translation must keep every word that was not foreign; a summary is refused.
+function keepsTheOtherWords(original, repaired) {
+  const have = new Set(words(repaired).map(keyOf));
+  return words(original).filter((w) => !FOREIGN_LETTER.test(w)).map(keyOf).every((k) => !k || have.has(k));
 }
 
 // One small repair call. Any failure or malformed reply is "no repair" (null).
-async function repairName(anthropic, name) {
+async function repairName(anthropic, name, userText) {
   try {
     const res = await anthropic.messages.create({
       model: MODEL,
-      max_tokens: 40,
+      max_tokens: userText ? 400 : 40,
       temperature: 0,
-      system: REPAIR_SYSTEM_PROMPT,
+      system: userText ? REPAIR_TEXT_SYSTEM_PROMPT : REPAIR_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: name }],
     });
     const text = res?.content?.[0]?.text;
     if (typeof text !== 'string') return null;
-    const line = text.trim().split(/\r?\n/)[0].trim().replace(QUOTE_EDGES, '');
-    return trimEdges(words(line).join(' '));
+    const line = text.trim().split(/\r?\n/)[0].trim();
+    if (userText) return normalizeSpaces(HAS_QUOTE_EDGE.test(name) ? line : line.replace(QUOTE_EDGES, ''));
+    return trimEdges(words(line.replace(QUOTE_EDGES, '')).join(' '));
   } catch {
     return null;
   }
@@ -117,8 +155,9 @@ function logLine(action, name) {
 }
 
 async function ensureHebrewDishName(anthropic, original, options = {}) {
-  const { maxWords = 6, maxChars = 60, requireHebrewLetter = true, log = console.warn } = options;
-  const limits = { maxWords, maxChars, requireHebrewLetter };
+  const { maxWords = 6, maxChars = 60, requireHebrewLetter = true, mode = 'dish', log = console.warn } = options;
+  const userText = mode === 'userText';
+  const limits = { maxWords, maxChars, requireHebrewLetter, punctuation: !userText };
   const finish = (result) => {
     if (result.action !== 'ok') log(logLine(result.action, original));
     return result;
@@ -126,23 +165,27 @@ async function ensureHebrewDishName(anthropic, original, options = {}) {
 
   if (typeof original !== 'string' || !original.trim()) return finish({ name: DEFAULT_DISH_NAME, action: 'fallback' });
   const name = original.slice(0, MAX_INPUT_CHARS);
-  const foreign = findForeignScript(name);
+  const foreign = userText ? hasForeignText(name) : findForeignScript(name);
+  // Whitespace runs are normalised silently in userText; in dish mode they make it "cleaned".
+  const tidy = userText ? normalizeSpaces(name) : words(name).join(' ');
 
   // Unchanged only when nothing was cut and the name is already normalised.
-  if (!foreign && name === original && name === words(name).join(' ') && isValidDishName(name, limits)) {
-    return { name, action: 'ok' };
+  if (!foreign && name === original && (userText || name === tidy) && isValidDishName(tidy, limits)) {
+    return { name: tidy, action: 'ok' };
   }
 
   // Ask the AI only when there is foreign script and something recoverable in it.
-  if (foreign && RECOVERABLE.test(name)) {
-    const repaired = await repairName(anthropic, name);
-    if (repaired && !findForeignScript(repaired) && isValidDishName(repaired, limits)) {
-      return finish({ name: repaired, action: 'repaired' });
-    }
+  if (userText ? FOREIGN_LETTER.test(name) : foreign && RECOVERABLE.test(name)) {
+    const source = userText ? stripUnsafe(tidy) : name;
+    const repaired = await repairName(anthropic, source, userText);
+    const accepted = userText
+      ? repaired && !hasForeignText(repaired) && keepsTheOtherWords(source, repaired)
+      : repaired && !findForeignScript(repaired);
+    if (accepted && isValidDishName(repaired, limits)) return finish({ name: repaired, action: 'repaired' });
   }
 
   // Too long but otherwise clean Hebrew is shortened, never replaced by the default.
-  const cleaned = cleanDishName(name);
+  const cleaned = userText ? cleanUserText(name) : cleanDishName(name);
   const candidate = isValidDishName(cleaned, limits) ? cleaned : shortenName(cleaned, limits);
   if (isValidDishName(candidate, limits)) return finish({ name: candidate, action: 'cleaned' });
   return finish({ name: DEFAULT_DISH_NAME, action: 'fallback' });
@@ -150,6 +193,7 @@ async function ensureHebrewDishName(anthropic, original, options = {}) {
 
 module.exports = {
   REPAIR_SYSTEM_PROMPT,
+  REPAIR_TEXT_SYSTEM_PROMPT,
   REPAIR_PROMPT_PREFIX,
   DEFAULT_DISH_NAME,
   findForeignScript,

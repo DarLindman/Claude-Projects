@@ -3,7 +3,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  REPAIR_SYSTEM_PROMPT, REPAIR_PROMPT_PREFIX, DEFAULT_DISH_NAME,
+  REPAIR_SYSTEM_PROMPT, REPAIR_TEXT_SYSTEM_PROMPT, REPAIR_PROMPT_PREFIX, DEFAULT_DISH_NAME,
   findForeignScript, isValidDishName, cleanDishName, ensureHebrewDishName,
 } = require('../../src/lib/hebrewName');
 const { MODEL } = require('../../src/lib/anthropic');
@@ -380,4 +380,57 @@ test('input is capped at 500 characters and a truncated name is never ok', async
   assert.equal(r.action, 'cleaned');
   assert.equal(r.name.length, 500);
   assert.equal(fake.calls.length, 0);
+});
+
+// ─── mode: 'userText' (Ruling R-I) ───────────────────────────────────────────
+const USER_TEXT = { mode: 'userText', maxWords: Infinity, maxChars: 200, requireHebrewLetter: false };
+
+test('userText prompt starts with the shared prefix, tells the AI to keep everything else and never to summarise', () => {
+  assert.ok(REPAIR_TEXT_SYSTEM_PROMPT.startsWith(REPAIR_PROMPT_PREFIX));
+  assert.match(REPAIR_TEXT_SYSTEM_PROMPT, /Do not shorten, summarise/);
+  assert.ok(!/six words/.test(REPAIR_TEXT_SYSTEM_PROMPT));
+});
+
+test("default mode is 'dish': punctuation still triggers a repair there, but not in userText", async () => {
+  const dish = setup('אורז עם עוף');
+  const r1 = await ensureHebrewDishName(dish.fake, 'אורז עם עוף!', { log: dish.log });
+  assert.deepEqual([r1.name, r1.action, dish.fake.calls.length], ['אורז עם עוף', 'repaired', 1]);
+  const text = setup();
+  const r2 = await ensureHebrewDishName(text.fake, 'אורז עם עוף!', { ...USER_TEXT, log: text.log });
+  assert.deepEqual([r2, text.fake.calls.length, text.logs.length], [{ name: 'אורז עם עוף!', action: 'ok' }, 0, 0]);
+});
+
+test('userText: emoji, symbols, digits and normalised whitespace are ok with no call and no log', async () => {
+  for (const [typed, shown] of [['🍗', '🍗'], ['100', '100'], ['ארוחה 25₪', 'ארוחה 25₪'], ['  סלט \t\n ולחם  ', 'סלט ולחם'], ['סלט　ולחם', 'סלט ולחם'], ['👨‍🍳', '👨‍🍳']]) {
+    const { fake, logs, log } = setup();
+    assert.deepEqual(await ensureHebrewDishName(fake, typed, { ...USER_TEXT, log }), { name: shown, action: 'ok' }, JSON.stringify(typed));
+    assert.deepEqual([fake.calls.length, logs.length], [0, 0]);
+  }
+});
+
+test('userText: a lone zero-width joiner, bidi marks, a BOM and a lone surrogate are never ok', async () => {
+  for (const typed of ['סלט‍ולחם', 'סלט\u202Bולחם', '﻿סלט', 'סלט\uD800ולחם', 'סלט\u0000ולחם']) {
+    const { fake, logs, log } = setup();
+    const r = await ensureHebrewDishName(fake, typed, { ...USER_TEXT, log });
+    assert.equal(r.action, 'cleaned', JSON.stringify(typed));
+    assert.ok(!/[\u0000-\u001F​-\u200F\u202A-\u202E﻿\uD800-\uDFFF]/.test(r.name), JSON.stringify(typed));
+    assert.equal(fake.calls.length, 0);
+    assert.equal(logs.length, 1);
+  }
+});
+
+test('userText: cleaning removes only the words with foreign letters and keeps punctuation and emoji', async () => {
+  const { fake, log } = setup(new Error('down'));
+  assert.deepEqual(await ensureHebrewDishName(fake, 'אורז 🍗 pasta, עם עוף!', { ...USER_TEXT, log }), { name: 'אורז 🍗 עם עוף!', action: 'cleaned' });
+  assert.deepEqual(await ensureHebrewDishName(fake, 'סלט עם pasta', { ...USER_TEXT, log }), { name: 'סלט', action: 'cleaned' });
+  assert.deepEqual(await ensureHebrewDishName(fake, 'pasta', { ...USER_TEXT, log }), { name: DEFAULT_DISH_NAME, action: 'fallback' });
+});
+
+test('userText: a repair that drops a word is refused, a faithful one is accepted', async () => {
+  const dropped = setup('סלט');
+  assert.equal((await ensureHebrewDishName(dropped.fake, 'סלט ולחם pasta', { ...USER_TEXT, log: dropped.log })).action, 'cleaned');
+  const faithful = setup('סלט ולחם פסטה');
+  assert.deepEqual(await ensureHebrewDishName(faithful.fake, 'סלט ולחם pasta', { ...USER_TEXT, log: faithful.log }), { name: 'סלט ולחם פסטה', action: 'repaired' });
+  const tooLong = setup('סלט ולחם ' + 'פסטה '.repeat(60));
+  assert.equal((await ensureHebrewDishName(tooLong.fake, 'סלט ולחם pasta', { ...USER_TEXT, log: tooLong.log })).action, 'cleaned');
 });

@@ -141,9 +141,10 @@ async function analyzeText(anthropic, text) {
   }
   if (!Array.isArray(items) || items.length === 0) throw new AnalysisParseError('no items');
   const totals = sumItems(items);
-  // The shown name is the user's own text: no word limit, at most the food-name limit
+  // The shown name is what the user typed: only non-Hebrew letters are translated, the
+  // rest (punctuation, emoji, digits) stays; no word limit, at most the food-name limit
   // of 200 characters, and a text without letters (such as "100") stays as typed.
-  const { name: foodName } = await ensureHebrewDishName(anthropic, text.trim(), { maxWords: Infinity, maxChars: 200, requireHebrewLetter: false });
+  const { name: foodName } = await ensureHebrewDishName(anthropic, text.trim(), { mode: 'userText', maxWords: Infinity, maxChars: 200, requireHebrewLetter: false });
   return { foodName, ...totals };
 }
 

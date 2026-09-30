@@ -6,7 +6,7 @@ const request = require('supertest');
 const { buildTestApp, signedIn, csrfHeaders } = require('../helpers/app');
 const { MODEL } = require('../../src/lib/anthropic');
 const { IMAGE_SYSTEM_PROMPT, TEXT_SYSTEM_PROMPT } = require('../../src/lib/analysis');
-const { REPAIR_SYSTEM_PROMPT } = require('../../src/lib/hebrewName');
+const { REPAIR_TEXT_SYSTEM_PROMPT } = require('../../src/lib/hebrewName');
 
 // Real JPEG magic bytes (FF D8 FF E0 ... JFIF) so a future magic-byte check accepts it.
 const JPEG_BASE64 = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01]).toString('base64');
@@ -61,7 +61,7 @@ test('POST /api/analyze without image returns 400', async () => {
 });
 
 // The old silent "translator" call was replaced by the guard's repair call
-// (see hebrewName.js): same trigger (foreign script only), same number of calls.
+// (see hebrewName.js, text mode): same trigger (non-Hebrew letters only), same number of calls.
 test('POST /api/analyze-text repairs a non-Hebrew name with the guard repair call', async () => {
   const c = await signedIn(ctx.app, 'txtUser');
   ctx.anthropic.calls.length = 0;
@@ -71,7 +71,7 @@ test('POST /api/analyze-text repairs a non-Hebrew name with the guard repair cal
   assert.equal(ctx.anthropic.calls.length, 2);
   assert.equal(ctx.anthropic.calls[0].model, MODEL);
   assert.equal(ctx.anthropic.calls[0].system, TEXT_SYSTEM_PROMPT);
-  assert.equal(ctx.anthropic.calls[1].system, REPAIR_SYSTEM_PROMPT);
+  assert.equal(ctx.anthropic.calls[1].system, REPAIR_TEXT_SYSTEM_PROMPT);
 });
 
 test('POST /api/analyze-text keeps a Hebrew name unchanged (no translation call)', async () => {

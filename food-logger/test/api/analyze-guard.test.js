@@ -4,7 +4,7 @@
 const { test, before, after, beforeEach, mock } = require('node:test');
 const assert = require('node:assert/strict');
 const { buildTestApp, signedIn } = require('../helpers/app');
-const { REPAIR_PROMPT_PREFIX, DEFAULT_DISH_NAME } = require('../../src/lib/hebrewName');
+const { REPAIR_PROMPT_PREFIX, REPAIR_TEXT_SYSTEM_PROMPT, DEFAULT_DISH_NAME } = require('../../src/lib/hebrewName');
 const { IMAGE_ITEMS } = require('../helpers/fakeAnthropic');
 
 const JPEG_BASE64 = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01]).toString('base64');
@@ -134,19 +134,112 @@ test('text: a text without letters is kept as typed', async () => {
   assert.equal(repairCalls().length, 0);
 });
 
-test('text: 200 characters pass untouched; 201 is not rejected by validation but is shortened to fit the food-name limit', async () => {
+test('text: 200 characters pass untouched; a 201-character text is shortened at a word boundary and logged as cleaned', async () => {
   const exactly200 = Array(40).fill('אורזים').join(' ').slice(0, 200).trim();
   const ok = await client.post('/api/analyze-text', { text: exactly200 });
   assert.equal(ok.status, 200);
   assert.equal(ok.body.foodName, exactly200);
+  assert.equal(warn.mock.callCount(), 0);
 
   // The route accepts up to 500 characters of description; the shown name must fit 200.
-  const long = Array(40).fill('אורז').join(' ').slice(0, 201);
+  const long = Array(41).fill('אורז').join(' ').slice(0, 201);
+  assert.equal(long.length, 201);
   const res = await client.post('/api/analyze-text', { text: long });
   assert.equal(res.status, 200);
-  assert.ok(res.body.foodName.length <= 200);
-  assert.notEqual(res.body.foodName, DEFAULT_DISH_NAME);
+  assert.equal(res.body.foodName, Array(40).fill('אורז').join(' ')); // 199 characters, 40 whole words
   assert.equal(repairCalls().length, 0);
+  assert.equal(warn.mock.callCount(), 1);
+  assert.match(warn.mock.calls[0].arguments[0], /^hebrewName cleaned: /);
+});
+
+// Text the user typed is shown as typed: only non-Hebrew LETTERS are translated.
+const AS_TYPED = [
+  ['אורז עם עוף!', 'אורז עם עוף!'],
+  ['מה אכלתי? סלט', 'מה אכלתי? סלט'],
+  ['ארוחה 25₪', 'ארוחה 25₪'],
+  ['שניצל 🍗', 'שניצל 🍗'],
+  ['מבשל 👨\u200D🍳 בבית', 'מבשל 👨\u200D🍳 בבית'],
+  ['100', '100'],
+  ['שווארמה 50%', 'שווארמה 50%'],
+  ['סלט  ולחם', 'סלט ולחם'],
+  ['סלט\nולחם', 'סלט ולחם'],
+  ['סלט\u00A0ולחם', 'סלט ולחם'],
+  ['סלט… ולחם – טוב', 'סלט… ולחם – טוב'],
+];
+for (const [typed, shown] of AS_TYPED) {
+  test(`text: ${JSON.stringify(typed)} comes back as typed with no AI repair and no log`, async () => {
+    const res = await client.post('/api/analyze-text', { text: typed });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.foodName, shown);
+    assert.equal(ctx.anthropic.calls.length, 1);
+    assert.equal(warn.mock.callCount(), 0);
+  });
+}
+
+const PASTA_TEXT = 'אני אכלתי היום בארוחת הצהריים חצי צלחת pasta עם עוף וסלט ירקות';
+const WITHOUT_PASTA = 'אני אכלתי היום בארוחת הצהריים חצי צלחת עם עוף וסלט ירקות';
+const WITH_FUSILLI = PASTA_TEXT.replace('pasta', 'פסטה');
+
+test('text: one English word in a 12-word description is translated with the text prompt, the other words are kept', async () => {
+  assert.equal(PASTA_TEXT.split(' ').length, 12);
+  ctx.anthropic.repairReply = (req) => req.messages[0].content.replace('pasta', 'פסטה');
+  const res = await client.post('/api/analyze-text', { text: PASTA_TEXT });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.foodName, WITH_FUSILLI);
+  assert.equal(ctx.anthropic.calls.length, 2);
+  assert.equal(repairCalls().length, 1);
+  const repair = repairCalls()[0];
+  assert.equal(repair.system, REPAIR_TEXT_SYSTEM_PROMPT);
+  assert.ok(!/six words|at most/i.test(repair.system));
+  assert.equal(repair.messages[0].content, PASTA_TEXT);
+  assert.equal(warn.mock.callCount(), 1);
+  assert.match(warn.mock.calls[0].arguments[0], /^hebrewName repaired: /);
+});
+
+test('text: punctuation around the translated word is kept', async () => {
+  ctx.anthropic.repairReply = (req) => req.messages[0].content.replace('pasta', 'פסטה');
+  const res = await client.post('/api/analyze-text', { text: 'אורז עם עוף! pasta?' });
+  assert.equal(res.body.foodName, 'אורז עם עוף! פסטה?');
+});
+
+for (const [label, reply] of [
+  ['throws', new Error('upstream down')],
+  ['returns a six-word summary', 'אכלתי פסטה עם עוף וסלט'],
+  ['returns an empty string', ''],
+  ['returns English', 'I ate pasta with chicken and salad'],
+]) {
+  test(`text: when the repair call ${label}, only the English word is removed and every other word is kept`, async () => {
+    ctx.anthropic.repairReply = reply;
+    const res = await client.post('/api/analyze-text', { text: PASTA_TEXT });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.foodName, WITHOUT_PASTA);
+    assert.equal(repairCalls().length, 1);
+    assert.match(warn.mock.calls[0].arguments[0], /^hebrewName cleaned: /);
+  });
+}
+
+test('text: invisible characters are never kept (no repair call when no foreign letter is present)', async () => {
+  const res = await client.post('/api/analyze-text', { text: '\uFEFFסלט\u200B ולחם\u202E' });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.foodName, 'סלט ולחם');
+  assert.equal(repairCalls().length, 0);
+  assert.equal(warn.mock.callCount(), 1);
+  assert.match(warn.mock.calls[0].arguments[0], /^hebrewName cleaned: /);
+});
+
+test('text: invisible characters plus an English word are repaired without the invisible characters in the request', async () => {
+  ctx.anthropic.repairReply = (req) => req.messages[0].content.replace('pasta', 'פסטה');
+  const res = await client.post('/api/analyze-text', { text: '\uFEFFסלט\u200B pasta' });
+  assert.equal(res.body.foodName, 'סלט פסטה');
+  assert.equal(repairCalls()[0].messages[0].content, 'סלט pasta');
+});
+
+test('text: a text of only English words with a failing repair falls back to the default name', async () => {
+  ctx.anthropic.repairReply = new Error('down');
+  const res = await client.post('/api/analyze-text', { text: 'chicken salad' });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.foodName, DEFAULT_DISH_NAME);
+  assert.match(warn.mock.calls[0].arguments[0], /^hebrewName fallback: /);
 });
 
 test('text: 501 characters are rejected by the existing validation, not by the guard', async () => {
