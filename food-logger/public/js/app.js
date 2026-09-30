@@ -16,6 +16,7 @@ import { changeDay, closeEditModal, deleteEntry, editRecalculate, editSave, load
 import { doChangePassword, openProfileModal, populateProfileSelects, saveMpProfile, setMpActivity, setMpGender, setMpGoal, updateMpPreview } from './screens/settings.js';
 import { loadStats, statsChangeMonth, statsChangeYear, stopStatsCapyWalk, switchStats } from './screens/stats.js';
 import { addWeightLog, deleteWeightLog, loadWeightScreen } from './screens/weight.js';
+import { goToAuth } from './screens/welcome.js';
 import { doLogout, getToken, getUsername, setLoggedIn } from './session.js';
 
 // ════════════════════════════════════════════════════
@@ -33,11 +34,6 @@ import { doLogout, getToken, getUsername, setLoggedIn } from './session.js';
 // ════════════════════════════════════════════════════
 // API helpers
 // ════════════════════════════════════════════════════
-
-function goToAuth(tab = 'register') {
-  navigate('auth');
-  switchAuthTab(tab);
-}
 
 // ════════════════════════════════════════════════════
 // Navigation
