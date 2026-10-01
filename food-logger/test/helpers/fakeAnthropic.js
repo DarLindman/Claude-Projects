@@ -9,7 +9,11 @@
 //     string, for malformed-reply tests), else a JSON object with visual_description,
 //     draft_name, dish_name and items (the shape the image prompt asks for); the
 //     response's stop_reason is `fake.imageStopReason` when set, else 'end_turn'
-//   - otherwise (text request)                         -> JSON array of items
+//   - otherwise (text request)                         -> `fake.textReply` when set (a
+//     string), else a JSON array of items
+// `fake.imageContent` / `fake.textContent`, when set, are returned as the response's
+// `content` array as is (any block shapes, for the reply-parsing tests); they win over
+// imageReply / textReply.
 const { REPAIR_PROMPT_PREFIX } = require('../../src/lib/hebrewName');
 
 const IMAGE_ITEMS = [
@@ -29,6 +33,9 @@ function fakeAnthropic() {
     repairReply: 'סלט',
     imageReply: undefined,
     imageStopReason: undefined,
+    imageContent: undefined,
+    textReply: undefined,
+    textContent: undefined,
     messages: {
       async create(args) {
         calls.push(args);
@@ -40,11 +47,13 @@ function fakeAnthropic() {
         }
         const content = args.messages?.[0]?.content;
         if (Array.isArray(content)) {
+          if (fake.imageContent !== undefined) return { content: fake.imageContent, stop_reason: fake.imageStopReason ?? 'end_turn' };
           const text = fake.imageReply !== undefined ? fake.imageReply
             : JSON.stringify({ visual_description: 'grilled chicken with white rice', draft_name: 'עוף עם אורז לבן', dish_name: 'עוף עם אורז', items: IMAGE_ITEMS });
           return { ...reply(text), stop_reason: fake.imageStopReason ?? 'end_turn' };
         }
-        return reply(JSON.stringify(TEXT_ITEMS));
+        if (fake.textContent !== undefined) return { content: fake.textContent, stop_reason: 'end_turn' };
+        return reply(fake.textReply !== undefined ? fake.textReply : JSON.stringify(TEXT_ITEMS));
       },
     },
   };

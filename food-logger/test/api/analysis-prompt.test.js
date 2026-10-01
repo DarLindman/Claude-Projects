@@ -176,11 +176,13 @@ beforeEach(() => {
 const analyze = () => client.post('/api/analyze', { imageBase64: JPEG_BASE64 });
 const logged = () => JSON.stringify(errorLog.mock.calls.map((c) => c.arguments.map(String)));
 
-test('analyzeImage sends the new prompt and user message with temperature 0 and room for the description and the draft', async () => {
+// The default image model is Sonnet, which gets no temperature (Haiku keeps 0: analyze-model.test.js).
+test('analyzeImage sends the new prompt and user message without temperature (Sonnet) and room for the description and the draft', async () => {
   const res = await analyze();
   assert.equal(res.status, 200);
   const call = ctx.anthropic.calls[0];
-  assert.equal(call.temperature, 0);
+  assert.equal(call.model, ctx.config.imageModel);
+  assert.equal('temperature' in call, false);
   assert.ok(call.max_tokens >= 1500);
   assert.equal(call.system, IMAGE_SYSTEM_PROMPT);
   assert.equal(call.messages[0].content[1].text, IMAGE_USER_MESSAGE);

@@ -37,9 +37,10 @@ test('POST /api/analyze sums items, returns the clean dish name, sends model and
   });
   assert.equal(ctx.anthropic.calls.length, 1);
   const call = ctx.anthropic.calls[0];
-  assert.equal(call.model, MODEL);
+  // the image analysis runs on the configured model (IMAGE_MODEL, default Sonnet: no temperature)
+  assert.equal(call.model, 'claude-sonnet-5-5');
   assert.equal(call.system, IMAGE_SYSTEM_PROMPT);
-  assert.equal(call.temperature, 0);
+  assert.equal('temperature' in call, false);
   assert.equal(call.messages[0].content[1].text, IMAGE_USER_MESSAGE);
   assert.equal(call.messages[0].content[0].source.data, JPEG_BASE64);
   assert.equal(call.messages[0].content[0].source.media_type, 'image/jpeg');

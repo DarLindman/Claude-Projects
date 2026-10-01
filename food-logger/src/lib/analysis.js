@@ -2,6 +2,7 @@
 
 const { MODEL } = require('./anthropic');
 const { ensureHebrewDishName, cleanDishName } = require('./hebrewName');
+const { replyText, blockTypes, stopReasonOf, extractJson, isPlainObject } = require('./aiReply');
 
 // Thrown when the model's reply cannot be turned into nutrition items. Routes
 // map it to the "could not analyze the AI response" 500; any other error maps
@@ -92,11 +93,29 @@ const TEXT_SYSTEM_PROMPT = `אתה מחשבון תזונה מדויק למשתמ
 == שמות ==
 בעברית תקנית בלבד — אפס אנגלית, אפס לטינית.`;
 
-// stop_reason is an API enum (end_turn, max_tokens, ...); anything else is not logged as is.
-const stopReasonOf = (message) => {
-  const r = message?.stop_reason;
-  return typeof r === 'string' && /^[a-z_]{1,32}$/.test(r) ? r : 'unknown';
-};
+// The temperature rule, in one place: Haiku gets temperature 0 (as it always has); every
+// other model gets none (null omits the field), because newer models reject it with a 400
+// ("temperature is deprecated for this model").
+const temperatureFor = (model) => (model.startsWith('claude-haiku') ? 0 : null);
+
+// The JSON of a reply, or an AnalysisParseError. The reply describes the user's meal, so it
+// is never logged or put in the error: a failure logs (under `tag`) only its kind, the
+// reply length, the block types and stop_reason (so a reply cut by max_tokens or one
+// without a text block is recognisable), and the error message carries the same details
+// for the route's request-id log line. A JSON.parse message can quote the input, so it is
+// not passed on either. Returns the value and a `fail(kind)` for the caller's own checks.
+function parseReply(message, kind, tag, accept) {
+  const fail = (what, length) => {
+    const details = `${what} (reply of ${length} characters in blocks ${blockTypes(message)}, stop_reason ${stopReasonOf(message)})`;
+    console.error(`[${tag}] ${details}`);
+    throw new AnalysisParseError(details);
+  };
+  const text = replyText(message);
+  if (text === null) fail('no text block', 0);
+  const { value, error } = extractJson(text, kind, accept);
+  if (error) fail(error, text.length);
+  return { value, fail: (what) => fail(what, text.length) };
+}
 
 const sumItems = (items) => items.reduce((acc, item) => ({
   calories: acc.calories + (Number(item.calories) || 0),
@@ -107,11 +126,12 @@ const sumItems = (items) => items.reduce((acc, item) => ({
 }), { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
 
 // ─── Analyze food image ───────────────────────────────────────────────────────
-// `model` and `temperature` are for the evaluation tool; production callers leave them out
-// and get MODEL at temperature 0. `temperature: null` omits the field from the request,
-// because some newer models reject it ("temperature is deprecated for this model").
-async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL, temperature = 0 }) {
+// `model` is the configured image model (config.imageModel) in production; without it the
+// request goes to MODEL. `temperature` defaults to temperatureFor(model); an explicit value
+// wins (the evaluation tool): null omits the field, a number from 0 to 1 is sent.
+async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL, temperature }) {
   if (typeof model !== 'string' || !model.trim()) throw new TypeError('model must be a non-empty string');
+  if (temperature === undefined) temperature = temperatureFor(model);
   if (temperature !== null && !(typeof temperature === 'number' && Number.isFinite(temperature) && temperature >= 0 && temperature <= 1)) {
     throw new TypeError('temperature must be null or a finite number from 0 to 1');
   }
@@ -133,22 +153,8 @@ async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL, t
   });
 
   // The reply describes the user's meal (visual_description, draft_name), so it is never
-  // logged: a failure logs only its kind, the reply length and stop_reason (so a reply cut
-  // by max_tokens is recognisable). A JSON.parse message can quote the input, so it is not
-  // passed on either.
-  const raw = message.content[0].text.trim();
-  const fail = (kind) => {
-    console.error(`[analyze] ${kind} (reply of ${raw.length} characters, stop_reason ${stopReasonOf(message)})`);
-    throw new AnalysisParseError(kind);
-  };
-  let parsed;
-  try {
-    const objMatch = raw.match(/\{[\s\S]*\}/);
-    if (objMatch) parsed = JSON.parse(objMatch[0]);
-  } catch {
-    fail('JSON parse error');
-  }
-  if (!parsed) fail('no JSON object found');
+  // logged (see parseReply).
+  const { value: parsed, fail } = parseReply(message, 'object', 'analyze');
   const items = parsed.items;
   if (!Array.isArray(items) || items.length === 0) fail('no items');
   // visual_description and draft_name are only the model's recognition and first attempt:
@@ -173,19 +179,10 @@ async function analyzeText(anthropic, text) {
       content: `זהה כל מאכל בטקסט וחשב ערכים תזונתיים מדויקים.\nהחזר JSON array בלבד, ללא markdown, ללא הסבר:\n[{"name":"שם בעברית","weight_g":0,"calories":0,"protein_g":0,"carbs_g":0,"fat_g":0,"fiber_g":0}]\nכל הערכים מספרים. weight_g חובה — קבע אותו קודם כל.\n\nהטקסט: ${text.trim()}`
     }]
   });
-  const raw = message.content[0].text.trim();
-  const arrMatch = raw.match(/\[[\s\S]*\]/);
-  if (!arrMatch) {
-    console.error('[analyze-text] no JSON array found in response');
-    throw new AnalysisParseError('no JSON array found');
-  }
-  let items;
-  try { items = JSON.parse(arrMatch[0]); }
-  catch (parseErr) {
-    console.error('[analyze-text] JSON parse error:', parseErr.message, '\nmatched:', arrMatch[0]);
-    throw new AnalysisParseError(parseErr.message);
-  }
-  if (!Array.isArray(items) || items.length === 0) throw new AnalysisParseError('no items');
+  // An array counts only when every element is an object, so a "[1]" in prose or in an
+  // earlier field is skipped and the items array after it is found.
+  const { value: items, fail } = parseReply(message, 'array', 'analyze-text', (a) => a.every(isPlainObject));
+  if (items.length === 0) fail('no items');
   const totals = sumItems(items);
   // The shown name is what the user typed: only non-Hebrew letters are translated, the
   // rest (punctuation, emoji, digits) stays; no word limit, at most the food-name limit
@@ -201,4 +198,5 @@ module.exports = {
   AnalysisParseError,
   analyzeImage,
   analyzeText,
+  temperatureFor,
 };

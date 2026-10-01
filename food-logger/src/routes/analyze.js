@@ -29,7 +29,9 @@ async function callAi(req, fn) {
   }
 }
 
-module.exports = function analyzeRoutes({ anthropic, auth, analyzeLimiter, analyzeIpLimiter }) {
+// `imageModel` is config.imageModel (IMAGE_MODEL); the text analysis stays on MODEL.
+module.exports = function analyzeRoutes({ anthropic, auth, analyzeLimiter, analyzeIpLimiter, imageModel }) {
+  if (typeof imageModel !== 'string' || !imageModel) throw new TypeError('analyzeRoutes needs imageModel');
   const router = express.Router();
 
   // ─── Analyze food image ─────────────────────────────────────────────────────
@@ -39,7 +41,7 @@ module.exports = function analyzeRoutes({ anthropic, auth, analyzeLimiter, analy
     const mimeType = detectImageType(bytes);
     if (!mimeType) throw new AppError(400, 'IMAGE_INVALID');
     const imageBase64 = bytes.toString('base64');
-    res.json(await callAi(req, () => analyzeImage(anthropic, { imageBase64, mimeType })));
+    res.json(await callAi(req, () => analyzeImage(anthropic, { imageBase64, mimeType, model: imageModel })));
   }));
 
   // ─── Analyze food text ──────────────────────────────────────────────────────
