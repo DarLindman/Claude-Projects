@@ -44,7 +44,7 @@ Validated once at startup by `src/config.js`; the process refuses to start (and 
   - `db/` — `pool.js` (TLS policy), `migrate.js` (runs `db/migrations/*.sql` in order, each in a transaction, under an advisory lock; applied versions are kept in `schema_migrations`) and the migrations (`001_baseline.sql`, `002_token_version.sql`). Tables: `users`, `food_logs`, `weight_logs`, `user_profiles`. Add a schema change as a new numbered migration, never by editing an applied one.
   - `middleware/` — `security.js` (CSP and other headers), `csrf.js`, `auth.js`, `validate.js` (zod), `rateLimit.js`, `errors.js` (error contract).
   - `routes/` — `auth`, `food`, `weight`, `profile`, `stats`, `streak`, `analyze`.
-  - `lib/` — `sessions.js` (cookie + JWT), `passwords.js` (bcrypt cost 12), `analysis.js` and `anthropic.js` (AI), `image.js`, `dates.js`, `schemas.js`, `icon.js` (PWA icon generation via `@napi-rs/canvas`).
+  - `lib/` — `sessions.js` (cookie + JWT), `passwords.js` (bcrypt cost 12), `analysis.js` and `anthropic.js` (AI), `hebrewName.js` (guard for food names, see "Hebrew copy and AI naming"), `image.js`, `dates.js`, `schemas.js`, `icon.js` (PWA icon generation via `@napi-rs/canvas`).
 - **`public/index.html`** — markup only (Hebrew RTL, dark theme); CSS in `public/css/`, JS in `public/js/`, fonts self-hosted in `public/fonts/`.
 - **AI** — `POST /api/analyze` (image) and `POST /api/analyze-text` (free text) call `claude-haiku-4-5-20251001` and return a JSON nutritional estimate. Rate limited to 20 requests/hour per **user**, plus a per-**IP** cap of 60 requests/hour shared by both endpoints (registration is open, so per-user alone would let a script mint accounts to multiply billed calls). Knobs: `limits.analyzePerHour`, `limits.analyzePerIpPerHour`.
 
@@ -85,6 +85,36 @@ npm run test:e2e     # Playwright browser tests against the real app on port 310
 - Nothing costs money: the Anthropic client is replaced by a fake (`test/helpers/fakeAnthropic.js`), and no test calls an external service.
 - `npm test` runs files one at a time (`--test-concurrency=1`) because they share the one test database. Do not run it at the same time as `npm run test:e2e`.
 - Playwright needs its Chromium once: `npx playwright install chromium`.
+- The e2e smoke journey fails when run between 00:00 and 03:00 local time: a known, pre-existing bug (local-vs-UTC date mismatch in `editSave`), outside the Hebrew work. Run the e2e suite in the daytime.
+
+### Hebrew copy and AI naming
+
+**The guard (`src/lib/hebrewName.js`).** Every food name that reaches the user goes through `ensureHebrewDishName(anthropic, name, { mode })`, which never throws on a bad name. It returns `{ name, action }` with `action` one of `ok`, `repaired`, `cleaned`, `fallback`.
+- Mode `dish` (image `dish_name`, strict): anything outside Hebrew letters, nikud, digits, plain ASCII whitespace and `- – — ' " ’ “ ” ( ) , . / + & % : ;` is foreign script (Latin, CJK, Arabic, Cyrillic, emoji, control and invisible characters). At most six words and 60 characters.
+- Mode `userText` (text analysis): the text is shown as typed. Only letters of a non-Hebrew script and unsafe invisible characters count as foreign; emoji, punctuation, symbols and digits stay; no word limit; the repair is a translation that must keep every other word.
+- Order: if the name is foreign, one small repair call to the AI (Hebrew letters only, the everyday Israeli name) -> if that fails or is still foreign, careful cleaning (a foreign character is removed together with the whole word it touches; stray punctuation and dangling connectors are trimmed) -> if nothing valid is left, the neutral default `מנה`. A clean name that is only too long is shortened, never replaced.
+- Logging: one `console.warn` line per non-ok outcome, `hebrewName <repaired|cleaned|fallback>: "<name cut to 80 chars>"`. Nothing else about the user's meal is logged.
+- **No per-food hard-coding.** A wrong name is fixed by a general rule (the prompt principles or the guard), never by a list of foods. A per-food exception needs the owner's approval and a reason why no general rule covers it, and is recorded in `docs/hebrew-naming-exceptions.md` (the list is empty).
+
+**Prompt principles (`src/lib/analysis.js`, image analysis).** The model recognises first, then names: the reply starts with `visual_description` (a short neutral English description, a recognition step for the model only, never read, returned or logged), then `dish_name`, then `items`. The name follows general rules (the everyday name an average Israeli would say, Hebrew letters only); the examples in the prompt are illustrations of a rule, never a lookup table. Text analysis keeps the user's own words. The frozen old prompt lives in `scripts/eval/imagePromptV1.js` for the evaluation only and a hash test guards it from edits; `src/` must never `require` anything under `scripts/`.
+
+**Naming evaluation (a developer tool, not part of the app).** It runs the same photos through the old pipeline (old prompt + silent name stripping) and the new one (new prompt + guard), several runs each.
+
+```bash
+cd food-logger
+node scripts/eval-naming.js              # dry run: prints the photo and call counts and an estimated cost, calls nothing
+node scripts/eval-naming.js --yes        # really calls the API (ANTHROPIC_API_KEY from .env); options: --dir eval/photos --runs 3
+```
+
+- Photos go in `food-logger/eval/photos/` (the whole `eval/` directory is git-ignored; the photos are sent only to the Anthropic API). Output: `eval/results.json` and the report `eval/report.html`.
+- Optional `eval/ratings.json`: `{ "<file name>": { "natural": true|false, "note": "" } }`; the report then shows the share of natural names.
+- **Every real run costs money and needs the owner's approval.** The tests never call the API.
+
+**Hebrew copy workflow (everything the user reads).**
+- `node scripts/extract-hebrew-text.js` (from `food-logger/`) collects every Hebrew string into `docs/hebrew-copy-audit.md` and fails if a line with Hebrew is unaccounted for. Run it after changing any user-facing text; the committed table must equal its output (the extractor test checks this part of it).
+- Proposals live in `docs/hebrew-copy-proposals.json`, keyed by the exact current text (`{ proposed, reason, level: recommended|optional, decision }`). Workflow: add a proposal -> the owner approves (`decision`) -> change the app text **and delete the entry from the JSON in the same commit** (a leftover entry is stale and fails the extractor test). The file is currently `{}`. A readable summary is in `docs/hebrew-copy-audit-summary.md`.
+- `test/api/hebrew-spelling.test.js` fails if a known wrong form returns; add a wrong form that must not come back there.
+- `test/e2e/hebrew-baseline.spec.js` compares all visible Hebrew text, per screen, with `test/e2e/__snapshots__/he-text.json`. A copy change updates it deliberately: `UPDATE_SNAPSHOT=1 npm run test:e2e -- hebrew-baseline`, then review the diff line by line before committing.
 
 ### Remotion logo (food-logger/remotion/)
 
@@ -107,6 +137,6 @@ No build step — edit and open directly in a browser. All CSS and JS are inline
 
 ## Style conventions (all files)
 
-- All UI text is in Hebrew; `dir="rtl"` and `lang="he"` on `<html>`
+- All UI text is in Hebrew; `dir="rtl"` and `lang="he"` on `<html>`. In food-logger, changes to Hebrew text follow the audit workflow (see "Hebrew copy and AI naming")
 - CSS variables defined in `:root` for theming
 - Error messages shown to the user are in Hebrew (the food-logger server sends error codes; `public/js/errors.js` holds the Hebrew text)

@@ -1,6 +1,6 @@
 # הגהת הטקסטים באפליקציה — סיכום לבעלים
 
-עברתי על כל הטקסטים שהמשתמש רואה באפליקציה. הטבלה המלאה נמצאת ב-`docs/hebrew-copy-audit.md` ויש בה 313 שורות. הצעתי שינוי רק במקום שיש בו טעות או חוסר עקביות. בודק נוסף, שעברית היא שפת האם שלו, עבר על ההצעות.
+עברתי על כל הטקסטים שהמשתמש רואה באפליקציה. הטבלה המלאה נמצאת ב-`docs/hebrew-copy-audit.md` ויש בה 309 שורות (313 לפני שהוחלו התיקונים). הצעתי שינוי רק במקום שיש בו טעות או חוסר עקביות. בודק נוסף, שעברית היא שפת האם שלו, עבר על ההצעות.
 
 ## כמה הצעות
 
@@ -87,11 +87,11 @@
 - בדיקות e2e שכתוב בהן טקסט שישתנה, ויש לעדכן אותן באותו commit: "שינוי סיסמא" (handlers, hebrew-baseline, hardening, smoke), "סיסמא נוכחית שגויה" (hardening), "מחובר כ: " (xss).
 - ההחלטה שלך על כל הצעה נרשמת בשדה `decision` בקובץ ה-JSON: `approved` (אושר), `rejected` (נדחה) או `edited:<נוסח אחר>`. כך היא לא נמחקת כשהטבלה נוצרת מחדש.
 
-## Applied on 2026-10-01 per the owner's approval
+## הוחל ב-2026-10-01 לפי אישור הבעלים
 
-The owner approved all 64 proposals (58 recommended, 6 optional), answered the seven questions as recommended, and approved the code follow-ups. All of it is applied:
+הבעלים אישר את כל 64 ההצעות (58 מומלצות ו-6 רשות), ענה על שבע השאלות כפי שהומלץ, ואישר את תיקוני הקוד. הכול הוחל:
 
-- **The 64 proposals**, exactly as listed above (commit `fix: approved Hebrew copy corrections`). Each entry was first recorded as `approved` in `docs/hebrew-copy-proposals.json`, then removed when its text changed; the file is now empty and `docs/hebrew-copy-audit.md` is regenerated with the new texts (no proposals, none stale).
-- **Answers:** 1 masculine forms kept; 2 "גר׳" / "גרם" kept; 3 ח / פ / ש / ס kept; 4 the header reads "── ניתוח ──"; 5 a meal saved without a name is "מנה ללא שם" (the only place that produces it is the client, `screens/analysis.js`; existing entries are not migrated); 6 "ארוחה" kept; 7 dates read "1 באוק׳".
-- **Code follow-ups** (commit `fix: Hebrew copy follow-ups …`): dates with ב before every month name ("יום חמישי, 2 באוק׳", "1 במרץ", "1 ביוני"); "יום אחד" for one day in the stats footnote, which is hidden when there are no days, and "יום ברצף" under a streak of 1; the +/- sign, which in Chromium did land on the wrong side of the number, is kept on the left by isolating the signed number left-to-right (`<bdi dir="ltr">` in the stats, invisible LRM marks in the weekly-goal options); the camera screen shows "הגעת למגבלת הניתוחים לשעה, נסה שוב מאוחר יותר" when the hourly analysis limit is reached.
-- **Guards:** `test/api/hebrew-spelling.test.js` fails if a known wrong form returns (סיסמא, הכל במקום אחד, קל', ק"ג / ס"מ with a straight quote, שם האוכל, הרשומה נמחקה, אוכל לא ידוע, מחובר כ:, the old stats footnote, a day count without "יום אחד", month abbreviations without a geresh); the Hebrew baseline snapshot was re-recorded and reviewed line by line.
+- **64 ההצעות**, בדיוק כפי שהן מפורטות למעלה (commit `fix: approved Hebrew copy corrections`). כל הצעה נרשמה קודם כ-`approved` ב-`docs/hebrew-copy-proposals.json`, ואז נמחקה כשהטקסט שונה. הקובץ ריק עכשיו, וב-`docs/hebrew-copy-audit.md` נוצרה מחדש הטבלה עם הטקסטים החדשים (309 שורות, בלי הצעות ובלי הצעות שכבר אינן רלוונטיות).
+- **תשובות:** 1 לשון זכר נשארת; 2 "גר׳" ו"גרם" נשארים; 3 האותיות ח / פ / ש / ס נשארות; 4 הכותרת היא "── ניתוח ──"; 5 ארוחה שנשמרה בלי שם נקראת "מנה ללא שם" (המקום היחיד שיוצר אותה הוא הלקוח, `screens/analysis.js`; רשומות קיימות לא הועברו); 6 "ארוחה" נשאר; 7 התאריכים נכתבים "1 באוק׳".
+- **תיקוני קוד** (commit `fix: Hebrew copy follow-ups …`): ב לפני כל שם חודש ("יום חמישי, 2 באוק׳", "1 במרץ", "1 ביוני"); "יום אחד" ליום בודד בהערת השוליים של מסך הנתונים, שהיא מוסתרת כשאין ימים, ו"יום ברצף" מתחת לרצף של 1; סימן הפלוס/מינוס, שבדפדפן Chromium אכן הופיע בצד הלא נכון של המספר, נשאר בצד שמאל על ידי בידוד המספר עם הסימן משמאל לימין (`<bdi dir="ltr">` בנתונים, סימני LRM בלתי נראים באפשרויות היעד השבועי); מסך המצלמה מציג "הגעת למגבלת הניתוחים לשעה, נסה שוב מאוחר יותר" כשמגיעים למגבלת הניתוחים לשעה.
+- **בדיקות שמגנות:** `test/api/hebrew-spelling.test.js` נכשלת אם צורה שגויה מוכרת חוזרת (סיסמא, הכל במקום אחד, קל', ק"ג / ס"מ עם גרשיים ישרים, שם האוכל, הרשומה נמחקה, אוכל לא ידוע, מחובר כ:, הערת השוליים הישנה של מסך הנתונים, מספר ימים בלי "יום אחד", קיצורי חודשים בלי גרש); תצלום הבסיס של הטקסט העברי (snapshot) נרשם מחדש ונבדק שורה אחר שורה.
