@@ -87,4 +87,11 @@
 - בדיקות e2e שכתוב בהן טקסט שישתנה, ויש לעדכן אותן באותו commit: "שינוי סיסמא" (handlers, hebrew-baseline, hardening, smoke), "סיסמא נוכחית שגויה" (hardening), "מחובר כ: " (xss).
 - ההחלטה שלך על כל הצעה נרשמת בשדה `decision` בקובץ ה-JSON: `approved` (אושר), `rejected` (נדחה) או `edited:<נוסח אחר>`. כך היא לא נמחקת כשהטבלה נוצרת מחדש.
 
-**שום דבר עדיין לא שונה באפליקציה. טקסט ישתנה רק אחרי שתאשר/י אותו.**
+## Applied on 2026-10-01 per the owner's approval
+
+The owner approved all 64 proposals (58 recommended, 6 optional), answered the seven questions as recommended, and approved the code follow-ups. All of it is applied:
+
+- **The 64 proposals**, exactly as listed above (commit `fix: approved Hebrew copy corrections`). Each entry was first recorded as `approved` in `docs/hebrew-copy-proposals.json`, then removed when its text changed; the file is now empty and `docs/hebrew-copy-audit.md` is regenerated with the new texts (no proposals, none stale).
+- **Answers:** 1 masculine forms kept; 2 "גר׳" / "גרם" kept; 3 ח / פ / ש / ס kept; 4 the header reads "── ניתוח ──"; 5 a meal saved without a name is "מנה ללא שם" (the only place that produces it is the client, `screens/analysis.js`; existing entries are not migrated); 6 "ארוחה" kept; 7 dates read "1 באוק׳".
+- **Code follow-ups** (commit `fix: Hebrew copy follow-ups …`): dates with ב before every month name ("יום חמישי, 2 באוק׳", "1 במרץ", "1 ביוני"); "יום אחד" for one day in the stats footnote, which is hidden when there are no days, and "יום ברצף" under a streak of 1; the +/- sign, which in Chromium did land on the wrong side of the number, is kept on the left by isolating the signed number left-to-right (`<bdi dir="ltr">` in the stats, invisible LRM marks in the weekly-goal options); the camera screen shows "הגעת למגבלת הניתוחים לשעה, נסה שוב מאוחר יותר" when the hourly analysis limit is reached.
+- **Guards:** `test/api/hebrew-spelling.test.js` fails if a known wrong form returns (סיסמא, הכל במקום אחד, קל', ק"ג / ס"מ with a straight quote, שם האוכל, הרשומה נמחקה, אוכל לא ידוע, מחובר כ:, the old stats footnote, a day count without "יום אחד", month abbreviations without a geresh); the Hebrew baseline snapshot was re-recorded and reviewed line by line.
