@@ -116,6 +116,11 @@ test('the real sources: every Hebrew line is accounted for and the table is not 
   assert.deepEqual(out.stale, [], 'every proposal in docs/hebrew-copy-proposals.json matches a row');
 });
 
+test('the committed docs/hebrew-copy-audit.md equals what the extractor generates (rerun the script after changing text)', () => {
+  const committed = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'docs', 'hebrew-copy-audit.md'), 'utf8');
+  assert.equal(committed.replace(/\r\n/g, '\n'), build().markdown.replace(/\r\n/g, '\n'));
+});
+
 test('mergeProposals fills proposed text and reason by exact text, reports stale ones, leaves the owner column empty', () => {
   const rows = dedupe([
     { text: 'סיסמא', file: 'a.html', line: 1, where: 'label' },
