@@ -100,6 +100,30 @@ for (const [label, value] of [['missing', undefined], ['null', null], ['a number
   });
 }
 
+// Dish-name limits (tuning round): 8 words and 70 characters.
+test('image: a clean 8-word dish_name is shown unchanged with no log line', async () => {
+  const eight = 'אחד שתיים שלוש ארבע חמש שש שבע שמונה';
+  imageDishName(eight);
+  const res = await analyzeImage();
+  assert.equal(res.status, 200);
+  assert.equal(res.body.foodName, eight);
+  assert.equal(repairCalls().length, 0);
+  assert.equal(warn.mock.callCount(), 0);
+});
+
+test('image: a 9-word dish_name is shortened to 8 words, without a dangling connector', async () => {
+  imageDishName('אחד שתיים שלוש ארבע חמש שש שבע שמונה תשע');
+  let res = await analyzeImage();
+  assert.equal(res.status, 200);
+  assert.equal(res.body.foodName, 'אחד שתיים שלוש ארבע חמש שש שבע שמונה');
+  imageDishName('אחד שתיים שלוש ארבע חמש שש שבע עם תשע');
+  res = await analyzeImage();
+  assert.equal(res.body.foodName, 'אחד שתיים שלוש ארבע חמש שש שבע');
+  assert.equal(repairCalls().length, 0);
+  assert.equal(warn.mock.callCount(), 2);
+  assert.match(warn.mock.calls[0].arguments[0], /^hebrewName cleaned: /);
+});
+
 test('text: a Latin text is repaired through the repair call (one extra call)', async () => {
   const res = await client.post('/api/analyze-text', { text: 'salad' });
   assert.equal(res.status, 200);

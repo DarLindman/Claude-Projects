@@ -71,11 +71,12 @@ test('isValidDishName enforces length, word count and control characters', () =>
   assert.equal(isValidDishName('   '), false);
   assert.equal(isValidDishName(null), false);
   assert.equal(isValidDishName(42), false);
-  assert.equal(isValidDishName('אחד שתיים שלוש ארבע חמש שש'), true);
-  assert.equal(isValidDishName('אחד שתיים שלוש ארבע חמש שש שבע'), false);
-  assert.equal(isValidDishName('אחד שתיים שלוש ארבע חמש שש שבע', { maxWords: Infinity, maxChars: 200 }), true);
-  assert.equal(isValidDishName('א'.repeat(60)), true);
-  assert.equal(isValidDishName('א'.repeat(61)), false);
+  // dish defaults (tuning round): at most 8 words and 70 characters
+  assert.equal(isValidDishName('אחד שתיים שלוש ארבע חמש שש שבע שמונה'), true);
+  assert.equal(isValidDishName('אחד שתיים שלוש ארבע חמש שש שבע שמונה תשע'), false);
+  assert.equal(isValidDishName('אחד שתיים שלוש ארבע חמש שש שבע שמונה תשע', { maxWords: Infinity, maxChars: 200 }), true);
+  assert.equal(isValidDishName('א'.repeat(70)), true);
+  assert.equal(isValidDishName('א'.repeat(71)), false);
   assert.equal(isValidDishName('א'.repeat(200), { maxWords: Infinity, maxChars: 200 }), true);
   assert.equal(isValidDishName('א'.repeat(201), { maxWords: Infinity, maxChars: 200 }), false);
   assert.equal(isValidDishName('עוף\u0000אורז'), false);
@@ -233,7 +234,7 @@ test('ensureHebrewDishName: shortening by characters cuts at a word boundary', a
 test('ensureHebrewDishName: a single over-long word is cut to maxChars', async () => {
   const { fake, log } = setup();
   const r = await ensureHebrewDishName(fake, 'א'.repeat(90), { log });
-  assert.deepEqual(r, { name: 'א'.repeat(60), action: 'cleaned' });
+  assert.deepEqual(r, { name: 'א'.repeat(70), action: 'cleaned' });
 });
 
 test('ensureHebrewDishName: long names pass with relaxed limits', async () => {
@@ -246,8 +247,41 @@ test('ensureHebrewDishName: long names pass with relaxed limits', async () => {
 
 test('ensureHebrewDishName: a foreign name too long after cleaning is shortened', async () => {
   const { fake, log } = setup(new Error('down'));
-  const r = await ensureHebrewDishName(fake, 'אחד שתיים שלוש ארבע חמש שש שבע chicken', { log });
-  assert.deepEqual(r, { name: 'אחד שתיים שלוש ארבע חמש שש', action: 'cleaned' });
+  const r = await ensureHebrewDishName(fake, 'אחד שתיים שלוש ארבע חמש שש שבע שמונה תשע chicken', { log });
+  assert.deepEqual(r, { name: 'אחד שתיים שלוש ארבע חמש שש שבע שמונה', action: 'cleaned' });
+});
+
+// ─── default dish limits: 8 words, 70 characters (tuning round) ──────────────
+test('ensureHebrewDishName defaults: a clean 8-word name is ok, unchanged, with no call and no log', async () => {
+  const { fake, logs, log } = setup();
+  const eight = 'אחד שתיים שלוש ארבע חמש שש שבע שמונה';
+  assert.deepEqual(await ensureHebrewDishName(fake, eight, { log }), { name: eight, action: 'ok' });
+  assert.deepEqual([fake.calls.length, logs.length], [0, 0]);
+});
+
+test('ensureHebrewDishName defaults: a 9-word name is shortened to 8 at a word boundary', async () => {
+  const { fake, logs, log } = setup();
+  const r = await ensureHebrewDishName(fake, 'אחד שתיים שלוש ארבע חמש שש שבע שמונה תשע', { log });
+  assert.deepEqual(r, { name: 'אחד שתיים שלוש ארבע חמש שש שבע שמונה', action: 'cleaned' });
+  assert.equal(fake.calls.length, 0);
+  assert.equal(logs.length, 1);
+});
+
+test('ensureHebrewDishName defaults: a connector left dangling by the 8-word cut is trimmed', async () => {
+  const { fake, log } = setup();
+  const r = await ensureHebrewDishName(fake, 'אחד שתיים שלוש ארבע חמש שש שבע עם תשע', { log });
+  assert.deepEqual(r, { name: 'אחד שתיים שלוש ארבע חמש שש שבע', action: 'cleaned' });
+  assert.equal(fake.calls.length, 0);
+});
+
+test('ensureHebrewDishName defaults: 70 characters are ok, 71 are cut at a word boundary', async () => {
+  const { fake, log } = setup();
+  const seventy = `${'א'.repeat(34)} ${'ב'.repeat(35)}`;
+  assert.equal(seventy.length, 70);
+  assert.deepEqual(await ensureHebrewDishName(fake, seventy, { log }), { name: seventy, action: 'ok' });
+  const seventyOne = `${'א'.repeat(35)} ${'ב'.repeat(35)}`;
+  assert.deepEqual(await ensureHebrewDishName(fake, seventyOne, { log }), { name: 'א'.repeat(35), action: 'cleaned' });
+  assert.equal(fake.calls.length, 0);
 });
 
 // ---- fix round 1 ----

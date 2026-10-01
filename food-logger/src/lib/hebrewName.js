@@ -6,7 +6,7 @@
 // as a last resort, use a neutral default. Never throws on a bad name.
 //
 // Two modes. 'dish' (default) is for AI dish names and is strict: the allowed set
-// below, at most six words. 'userText' is for text the user typed: it is shown as
+// below, at most eight words and 70 characters. 'userText' is for text the user typed: it is shown as
 // typed, only letters of a non-Hebrew script and unsafe invisible characters count
 // as foreign (emoji, punctuation, symbols and digits are kept), the repair is a
 // translation that must keep every other word, and there is no word limit.
@@ -66,7 +66,12 @@ function findForeignScript(name) {
   return typeof name === 'string' && FOREIGN_CHAR.test(name);
 }
 
-function isValidDishName(name, { maxWords = 6, maxChars = 60, requireHebrewLetter = true } = {}) {
+// Strict dish-mode limits. The prompt asks for about five words; the guard leaves
+// room above that so a valid name is never cut in the middle of a phrase.
+const DISH_MAX_WORDS = 8;
+const DISH_MAX_CHARS = 70;
+
+function isValidDishName(name, { maxWords = DISH_MAX_WORDS, maxChars = DISH_MAX_CHARS, requireHebrewLetter = true } = {}) {
   if (typeof name !== 'string') return false;
   const trimmed = name.trim();
   if (!trimmed || CONTROL_CHAR.test(trimmed)) return false;
@@ -155,7 +160,7 @@ function logLine(action, name) {
 }
 
 async function ensureHebrewDishName(anthropic, original, options = {}) {
-  const { maxWords = 6, maxChars = 60, requireHebrewLetter = true, mode = 'dish', log = console.warn } = options;
+  const { maxWords = DISH_MAX_WORDS, maxChars = DISH_MAX_CHARS, requireHebrewLetter = true, mode = 'dish', log = console.warn } = options;
   const userText = mode === 'userText';
   const limits = { maxWords, maxChars, requireHebrewLetter, punctuation: !userText };
   const finish = (result) => {

@@ -1,7 +1,8 @@
 'use strict';
 
-// The image prompt: recognise first (visual_description), then name (dish_name) by
-// general naming principles; the old prompt is frozen for evaluation only.
+// The image prompt: recognise first (visual_description), then a first attempt at the
+// name (draft_name), then the checked final name (dish_name) by general naming
+// principles; the old prompt is frozen for evaluation only.
 const { test, before, after, beforeEach, mock } = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
@@ -69,13 +70,40 @@ const NAMING_PHRASES = [
   'אותו היגיון חל על כל מאכל', // the same reasoning applies to every food
 ];
 
-test('the image prompt holds the recognise-then-name steps and the naming principles', () => {
-  assert.ok(IMAGE_SYSTEM_PROMPT.includes('visual_description'));
-  assert.ok(IMAGE_SYSTEM_PROMPT.includes('dish_name'));
-  assert.ok(IMAGE_SYSTEM_PROMPT.indexOf('visual_description') < IMAGE_SYSTEM_PROMPT.indexOf('dish_name:'));
-  for (const phrase of NAMING_PHRASES) assert.ok(IMAGE_SYSTEM_PROMPT.includes(phrase), `missing: ${phrase}`);
+// Prompt v2 (tuning round): a draft, a self-check and simpler words. Principles only.
+const V2_PHRASES = [
+  'רק מילים שכל ישראלי מכיר',            // (a) only words every Israeli knows ...
+  'בכתיב התקני',                          // ... in standard spelling
+  'קרא שוב כל מילה',                      // ... re-read each word of the name ...
+  'מילה עברית יומיומית אמיתית',           // ... is it a real everyday Hebrew word ...
+  'כתובה נכון',                           // ... spelled correctly ...
+  'החלף אותה',                            // ... if not, replace it
+  'אל תמציא מילה',                        // (b) never invent a word ...
+  'שם לועזי של מנה באותיות עבריות',       // ... nor transliterate a foreign dish word
+  'תאר את האוכל בפשטות',                  // ... describe the food simply ...
+  'המרכיב העיקרי ואיך הוא הוכן',          // ... by its main component and its preparation
+  'עדיף שם כללי ונכון',                   // (c) a correct general category ...
+  'ניחוש מפורט ושגוי',                    // ... beats a specific wrong guess
+  'במרקם, בצורת החיתוך, בצבע ובתוספות',   // ... look at texture, cut, colour and the sides
+  'קרא שוב את הטיוטה',                    // the self-check step
+];
+
+test('the image prompt holds the recognise, draft, check steps and the naming principles', () => {
+  const p = IMAGE_SYSTEM_PROMPT;
+  const vd = p.indexOf('visual_description');
+  const draft = p.indexOf('draft_name');
+  const dish = p.indexOf('dish_name');
+  assert.ok(vd >= 0 && vd < draft && draft < dish, 'visual_description, then draft_name, then dish_name');
+  // the numbered work order says the same, and the dish_name step re-reads the draft
+  const s1 = p.indexOf('1. visual_description');
+  const s2 = p.indexOf('2. draft_name');
+  const s3 = p.indexOf('3. dish_name');
+  const s4 = p.indexOf('4. items');
+  assert.ok(s1 >= 0 && s1 < s2 && s2 < s3 && s3 < s4);
+  assert.ok(p.slice(s3, s4).includes('קרא שוב את הטיוטה'));
+  for (const phrase of [...NAMING_PHRASES, ...V2_PHRASES]) assert.ok(p.includes(phrase), `missing: ${phrase}`);
   // the old "up to 10 words" rule is gone
-  assert.ok(!IMAGE_SYSTEM_PROMPT.includes('עד 10 מילים'));
+  assert.ok(!p.includes('עד 10 מילים'));
 });
 
 test('the nutrition method of the old prompt is kept word for word', () => {
@@ -86,17 +114,27 @@ test('the nutrition method of the old prompt is kept word for word', () => {
   assert.ok(IMAGE_SYSTEM_PROMPT.includes(method));
 });
 
-test('the user message asks for visual_description first, then dish_name, then items', () => {
+test('the user message asks for visual_description, then draft_name, then dish_name, then items', () => {
   const m = IMAGE_USER_MESSAGE;
   const vd = m.indexOf('"visual_description"');
+  const dr = m.indexOf('"draft_name"');
   const dn = m.indexOf('"dish_name"');
   const it = m.indexOf('"items"');
-  assert.ok(vd >= 0 && vd < dn && dn < it);
+  assert.ok(vd >= 0 && vd < dr && dr < dn && dn < it);
+  // the order is also spelled out in words after the JSON shape, with the self-check
+  const after = m.slice(m.indexOf('}]}') + 3);
+  const wVd = after.indexOf('visual_description');
+  const wDr = after.indexOf('draft_name');
+  const wDn = after.indexOf('dish_name');
+  const wIt = after.indexOf('items');
+  assert.ok(wVd >= 0 && wVd < wDr && wDr < wDn && wDn < wIt);
+  assert.ok(after.includes('קרא שוב את הטיוטה'));
   assert.ok(m.includes('weight_g קודם'));
 });
 
 // Illustrative examples are lines starting with EXAMPLE_MARKER. They explain a
-// principle; there must be only a handful and no dictionary-like mapping anywhere.
+// principle; there must be only a handful (at most six) and no dictionary-like
+// mapping anywhere.
 const EXAMPLE_MARKER = '* ';
 test('prompt hygiene: a handful of examples and no food dictionary', () => {
   const lines = IMAGE_SYSTEM_PROMPT.split('\n');
@@ -110,7 +148,7 @@ test('prompt hygiene: a handful of examples and no food dictionary', () => {
   }
   // the only Latin words are the JSON field names
   const latin = new Set(IMAGE_SYSTEM_PROMPT.match(/[A-Za-z_]+/g));
-  assert.deepEqual([...latin].sort(), ['dish_name', 'items', 'visual_description', 'weight_g']);
+  assert.deepEqual([...latin].sort(), ['dish_name', 'draft_name', 'items', 'visual_description', 'weight_g']);
 });
 
 // ─── The call and the reply ───────────────────────────────────────────────────
@@ -133,12 +171,12 @@ beforeEach(() => {
 const analyze = () => client.post('/api/analyze', { imageBase64: JPEG_BASE64 });
 const logged = () => JSON.stringify(errorLog.mock.calls.map((c) => c.arguments.map(String)));
 
-test('analyzeImage sends the new prompt and user message with temperature 0 and room for the description', async () => {
+test('analyzeImage sends the new prompt and user message with temperature 0 and room for the description and the draft', async () => {
   const res = await analyze();
   assert.equal(res.status, 200);
   const call = ctx.anthropic.calls[0];
   assert.equal(call.temperature, 0);
-  assert.ok(call.max_tokens >= 1260);
+  assert.ok(call.max_tokens >= 1500);
   assert.equal(call.system, IMAGE_SYSTEM_PROMPT);
   assert.equal(call.messages[0].content[1].text, IMAGE_USER_MESSAGE);
 });
@@ -202,4 +240,91 @@ test('a broken JSON reply with a description is a 502 and the description is not
   assert.equal(invalid.status, 502);
   assert.deepEqual(invalid.body, { error: { code: 'AI_UNAVAILABLE' } });
   assert.ok(!logged().includes('VISUAL-MARKER'));
+});
+
+// ─── draft_name: model-only, like visual_description ─────────────────────────
+test('the fake image reply carries a draft_name and the response never returns it', async () => {
+  const fakeReply = await ctx.anthropic.messages.create({ messages: [{ role: 'user', content: [] }] });
+  assert.equal(typeof JSON.parse(fakeReply.content[0].text).draft_name, 'string');
+  ctx.anthropic.calls.length = 0;
+  const res = await analyze();
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body, { foodName: 'עוף עם אורז', ...IMAGE_TOTALS });
+  assert.ok(!res.text.includes('draft_name') && !res.text.includes('visual_description'));
+});
+
+test('a 50 KB draft_name and visual_description are ignored, not returned and not logged', async () => {
+  const marker = 'DRAFT-MARKER ';
+  const big = marker.repeat(Math.ceil(50 * 1024 / marker.length));
+  assert.ok(big.length >= 50 * 1024);
+  ctx.anthropic.imageReply = JSON.stringify({ visual_description: big, draft_name: big, dish_name: 'שניצל', items: IMAGE_ITEMS });
+  const res = await analyze();
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body, { foodName: 'שניצל', ...IMAGE_TOTALS });
+  assert.ok(!res.text.includes('DRAFT-MARKER') && !res.text.includes('draft_name'));
+  assert.ok(!logged().includes('DRAFT-MARKER'));
+});
+
+test('the final dish_name wins over a different draft_name', async () => {
+  ctx.anthropic.imageReply = JSON.stringify({ visual_description: 'x', draft_name: 'טיוטה אחרת', dish_name: 'שניצל', items: IMAGE_ITEMS });
+  const res = await analyze();
+  assert.equal(res.status, 200);
+  assert.equal(res.body.foodName, 'שניצל');
+  assert.ok(!res.text.includes('טיוטה אחרת'));
+});
+
+for (const [label, value] of [['missing', undefined], ['a number', 42], ['null', null], ['an object', { he: 'טיוטה' }], ['an array', ['טיוטה']], ['foreign script', 'chicken 米飯']]) {
+  test(`a draft_name that is ${label} is ignored (no repair call, not returned)`, async () => {
+    const reply = { visual_description: 'grilled chicken', dish_name: 'שניצל', items: IMAGE_ITEMS };
+    if (value !== undefined) reply.draft_name = value;
+    ctx.anthropic.imageReply = JSON.stringify(reply);
+    const res = await analyze();
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, { foodName: 'שניצל', ...IMAGE_TOTALS });
+    assert.equal(ctx.anthropic.calls.length, 1);
+    assert.ok(!res.text.includes('draft_name') && !res.text.includes('טיוטה') && !res.text.includes('米飯'));
+  });
+}
+
+test('a dish_name missing next to a draft_name gives the default name, never the draft', async () => {
+  ctx.anthropic.imageReply = JSON.stringify({ visual_description: 'x', draft_name: 'שניצל', items: IMAGE_ITEMS });
+  const res = await analyze();
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body, { foodName: DEFAULT_DISH_NAME, ...IMAGE_TOTALS });
+});
+
+// ─── parse failures log stop_reason (to diagnose truncation), never the reply ─
+test('a truncated reply logs its stop_reason and length, not the draft or the description', async () => {
+  ctx.anthropic.imageStopReason = 'max_tokens';
+  try {
+    ctx.anthropic.imageReply = '{"visual_description":"VISUAL-MARKER plate","draft_name":"DRAFT-MARKER","dish_name":"שניצל","items":[{"name":"x"}, oops}';
+    const invalid = await analyze();
+    assert.equal(invalid.status, 502);
+    ctx.anthropic.imageReply = '{"visual_description":"VISUAL-MARKER plate","draft_name":"DRAFT-MARKER","dish_name":"שניצ';
+    const noObject = await analyze();
+    assert.equal(noObject.status, 502);
+    ctx.anthropic.imageReply = '{"visual_description":"VISUAL-MARKER plate","draft_name":"DRAFT-MARKER","dish_name":"שניצל"}';
+    const noItems = await analyze();
+    assert.equal(noItems.status, 502);
+  } finally {
+    ctx.anthropic.imageStopReason = undefined;
+  }
+  // (the route adds its own "AI request failed" line with the error kind)
+  const lines = errorLog.mock.calls.map((c) => c.arguments.map(String).join(' ')).filter((l) => l.startsWith('[analyze]'));
+  assert.equal(lines.length, 3);
+  for (const l of lines) assert.match(l, /stop_reason max_tokens/);
+  assert.ok(!logged().includes('VISUAL-MARKER') && !logged().includes('DRAFT-MARKER') && !logged().includes('שניצ'));
+});
+
+test('an odd stop_reason value is not logged as is', async () => {
+  ctx.anthropic.imageStopReason = 'DRAFT-MARKER "quoted" value';
+  try {
+    ctx.anthropic.imageReply = 'no json here';
+    const res = await analyze();
+    assert.equal(res.status, 502);
+  } finally {
+    ctx.anthropic.imageStopReason = undefined;
+  }
+  assert.ok(!logged().includes('DRAFT-MARKER'));
+  assert.match(logged(), /stop_reason unknown/);
 });

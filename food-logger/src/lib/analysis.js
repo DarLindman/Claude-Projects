@@ -30,30 +30,38 @@ const IMAGE_SYSTEM_PROMPT = `אתה מנתח תזונה מומחה. נתח תמ�
 - אל תעגל לעשרות/מאות — חשב מדויק (למשל 187 ולא 200).
 - שמות מרכיבים בעברית מדוברת ישראלית בלבד — אותיות עבריות בלבד.
 
-סדר העבודה בתשובה — קודם מזהים, אחר כך קובעים שם:
-1. visual_description — קודם כול תאר באנגלית, במשפט קצר וניטרלי, מה רואים בתמונה: המרכיב העיקרי, אופן ההכנה והתוספות. זה שלב הזיהוי בלבד, עדיין בלי שם למנה.
-2. dish_name — רק אחרי התיאור קבע את שם המנה בעברית, לפי כללי השמות שלהלן. אל תעתיק מילים מהתיאור האנגלי ואל תתרגם אותו מילה במילה: שאל את עצמך איך ישראלי היה קורא למנה הזאת.
-3. items — המרכיבים והערכים התזונתיים, לפי השיטה שלמעלה.
+סדר העבודה בתשובה — קודם מזהים, אחר כך כותבים טיוטה של השם, בודקים אותה, ורק אז קובעים את השם הסופי:
+1. visual_description — קודם כול תאר באנגלית, במשפט קצר וניטרלי, מה רואים בתמונה: המרכיב העיקרי, אופן ההכנה והתוספות. זה שלב הזיהוי בלבד, עדיין בלי שם למנה. לפני שאתה מחליט מהו המרכיב העיקרי, התבונן במרקם, בצורת החיתוך, בצבע ובתוספות שלצדו.
+2. draft_name — טיוטה ראשונה של שם המנה בעברית, לפי כללי השמות שלהלן. אל תעתיק מילים מהתיאור האנגלי ואל תתרגם אותו מילה במילה: שאל את עצמך איך ישראלי היה קורא למנה הזאת.
+3. dish_name — השם הסופי. קרא שוב את הטיוטה ובדוק אותה מול כללי השמות, מילה אחר מילה. אם היא עומדת בכללים, כתוב אותה כפי שהיא; אם לא, תקן אותה.
+4. items — המרכיבים והערכים התזונתיים, לפי השיטה שלמעלה.
 
-כללי השמות ל-dish_name:
+כללי השמות:
 המשתמש קורא את השם ביומן האוכל שלו וצריך לזהות בו מיד את הארוחה שלו. לכן השם צריך להיות במילים שהוא עצמו היה אומר, ולא תרגום, תעתיק או מונח מקצועי.
 - השם שישראלי ממוצע היה אומר: כפי שהמנה כתובה בתפריט של מסעדה, כפי שהמוצר נקרא בסופר, או כפי שהיה מספר לחבר מה אכל.
+- רק מילים שכל ישראלי מכיר, בכתיב התקני. לפני שאתה קובע את השם הסופי, קרא שוב כל מילה בשם ושאל את עצמך: האם זו מילה עברית יומיומית אמיתית, והאם היא כתובה נכון? אם לא, החלף אותה במילה פשוטה ומוכרת.
 - המילה היומיומית עדיפה על תעתיק של מילה לועזית, על מילה מיושנת ועל מילה נדירה או תנ"כית: מילים כאלה נשמעות מוזרות, והמשתמש לא מזהה בהן את האוכל שלו.
+- לעולם אל תמציא מילה, ואל תכתוב שם לועזי של מנה באותיות עבריות. אם אינך יודע את המילה העברית היומיומית, תאר את האוכל בפשטות: המרכיב העיקרי ואיך הוא הוכן (מטוגן, צלוי, אפוי, מבושל או טרי).
 - מילה לועזית מותרת רק כשהיא המילה העברית המקובלת לאותו מאכל (כמו פסטה, פיצה, המבורגר).
 - אם למנה יש שם מוכר, השתמש בו במקום לפרט את המרכיבים שלה.
+- כשאי אפשר לדעת בוודאות מה המאכל, למשל כששני מאכלים נראים דומים בתמונה, עדיף שם כללי ונכון על פני ניחוש מפורט ושגוי.
 - קצר ומדויק: המרכיב העיקרי, ואופן ההכנה רק כשהוא חשוב (מטוגן, צלוי, אפוי), עד חמש מילים בערך. בלי "בצלחת יש", בלי רשימה של כל המרכיבים ובלי מידת עשייה.
 - אותיות עבריות בלבד: בלי אותיות לטיניות, סיניות או של כל כתב אחר, בלי אמוג'י, ובלי לכתוב מילה זרה בכתב המקורי שלה.
 
 דוגמאות להמחשה בלבד. הן מסבירות את העיקרון ואינן רשימה לחיפוש; אותו היגיון חל על כל מאכל אחר, גם על מאכלים שלא מופיעים כאן:
-* פרוסת עוף בציפוי פירורי לחם, מטוגנת: "שניצל", ולא תעתיק כמו "קאטלט" — שניצל הוא השם שכל ישראלי אומר.
+* פרוסת עוף בציפוי פירורי לחם, מטוגנת: "שניצל" — השם שכל ישראלי אומר, ולא תעתיק של שם לועזי.
 * לחמנייה עם קציצת בשר טחון צלויה: "המבורגר" — מילה לועזית, אבל זו המילה המקובלת בעברית.
 * מרק סמיך של עדשים: "מרק עדשים", ולא מילה תנ"כית כמו "נזיד".
 * כדורי פלאפל בתוך פיתה עם סלט וטחינה: "פלאפל בפיתה" — השם המוכר, בלי לפרט כל מה שיש בפיתה.
-* חזה עוף צלוי ולידו אורז: "חזה עוף צלוי עם אורז" — המרכיב העיקרי, אופן ההכנה והתוספת.`;
+* חזה עוף צלוי ולידו אורז: "חזה עוף צלוי עם אורז" — המרכיב העיקרי, אופן ההכנה והתוספת.
+* פרוסת עוגה שלא רואים ממה היא עשויה: "עוגה" — שם כללי ונכון, ולא ניחוש של סוג מסוים.`;
 
 // The user message of the image request: the reply fields in the order the model
-// fills them (recognise, then name, then the nutrition items).
-const IMAGE_USER_MESSAGE = `זהה כל מרכיב בנפרד. השב עם JSON object בלבד, ללא markdown, והשדות בסדר הזה:\n{"visual_description":"short neutral English description","dish_name":"שם המנה","items":[{"name":"שם בעברית","weight_g":0,"calories":0,"protein_g":0,"carbs_g":0,"fat_g":0,"fiber_g":0}]}\nvisual_description קודם (זיהוי), אחריו dish_name לפי כללי השמות, ורק אז items.\nweight_g קודם — אז חשב קלוריות לפי weight_g בלבד.`;
+// fills them (recognise, draft the name, re-read and fix it, then the nutrition items).
+const IMAGE_USER_MESSAGE = `זהה כל מרכיב בנפרד. השב עם JSON object בלבד, ללא markdown, והשדות בסדר הזה:
+{"visual_description":"short neutral English description","draft_name":"טיוטה ראשונה של השם","dish_name":"השם הסופי של המנה","items":[{"name":"שם בעברית","weight_g":0,"calories":0,"protein_g":0,"carbs_g":0,"fat_g":0,"fiber_g":0}]}
+visual_description קודם (זיהוי), אחריו draft_name (טיוטה לפי כללי השמות), אחריו dish_name (קרא שוב את הטיוטה, בדוק כל מילה מול כללי השמות ותקן מה שצריך), ורק אז items.
+weight_g קודם — אז חשב קלוריות לפי weight_g בלבד.`;
 
 const TEXT_SYSTEM_PROMPT = `אתה מחשבון תזונה מדויק למשתמשים ישראלים.
 
@@ -84,6 +92,12 @@ const TEXT_SYSTEM_PROMPT = `אתה מחשבון תזונה מדויק למשתמ
 == שמות ==
 בעברית תקנית בלבד — אפס אנגלית, אפס לטינית.`;
 
+// stop_reason is an API enum (end_turn, max_tokens, ...); anything else is not logged as is.
+const stopReasonOf = (message) => {
+  const r = message?.stop_reason;
+  return typeof r === 'string' && /^[a-z_]{1,32}$/.test(r) ? r : 'unknown';
+};
+
 const sumItems = (items) => items.reduce((acc, item) => ({
   calories: acc.calories + (Number(item.calories) || 0),
   protein_g: acc.protein_g + (Number(item.protein_g) || 0),
@@ -98,7 +112,7 @@ async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL })
   if (typeof model !== 'string' || !model.trim()) throw new TypeError('model must be a non-empty string');
   const message = await anthropic.messages.create({
     model,
-    max_tokens: 1300, // the items plus room for visual_description
+    max_tokens: 1500, // the items plus room for visual_description and draft_name
     temperature: 0,
     system: IMAGE_SYSTEM_PROMPT,
     messages: [{
@@ -113,30 +127,29 @@ async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL })
     }]
   });
 
-  // The reply describes the user's meal (visual_description), so it is never logged:
-  // a failure logs only its kind and the reply length (a JSON.parse message can quote
-  // the input, so it is not passed on either).
+  // The reply describes the user's meal (visual_description, draft_name), so it is never
+  // logged: a failure logs only its kind, the reply length and stop_reason (so a reply cut
+  // by max_tokens is recognisable). A JSON.parse message can quote the input, so it is not
+  // passed on either.
   const raw = message.content[0].text.trim();
+  const fail = (kind) => {
+    console.error(`[analyze] ${kind} (reply of ${raw.length} characters, stop_reason ${stopReasonOf(message)})`);
+    throw new AnalysisParseError(kind);
+  };
   let parsed;
   try {
     const objMatch = raw.match(/\{[\s\S]*\}/);
     if (objMatch) parsed = JSON.parse(objMatch[0]);
   } catch {
-    console.error(`[analyze] JSON parse error (reply of ${raw.length} characters)`);
-    throw new AnalysisParseError('invalid JSON');
+    fail('JSON parse error');
   }
-  if (!parsed) {
-    console.error(`[analyze] no JSON object found (reply of ${raw.length} characters)`);
-    throw new AnalysisParseError('no JSON object found');
-  }
+  if (!parsed) fail('no JSON object found');
   const items = parsed.items;
-  if (!Array.isArray(items) || items.length === 0) {
-    throw new AnalysisParseError('no items');
-  }
-  // visual_description is only the model's recognition step: it is never read here,
-  // so it is not returned, stored or logged. Item names are cleaned defensively but not
-  // returned; dish_name goes through the guard as is (missing or of any type it becomes
-  // the default name)
+  if (!Array.isArray(items) || items.length === 0) fail('no items');
+  // visual_description and draft_name are only the model's recognition and first attempt:
+  // they are never read here, so they are not returned, stored or logged. Item names are
+  // cleaned defensively but not returned; dish_name (the checked final name) goes through
+  // the guard as is (missing or of any type it becomes the default name).
   items.forEach(item => { item.name = cleanDishName(item.name); });
   const totals = sumItems(items);
   const { name: foodName } = await ensureHebrewDishName(anthropic, parsed.dish_name, {});
