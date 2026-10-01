@@ -187,7 +187,7 @@ const THREE = {
       { old: { name: 'עוף', raw: 'עוף' }, new: rec('עוף', 'cleaned'), extra: rec('עוף מטוגן', 'repaired') },
     ] },
     { file: 'b.jpg', runs: [
-      { old: { name: 'מנה', raw: 'x' }, new: rec('מנה', 'fallback'), extra: rec('אחת שתיים שלוש ארבע חמש שש שבע') },
+      { old: { name: 'מנה', raw: 'x' }, new: rec('מנה', 'fallback'), extra: rec('אחת שתיים שלוש ארבע חמש שש שבע שמונה תשע') },
       { old: { error: 'boom' }, new: { error: 'boom' }, extra: { error: 'boom' } },
     ] },
   ],

@@ -1,7 +1,8 @@
 'use strict';
 
-// The standalone HTML report of the naming evaluation (the counting lives in summary.js). Every name, file name and note is HTML-escaped: the names come
-// from an AI and the file names from the disk.
+// The standalone HTML report of the naming evaluation (the counting lives in summary.js).
+// Every name, file name and note is HTML-escaped: the names come from an AI and the file
+// names from the disk.
 
 const { FLAGS, MAX_WORDS, flagsFor, wasStripped, summarize, hasExtra } = require('./summary');
 

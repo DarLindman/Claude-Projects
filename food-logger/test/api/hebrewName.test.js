@@ -3,7 +3,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  REPAIR_SYSTEM_PROMPT, REPAIR_TEXT_SYSTEM_PROMPT, REPAIR_PROMPT_PREFIX, DEFAULT_DISH_NAME,
+  REPAIR_SYSTEM_PROMPT, REPAIR_TEXT_SYSTEM_PROMPT, REPAIR_PROMPT_PREFIX, DEFAULT_DISH_NAME, DISH_MAX_WORDS,
   findForeignScript, isValidDishName, cleanDishName, ensureHebrewDishName,
 } = require('../../src/lib/hebrewName');
 const { MODEL } = require('../../src/lib/anthropic');
@@ -20,6 +20,12 @@ test('constants: prompt prefix and default name', () => {
   assert.equal(REPAIR_PROMPT_PREFIX, 'You are a Hebrew food-name editor.');
   assert.ok(REPAIR_SYSTEM_PROMPT.startsWith(REPAIR_PROMPT_PREFIX));
   assert.equal(DEFAULT_DISH_NAME, 'מנה');
+});
+
+test('the dish repair prompt asks for about five words and does not state the guard limit', () => {
+  assert.equal(DISH_MAX_WORDS, 8);
+  assert.ok(REPAIR_SYSTEM_PROMPT.includes('about five words'));
+  assert.ok(!/six words|at most/i.test(REPAIR_SYSTEM_PROMPT));
 });
 
 test('findForeignScript accepts legitimate Hebrew names (no repair trigger)', () => {

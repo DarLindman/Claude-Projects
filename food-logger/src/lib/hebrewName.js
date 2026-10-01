@@ -18,7 +18,7 @@ const REPAIR_PROMPT_PREFIX = 'You are a Hebrew food-name editor.';
 const REPAIR_SYSTEM_PROMPT = `${REPAIR_PROMPT_PREFIX} You receive a food or dish name that contains characters that are not Hebrew letters. ` +
   'Rewrite it using Hebrew letters only, as the everyday name an average Israeli would say for this food. ' +
   'Do not transliterate letter by letter when Israelis use a different common name. ' +
-  'Keep it short (at most six words). Output only the name: no quotes, no explanation, no other language.';
+  'Keep it short (about five words). Output only the name: no quotes, no explanation, no other language.';
 const REPAIR_TEXT_SYSTEM_PROMPT = `${REPAIR_PROMPT_PREFIX} You receive a short text in which a person describes what they ate. ` +
   'Some words in it are not in Hebrew. Translate every non-Hebrew word into Hebrew, using the everyday name an average Israeli would say. ' +
   'Keep all other words, numbers and punctuation exactly as they are. Do not shorten, summarise or reorder the text. ' +
@@ -201,6 +201,7 @@ module.exports = {
   REPAIR_TEXT_SYSTEM_PROMPT,
   REPAIR_PROMPT_PREFIX,
   DEFAULT_DISH_NAME,
+  DISH_MAX_WORDS,
   findForeignScript,
   isValidDishName,
   cleanDishName,

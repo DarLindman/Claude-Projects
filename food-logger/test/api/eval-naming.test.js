@@ -12,7 +12,7 @@ const { flagsFor, summarize, renderReport } = require('../../scripts/eval/report
 const { run, parseArgs, ESTIMATED_COST_PER_CALL_USD } = require('../../scripts/eval-naming');
 const { analyzeImageV1, cleanHebrewV1 } = require('../../scripts/eval/imagePromptV1');
 const { analyzeImage } = require('../../src/lib/analysis');
-const { REPAIR_PROMPT_PREFIX } = require('../../src/lib/hebrewName');
+const { REPAIR_PROMPT_PREFIX, DISH_MAX_WORDS } = require('../../src/lib/hebrewName');
 
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01]);
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
@@ -52,17 +52,26 @@ const FLAG_CASES = [
   ['cleaned', 'עוף', 'cleaned', ['cleaned']],
   ['fallback default', 'מנה', 'fallback', ['fallback']],
   ['six words is not long', 'אחת שתיים שלוש ארבע חמש שש', 'ok', []],
-  ['seven words is long', 'אחת שתיים שלוש ארבע חמש שש שבע', 'ok', ['long']],
+  ['eight words (the guard limit) is not long', 'אחת שתיים שלוש ארבע חמש שש שבע שמונה', 'ok', []],
+  ['nine words is long', 'אחת שתיים שלוש ארבע חמש שש שבע שמונה תשע', 'ok', ['long']],
   ['empty string', '', undefined, ['empty']],
   ['whitespace only', '   ', undefined, ['empty']],
   ['not a string', null, undefined, ['empty']],
-  ['foreign and long', 'אחת שתיים שלוש ארבע חמש שש שבע 鸡', undefined, ['foreign', 'long']],
+  ['foreign and long', 'אחת שתיים שלוש ארבע חמש שש שבע שמונה 鸡', undefined, ['foreign', 'long']],
 ];
 for (const [label, name, action, expected] of FLAG_CASES) {
   test(`flagsFor: ${label}`, () => {
     assert.deepEqual(flagsFor(name, action), expected);
   });
 }
+
+test('the long flag uses the guard dish limit and the legend names it', () => {
+  const words = (n) => Array.from({ length: n }, () => 'מילה').join(' ');
+  assert.deepEqual(flagsFor(words(DISH_MAX_WORDS), 'ok'), []);
+  assert.deepEqual(flagsFor(words(DISH_MAX_WORDS + 1), 'ok'), ['long']);
+  const html = renderReport({ runsPerPhoto: 1, photos: [{ file: 'a.jpg', runs: [{ old: { name: 'עוף', raw: 'עוף' }, new: { name: 'עוף', raw: 'עוף', action: 'ok' } }] }] }, {});
+  assert.ok(html.includes(`יותר מ-${DISH_MAX_WORDS} מילים`));
+});
 
 // ─── summarize ────────────────────────────────────────────────────────────────
 const runRecord = (oldName, newName, action, extra = {}) => ({

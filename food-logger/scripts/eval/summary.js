@@ -3,10 +3,11 @@
 // Pure counting side of the naming evaluation: the flags of a name and the summary of a
 // results object (old / new / optional extra variant). No HTML here (see report.js).
 
-const { findForeignScript } = require('../../src/lib/hebrewName');
+const { findForeignScript, DISH_MAX_WORDS } = require('../../src/lib/hebrewName');
 
 const FLAGS = ['foreign', 'repaired', 'cleaned', 'fallback', 'long', 'empty'];
-const MAX_WORDS = 6;
+// the guard's own dish limit, so the `long` flag means "the guard would reject this name"
+const MAX_WORDS = DISH_MAX_WORDS;
 
 function flagsFor(name, action) {
   const flags = [];
