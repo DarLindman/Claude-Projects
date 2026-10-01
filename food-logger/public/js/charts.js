@@ -9,7 +9,8 @@ export function renderStatAvgBox(elId, rows, rec, label, customAvg) {
   if (rec > 0) {
     const diff = avgCal - rec;
     const cls = diff <= 0 ? 'under' : 'over';
-    diffHtml = html`<div class="avg-diff ${cls}">${diff > 0 ? '+' : ''}${diff} קק״ל</div><div style="font-size:11px;color:var(--muted)">מהמומלץ</div>`;
+    // the signed number is isolated left-to-right, so its sign stays on its left in the RTL page
+    diffHtml = html`<div class="avg-diff ${cls}"><bdi dir="ltr">${diff > 0 ? '+' : ''}${diff}</bdi> קק״ל</div><div style="font-size:11px;color:var(--muted)">מהמומלץ</div>`;
   }
   setHtml(el, html`<div class="avg-box"><div class="avg-box-left"><div class="avg-val">${avgCal}</div><div class="avg-label">${label}</div></div><div class="avg-box-right">${diffHtml}</div></div>`);
 }
@@ -21,7 +22,8 @@ export function renderStatMacros(elId, rows, footnote, divisor) {
     fat: a.fat + (+r.fat_g || 0), fiber: a.fiber + (+r.fiber_g || 0),
   }), { pro: 0, carb: 0, fat: 0, fiber: 0 });
   const avgt = { protein_g: sum.pro / n, carbs_g: sum.carb / n, fat_g: sum.fat / n, fiber_g: sum.fiber / n };
-  setHtml(document.getElementById(elId), html`${renderMacroProgressBars(avgt)}<p style="font-size:11px;color:var(--muted);margin-top:10px;text-align:center">${footnote}</p>`);
+  // no footnote (no days to average over): the line is left out
+  setHtml(document.getElementById(elId), html`${renderMacroProgressBars(avgt)}${footnote ? html`<p style="font-size:11px;color:var(--muted);margin-top:10px;text-align:center">${footnote}</p>` : ''}`);
 }
 
 // ════════════════════════════════════════════════════

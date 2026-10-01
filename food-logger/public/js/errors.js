@@ -51,3 +51,10 @@ export function messageFor(err) {
   }
   return (err && errors[err.code]) || errors.INTERNAL;
 }
+
+// An AI analysis (camera screen, recalculation in the edit modal) that hit the hourly
+// limit gets its own text; any other failure uses messageFor.
+export const ANALYSIS_LIMIT = 'הגעת למגבלת הניתוחים לשעה, נסה שוב מאוחר יותר';
+export function analysisMessageFor(err) {
+  return err && (err.code === 'RATE_LIMITED' || err.status === 429) ? ANALYSIS_LIMIT : messageFor(err);
+}

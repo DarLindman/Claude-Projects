@@ -5,7 +5,7 @@ import { closeModal, html, openModal, setHtml, showToast } from '../dom.js';
 import { getFoodEmoji } from '../format.js';
 import { cloneCapybara, setIdleWrap, setPetState, startIdleAnimations } from '../pet.js';
 import { calcRecommendedCal } from '../profile.js';
-import { messageFor } from '../errors.js';
+import { analysisMessageFor, messageFor } from '../errors.js';
 
 // ════════════════════════════════════════════════════
 // Diary
@@ -230,10 +230,7 @@ export async function editRecalculate() {
     setHtml(document.getElementById('edit-btn-row'),
       html`<button class="btn btn-primary" style="width:100%" data-action="editSave">שמור</button>`);
   } catch (e) {
-    const msg = e?.status === 429
-      ? 'הגעת למגבלת הניתוחים לשעה, נסה שוב מאוחר יותר'
-      : messageFor(e);
-    showToast(msg);
+    showToast(analysisMessageFor(e));
     updateEditButtons();
   } finally {
     _editAnalyzing = false;

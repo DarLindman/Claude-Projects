@@ -181,7 +181,8 @@ test('text inside a function the app never calls is marked not shown to users', 
   assert.deepEqual(functionLines('a\nexport function f(x) {\n  y;\n}\nz', 'f'), { start: 2, end: 4 });
   assert.equal(functionLines('a', 'f'), null);
   const out = build(undefined, { proposals: {} });
-  const row = out.rows.find((r) => r.locations.some((l) => l.file === 'public/js/screens/dashboard.js'));
+  // the macro line of renderDashLogPreview (dashboard.js also has text the app does show)
+  const row = out.rows.find((r) => r.text.startsWith('ח ${…} · פ') && r.locations.some((l) => l.file === 'public/js/screens/dashboard.js'));
   assert.ok(row.locations.every((l) => /not shown to users: renderDashLogPreview is never called/.test(l.where)));
   assert.match(out.markdown, /`hebrewName\.js` `CONNECTORS` rows are connector words/);
 });

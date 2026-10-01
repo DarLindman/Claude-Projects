@@ -89,6 +89,9 @@ export async function loadDashboard() {
     const { streak, lastLogDate } = await apiFetch('/api/streak');
     const numEl = document.getElementById('dash-streak-num');
     if (numEl) numEl.textContent = streak ?? '—';
+    // the label under the number: "1 יום ברצף", not "1 ימים ברצף"
+    const lblEl = document.querySelector('.dash-streak-lbl');
+    if (lblEl) lblEl.textContent = streak === 1 ? 'יום ברצף' : 'ימים ברצף';
     if (streak >= 1) startFireCanvas();
     else stopFireCanvas();
 

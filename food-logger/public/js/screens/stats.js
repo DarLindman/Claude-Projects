@@ -1,7 +1,7 @@
 import { state } from '../state.js';
 import { apiFetch } from '../api.js';
 import { renderLineChart, renderStatAvgBox, renderStatMacros } from '../charts.js';
-import { addMonths, formatDateShort, formatMonth, todayStr } from '../dates.js';
+import { addMonths, formatDateShort, formatDayCount, formatMonth, todayStr } from '../dates.js';
 import { html, setHtml } from '../dom.js';
 import { cloneCapybara, setPetState } from '../pet.js';
 import { calcRecommendedCal } from '../profile.js';
@@ -83,6 +83,9 @@ export function statsChangeYear(n) {
   loadStats();
 }
 
+// The line under the macro averages; empty (the line is hidden) when there are no days.
+const averageFootnote = (days) => (days > 0 ? `ממוצע יומי על בסיס ${formatDayCount(days)}` : '');
+
 export async function loadStats() {
   if (state.currentStatsTab === 'weekly') await loadWeeklyStats();
   if (state.currentStatsTab === 'monthly') await loadMonthlyStats();
@@ -130,7 +133,7 @@ async function loadWeeklyStats() {
         });
       }
     }
-    renderStatMacros('weekly-macro', rows, `ממוצע יומי על בסיס ${rows.length} ימים`);
+    renderStatMacros('weekly-macro', rows, averageFootnote(rows.length));
     const wrapEl = document.getElementById('pet-stats-wrap');
     if (wrapEl) {
       if (!wrapEl.querySelector('.capy-walk-stage')) {
@@ -177,7 +180,7 @@ async function loadMonthlyStats() {
         }));
       }
     }
-    renderStatMacros('monthly-macro', rows, `ממוצע יומי על בסיס ${rows.length} ימים`);
+    renderStatMacros('monthly-macro', rows, averageFootnote(rows.length));
   } catch { }
 }
 
@@ -196,7 +199,8 @@ async function loadYearlyStats() {
       if (rec > 0) {
         const diff = yearlyDailyAvg - rec;
         const cls = diff <= 0 ? 'under' : 'over';
-        diffHtml = html`<div class="avg-diff ${cls}">${diff > 0 ? '+' : ''}${diff} קק״ל</div><div style="font-size:11px;color:var(--muted)">מהמומלץ</div>`;
+        // the signed number is isolated left-to-right, so its sign stays on its left in the RTL page
+        diffHtml = html`<div class="avg-diff ${cls}"><bdi dir="ltr">${diff > 0 ? '+' : ''}${diff}</bdi> קק״ל</div><div style="font-size:11px;color:var(--muted)">מהמומלץ</div>`;
       }
       setHtml(yearlyAvgEl, html`<div class="avg-box"><div class="avg-box-left"><div class="avg-val">${yearlyDailyAvg}</div><div class="avg-label">ממוצע קלוריות יומי</div></div><div class="avg-box-right">${diffHtml}</div></div>`);
     }
@@ -209,7 +213,7 @@ async function loadYearlyStats() {
       isToday: r => r.month === currentMonth,
       recommended: rec,
     }));
-    renderStatMacros('yearly-macro', rows, `ממוצע יומי על בסיס ${totalDays} ימים`, totalDays);
+    renderStatMacros('yearly-macro', rows, averageFootnote(totalDays), totalDays);
   } catch { }
 }
 

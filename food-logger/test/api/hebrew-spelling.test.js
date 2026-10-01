@@ -39,6 +39,8 @@ const WRONG_FORMS = [
   { re: /מחובר כ:/, why: 'write "מחובר בתור", not "מחובר כ:"' },
   // the old stats footnote "ממוצע יומי ב-N ימים" (it printed "ב-0 ימים" and "1 ימים")
   { re: /ב-\$\{[^}]*\} ימים/, why: 'the stats footnote is "ממוצע יומי על בסיס …", hidden for 0 days' },
+  // a day count printed as "${n} ימים" reads "1 ימים" for one day: use formatDayCount (dates.js)
+  { re: /\$\{(?:rows\.length|totalDays|days|n)\} ימים/, files: /^public\/js\/(?!dates\.js$)/, why: 'use formatDayCount(n) ("יום אחד" for one day)' },
   // month abbreviations need a geresh (ינו׳, פבר׳ …) or the full name (יוני, יולי): a bare quoted token is the old form
   { re: /(['"`])(?:ינו|פבר|אפר|יונ|יול|אוג|ספט|אוק|נוב|דצמ)\1/, files: /^public\/js\//, why: 'a month abbreviation needs a geresh (U+05F3) or the full name' },
 ];
@@ -89,9 +91,14 @@ test('each wrong form is caught, and the correct forms are not', () => {
       "label: 'סיסמא'", '<p>הכל במקום אחד</p>', "`${rec} קל'`", '<label>גובה (ס"מ)</label>', '`${v} ק"ג`',
       '<label>משקל (ק&quot;ג)</label>', 'placeholder="שם האוכל"', "showToast('הרשומה נמחקה')", "|| 'אוכל לא ידוע'",
       '`מחובר כ: ${u}`', '`ממוצע יומי ב-${rows.length} ימים`', "const months = ['ינו','פבר'];",
+      '`ממוצע יומי על בסיס ${totalDays} ימים`',
     ].join('\n'),
   };
-  assert.equal(findWrongForms(wrong).length, 12, findWrongForms(wrong).join('\n'));
+  assert.equal(findWrongForms(wrong).length, 14, findWrongForms(wrong).join('\n'));
+  // the "ב-${…} ימים" line is also a plain day count: both rules report it (14 hits for 13 lines above)
+  assert.equal(findWrongForms({ 'public/js/a.js': '`ממוצע יומי ב-${rows.length} ימים`' }).length, 2);
+  // formatDayCount itself, in dates.js, is the one place that writes "${n} ימים"
+  assert.deepEqual(findWrongForms({ 'public/js/dates.js': "return n === 1 ? 'יום אחד' : `${n} ימים`;" }), []);
   const right = {
     'public/js/a.js': [
       "label: 'סיסמה'", '<p>הכול במקום אחד</p>', '`${rec} קק״ל`', '<label>גובה (ס״מ)</label>', '`${v} ק״ג`',

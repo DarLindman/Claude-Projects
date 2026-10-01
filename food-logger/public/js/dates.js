@@ -10,7 +10,13 @@ export function formatDate(str) {
   const months = ['ינו׳','פבר׳','מרץ','אפר׳','מאי','יוני','יולי','אוג׳','ספט׳','אוק׳','נוב׳','דצמ׳'];
   const isToday = str === todayStr();
   const label = isToday ? 'היום' : `יום ${days[date.getDay()]}`;
-  return `${label}, ${date.getDate()} ${months[date.getMonth()]}`;
+  // "1 באוק׳", "1 במרץ": the day of the month takes the prefix ב before the month name
+  return `${label}, ${date.getDate()} ב${months[date.getMonth()]}`;
+}
+
+// A number of days in words: "יום אחד" for one, "N ימים" otherwise.
+export function formatDayCount(n) {
+  return n === 1 ? 'יום אחד' : `${n} ימים`;
 }
 
 export function formatMonth(str) {
