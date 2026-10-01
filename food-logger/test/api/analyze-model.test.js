@@ -61,7 +61,7 @@ test('analyzeImage on a non-Haiku model omits temperature; on any claude-haiku i
   assert.equal(s.model, SONNET);
   const { temperature, ...rest } = haikuImageRequest(SONNET);
   assert.equal(temperature, 0);
-  assert.equal(JSON.stringify(s), JSON.stringify(rest));
+  assert.equal(JSON.stringify(s), JSON.stringify({ ...rest, max_tokens: 6000 }));
 
   const haiku = fakeAnthropic();
   await analyzeImage(haiku, { imageBase64: JPEG_BASE64, mimeType: 'image/jpeg', model: 'claude-haiku-5-0' });
@@ -250,4 +250,106 @@ test('analyzeText (direct) rejects a reply without a text block with an Analysis
   const fake = fakeAnthropic();
   fake.textContent = [{ type: 'redacted_thinking', data: MARKER }];
   await assert.rejects(analyzeText(fake, 'סלט'), (e) => e.constructor.name === 'AnalysisParseError' && !e.message.includes(MARKER));
+});
+
+// ─── The prompt's own JSON template is never taken as the answer ─────────────
+// The templates are read from the prompts as sent, so the tests follow any prompt change.
+const IMAGE_TEMPLATE = IMAGE_USER_MESSAGE.split('\n').find((l) => l.startsWith('{'));
+const TEXT_TEMPLATE = (content) => content.split('\n').find((l) => l.startsWith('[{'));
+const WATER = [{ name: 'מים', weight_g: 250, calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 }];
+
+test('the templates are found in the prompts', async () => {
+  assert.ok(JSON.parse(IMAGE_TEMPLATE).items.length === 1);
+  await analyzeTextReq();
+  assert.ok(JSON.parse(TEXT_TEMPLATE(ctx.anthropic.calls[0].messages[0].content)).length === 1);
+});
+
+test('image: an echoed template followed by the real answer gives the real answer', async () => {
+  ctx.anthropic.imageContent = [{ type: 'text', text: `You asked for: ${IMAGE_TEMPLATE}\nHere it is: ${imageJson()}` }];
+  const res = await analyze();
+  assert.equal(res.status, 200, res.text);
+  assert.deepEqual(res.body, { foodName: 'עוף עם אורז', ...IMAGE_TOTALS });
+});
+
+for (const [label, text] of [
+  ['the template only', () => IMAGE_TEMPLATE],
+  ['the template only, after prose', () => `Format: ${IMAGE_TEMPLATE} (${MARKER})`],
+  ['the template items under another name', () => JSON.stringify({ dish_name: 'עוף', items: JSON.parse(IMAGE_TEMPLATE).items })],
+  ['the template name with other items', () => JSON.stringify({ dish_name: JSON.parse(IMAGE_TEMPLATE).dish_name, items: IMAGE_ITEMS })],
+]) {
+  test(`image: ${label} is a 502`, async () => {
+    ctx.anthropic.imageContent = [{ type: 'text', text: text() }];
+    assertUnavailable(await analyze());
+    assert.ok(!logged().includes(MARKER));
+  });
+}
+
+test('image: a prose object without items before the real answer is skipped', async () => {
+  ctx.anthropic.imageContent = [{ type: 'text', text: `Confidence {"a":1}: ${imageJson()}` }];
+  const res = await analyze();
+  assert.equal(res.status, 200, res.text);
+  assert.deepEqual(res.body, { foodName: 'עוף עם אורז', ...IMAGE_TOTALS });
+});
+
+test('image: a real zero-calorie meal (water) is not taken for the template', async () => {
+  ctx.anthropic.imageContent = [{ type: 'text', text: JSON.stringify({ dish_name: 'מים', items: WATER }) }];
+  const res = await analyze();
+  assert.equal(res.status, 200, res.text);
+  assert.deepEqual(res.body, { foodName: 'מים', calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
+});
+
+test('text: an echoed template followed by the real array gives the real array', async () => {
+  await analyzeTextReq();
+  const template = TEXT_TEMPLATE(ctx.anthropic.calls[0].messages[0].content);
+  ctx.anthropic.textContent = [{ type: 'text', text: `Format ${template}, answer: ${textJson()}` }];
+  const res = await analyzeTextReq();
+  assert.equal(res.status, 200, res.text);
+  assert.deepEqual(res.body, { foodName: 'סלט ולחם', ...TEXT_TOTALS });
+});
+
+test('text: the template only is a 502', async () => {
+  await analyzeTextReq();
+  const template = TEXT_TEMPLATE(ctx.anthropic.calls[0].messages[0].content);
+  ctx.anthropic.textContent = [{ type: 'text', text: template }];
+  assertUnavailable(await analyzeTextReq());
+});
+
+test('text: an empty [] before the real array is skipped', async () => {
+  ctx.anthropic.textContent = [{ type: 'text', text: `[] then ${textJson()}` }];
+  const res = await analyzeTextReq();
+  assert.equal(res.status, 200, res.text);
+  assert.deepEqual(res.body, { foodName: 'סלט ולחם', ...TEXT_TOTALS });
+});
+
+test('text: a real zero-calorie item (water) is not taken for the template', async () => {
+  ctx.anthropic.textContent = [{ type: 'text', text: JSON.stringify(WATER) }];
+  const res = await analyzeTextReq('מים');
+  assert.equal(res.status, 200, res.text);
+  assert.deepEqual(res.body, { foodName: 'מים', calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
+});
+
+// ─── max_tokens: room for thinking on non-Haiku models ───────────────────────
+test('maxTokensFor: 1500 for a claude-haiku id, 6000 for every other model', () => {
+  const { maxTokensFor } = require('../../src/lib/analysis');
+  assert.equal(maxTokensFor('claude-haiku-4-5-20251001'), 1500);
+  for (const m of [SONNET, 'claude-opus-5-5', 'claude-3-haiku-20240307']) assert.equal(maxTokensFor(m), 6000, m);
+});
+
+test('the image request has max_tokens 6000 on Sonnet (route and eval extra path) and 1500 on Haiku', async () => {
+  assert.equal((await analyze()).status, 200);
+  assert.equal(ctx.anthropic.calls[0].max_tokens, 6000);
+  const extra = fakeAnthropic();
+  await analyzeImage(extra, { imageBase64: JPEG_BASE64, mimeType: 'image/jpeg', model: SONNET, temperature: null });
+  assert.equal(extra.calls[0].max_tokens, 6000);
+  const haiku = fakeAnthropic();
+  await analyzeImage(haiku, { imageBase64: JPEG_BASE64, mimeType: 'image/jpeg' });
+  assert.equal(haiku.calls[0].max_tokens, 1500);
+});
+
+test('a thinking block then a text block cut by max_tokens is the 502 path, logged with stop_reason max_tokens only', async () => {
+  ctx.anthropic.imageContent = [{ type: 'thinking', thinking: MARKER }, { type: 'text', text: imageJson().slice(0, 200) }];
+  ctx.anthropic.imageStopReason = 'max_tokens';
+  assertUnavailable(await analyze());
+  assert.match(logged(), /blocks thinking,text, stop_reason max_tokens/);
+  assert.ok(!logged().includes(MARKER));
 });

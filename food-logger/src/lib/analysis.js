@@ -1,5 +1,6 @@
 'use strict';
 
+const { isDeepStrictEqual } = require('node:util');
 const { MODEL } = require('./anthropic');
 const { ensureHebrewDishName, cleanDishName } = require('./hebrewName');
 const { replyText, blockTypes, stopReasonOf, extractJson, isPlainObject } = require('./aiReply');
@@ -57,10 +58,22 @@ const IMAGE_SYSTEM_PROMPT = `אתה מנתח תזונה מומחה. נתח תמ�
 * חזה עוף צלוי ולידו אורז: "חזה עוף צלוי עם אורז" — המרכיב העיקרי, אופן ההכנה והתוספת.
 * פרוסת עוגה שלא רואים ממה היא עשויה: "עוגה" — שם כללי ונכון, ולא ניחוש של סוג מסוים.`;
 
+// The JSON templates the prompts show the model, in one place: the prompts are built from
+// them, and the reply parsing rejects a model's echo of them (a template has zero
+// nutrition and a placeholder name, so taking it for the answer would be a wrong 200).
+const TEMPLATE_ITEM = Object.freeze({ name: 'שם בעברית', weight_g: 0, calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
+const TEXT_REPLY_TEMPLATE = Object.freeze([TEMPLATE_ITEM]);
+const IMAGE_REPLY_TEMPLATE = Object.freeze({
+  visual_description: 'short neutral English description',
+  draft_name: 'טיוטה ראשונה של השם',
+  dish_name: 'השם הסופי של המנה',
+  items: TEXT_REPLY_TEMPLATE,
+});
+
 // The user message of the image request: the reply fields in the order the model
 // fills them (recognise, draft the name, re-read and fix it, then the nutrition items).
 const IMAGE_USER_MESSAGE = `זהה כל מרכיב בנפרד. השב עם JSON object בלבד, ללא markdown, והשדות בסדר הזה:
-{"visual_description":"short neutral English description","draft_name":"טיוטה ראשונה של השם","dish_name":"השם הסופי של המנה","items":[{"name":"שם בעברית","weight_g":0,"calories":0,"protein_g":0,"carbs_g":0,"fat_g":0,"fiber_g":0}]}
+${JSON.stringify(IMAGE_REPLY_TEMPLATE)}
 visual_description קודם (זיהוי), אחריו draft_name (טיוטה לפי כללי השמות), אחריו dish_name (קרא שוב את הטיוטה, בדוק כל מילה מול כללי השמות ותקן מה שצריך), ורק אז items.
 weight_g קודם — אז חשב קלוריות לפי weight_g בלבד.`;
 
@@ -93,10 +106,16 @@ const TEXT_SYSTEM_PROMPT = `אתה מחשבון תזונה מדויק למשתמ
 == שמות ==
 בעברית תקנית בלבד — אפס אנגלית, אפס לטינית.`;
 
-// The temperature rule, in one place: Haiku gets temperature 0 (as it always has); every
-// other model gets none (null omits the field), because newer models reject it with a 400
-// ("temperature is deprecated for this model").
-const temperatureFor = (model) => (model.startsWith('claude-haiku') ? 0 : null);
+// The per-model request rules of the image analysis, in one place. Haiku (an id starting
+// with claude-haiku) keeps its request exactly as it always was: temperature 0 and
+// max_tokens 1500 (the items plus room for visual_description and draft_name). Every other
+// model gets no temperature (null omits the field; newer models reject it with a 400,
+// "temperature is deprecated for this model") and max_tokens 6000: Sonnet may write a
+// thinking block first and its tokens count against max_tokens, which cut the JSON answer
+// off at 1500. It is only a cap; what is billed is what the model writes.
+const isHaiku = (model) => model.startsWith('claude-haiku');
+const temperatureFor = (model) => (isHaiku(model) ? 0 : null);
+const maxTokensFor = (model) => (isHaiku(model) ? 1500 : 6000);
 
 // The JSON of a reply, or an AnalysisParseError. The reply describes the user's meal, so it
 // is never logged or put in the error: a failure logs (under `tag`) only its kind, the
@@ -117,7 +136,18 @@ function parseReply(message, kind, tag, accept) {
   return { value, fail: (what) => fail(what, text.length) };
 }
 
-const sumItems = (items) => items.reduce((acc, item) => ({
+// What counts as the answer among the JSON candidates of a reply (aiReply.extractJson);
+// anything else is skipped, so prose such as {"a":1}, a leading [] or an echoed template
+// before the real answer does not hide it, and a reply that is only those is a 502.
+// The image answer: a non-empty items array, and neither the template's name nor its items.
+const isImageAnswer = (o) => Array.isArray(o.items) && o.items.length > 0
+  && o.dish_name !== IMAGE_REPLY_TEMPLATE.dish_name
+  && !isDeepStrictEqual(o.items, IMAGE_REPLY_TEMPLATE.items);
+// The text answer: a non-empty array of objects (so a "[1]" in prose or in an earlier field
+// is skipped) that is not the template.
+const isTextAnswer = (a) => a.length > 0 && a.every(isPlainObject) && !isDeepStrictEqual(a, TEXT_REPLY_TEMPLATE);
+
+const sumItems =(items) => items.reduce((acc, item) => ({
   calories: acc.calories + (Number(item.calories) || 0),
   protein_g: acc.protein_g + (Number(item.protein_g) || 0),
   carbs_g: acc.carbs_g + (Number(item.carbs_g) || 0),
@@ -137,7 +167,7 @@ async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL, t
   }
   const message = await anthropic.messages.create({
     model,
-    max_tokens: 1500, // the items plus room for visual_description and draft_name
+    max_tokens: maxTokensFor(model),
     ...(temperature === null ? {} : { temperature }),
     system: IMAGE_SYSTEM_PROMPT,
     messages: [{
@@ -154,7 +184,7 @@ async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL, t
 
   // The reply describes the user's meal (visual_description, draft_name), so it is never
   // logged (see parseReply).
-  const { value: parsed, fail } = parseReply(message, 'object', 'analyze');
+  const { value: parsed, fail } = parseReply(message, 'object', 'analyze', isImageAnswer);
   const items = parsed.items;
   if (!Array.isArray(items) || items.length === 0) fail('no items');
   // visual_description and draft_name are only the model's recognition and first attempt:
@@ -176,12 +206,10 @@ async function analyzeText(anthropic, text) {
     system: TEXT_SYSTEM_PROMPT,
     messages: [{
       role: 'user',
-      content: `זהה כל מאכל בטקסט וחשב ערכים תזונתיים מדויקים.\nהחזר JSON array בלבד, ללא markdown, ללא הסבר:\n[{"name":"שם בעברית","weight_g":0,"calories":0,"protein_g":0,"carbs_g":0,"fat_g":0,"fiber_g":0}]\nכל הערכים מספרים. weight_g חובה — קבע אותו קודם כל.\n\nהטקסט: ${text.trim()}`
+      content: `זהה כל מאכל בטקסט וחשב ערכים תזונתיים מדויקים.\nהחזר JSON array בלבד, ללא markdown, ללא הסבר:\n${JSON.stringify(TEXT_REPLY_TEMPLATE)}\nכל הערכים מספרים. weight_g חובה — קבע אותו קודם כל.\n\nהטקסט: ${text.trim()}`
     }]
   });
-  // An array counts only when every element is an object, so a "[1]" in prose or in an
-  // earlier field is skipped and the items array after it is found.
-  const { value: items, fail } = parseReply(message, 'array', 'analyze-text', (a) => a.every(isPlainObject));
+  const { value: items, fail } = parseReply(message, 'array', 'analyze-text', isTextAnswer);
   if (items.length === 0) fail('no items');
   const totals = sumItems(items);
   // The shown name is what the user typed: only non-Hebrew letters are translated, the
@@ -199,4 +227,5 @@ module.exports = {
   analyzeImage,
   analyzeText,
   temperatureFor,
+  maxTokensFor,
 };
