@@ -154,3 +154,39 @@ The controller stops after Task 6 and sends the owner the table (a readable summ
 - [ ] **Step 1:** Add to `CLAUDE.md` a "Hebrew copy and AI naming" section: the guard (`src/lib/hebrewName.js`: what counts as foreign script, repair then clean then `מנה`, logs), the prompt principles and the rule against per-food hard-coding (exceptions file), how to run the evaluation (`node scripts/eval-naming.js`, photos in `eval/photos/` git-ignored, `--yes`, cost note), the Hebrew baseline and spelling tests and how to update them deliberately.
 - [ ] **Step 2:** Run `npm test`, `npm run test:e2e` (3 times), `npm audit --omit=dev`; confirm `git status` shows no `eval/` files tracked; confirm the `src/lib/analysis.js` runtime prompt does not import from `scripts/`.
 - [ ] **Step 3:** Commit `docs: Hebrew copy and AI naming notes`. Owner items before merge: read the evaluation report numbers, approve the merge through a pull request (merging to `main` deploys to Railway).
+
+---
+
+## Addendum (2026-10-01, after the first evaluation run): tuning round
+
+The first real evaluation (30 photos x 3 runs, Haiku) showed: zero foreign characters in old and new names; the new prompt gives shorter names but introduced misspellings and rare words ("בריקולי", "פסולייה", "בשר בעל", "שיש", "ממולחים"); the transliteration "קוטלט" came back; the 6-word cap cuts names in the middle ("... פירה תפוחי"); and recognition itself is often wrong with Haiku (a fish fillet named as pork cutlets, a baked salmon named as an omelet or crepes). The owner chose to improve the prompt AND compare a stronger model (Sonnet) on the same photos. Rulings for this round: the dish-name guard limits become 8 words / 70 characters (the 6/60 values were too tight; the prompt itself asks for about five words); `visual_description` stays model-only and a second model-only field `draft_name` is added; the production model stays Haiku unless the owner decides otherwise after seeing the comparison.
+
+### Task 9: Model option and a third evaluation column
+
+**Files:**
+- Modify: `src/lib/analysis.js`, `scripts/eval-naming.js`, `scripts/eval/pipeline.js`, `scripts/eval/report.js`, `test/api/eval-naming.test.js`, `test/api/analysis-prompt.test.js` (if needed)
+
+**Interfaces:**
+- Produces: `analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL })` (default behaviour unchanged; the chosen model id goes into the request); `node scripts/eval-naming.js [--also-model <model-id>]` adds a third variant "new pipeline on `<model-id>`" per photo and run (default off); the dry run prints the extra calls and a separate estimated cost for the extra model (a documented per-call constant for it, labelled an estimate: Sonnet-class calls cost several times a Haiku call); `report.js` shows up to three columns (old / new / new on the extra model) with the same flags and a summary row per variant.
+
+- [ ] **Step 1:** Write failing tests (fakes only): `analyzeImage` passes `model` through (default `MODEL`); with `--also-model` the dry run reports the extra call count and cost and makes zero client calls; with `--yes` and the fake the results contain three variants and the report renders three columns with escaped names; summary counts per variant.
+- [ ] **Step 2:** Run `npm test`; expected FAIL. Implement. Run `npm test`; expected PASS.
+- [ ] **Step 3:** Commit `feat: evaluate the new pipeline on an additional model`.
+
+### Task 10: Prompt v2 (draft, self-check, simpler words) and guard limits
+
+**Files:**
+- Modify: `src/lib/analysis.js` (or `src/lib/imagePrompt.js` if present), `src/lib/hebrewName.js` (limits only), `test/api/analysis-prompt.test.js`, `test/api/hebrewName.test.js`, `test/api/analyze-guard.test.js`, `CLAUDE.md` (numbers)
+
+**Interfaces:**
+- Produces: reply JSON `{"visual_description":..., "draft_name":..., "dish_name":..., "items":[...]}` where the model writes `draft_name` first and then `dish_name` after re-reading the draft; neither extra field is returned, stored or logged. New general rules in the prompt (principles only, still no food list): use only words every Israeli knows, in standard spelling, never invent or transliterate; if the everyday Hebrew word is not known, describe the food simply by main component and preparation; prefer a correct general category over a specific wrong guess when the item cannot be told apart; about five words. The strict dish limits in the guard default to `maxWords 8`, `maxChars 70`.
+
+- [ ] **Step 1:** Write failing tests: prompt contains `draft_name` before `dish_name` (user message and rules) and the new principle phrases; neither `draft_name` nor `visual_description` appears in any API response (also with a 50 KB value); the guard defaults are 8/70 (a 8-word clean name is `ok`, a 9-word one is shortened to 8); hygiene test still passes (no food dictionary); existing tests updated for the new limits.
+- [ ] **Step 2:** Run `npm test`; expected FAIL. Implement. Run `npm test` and `npm run test:e2e`; expected PASS.
+- [ ] **Step 3:** Commit `feat: prompt v2 with draft and self-check, guard limits 8 words`.
+
+### Task 11: Second evaluation (owner gate)
+
+- [ ] **Step 1:** Print the dry run (with `--also-model claude-sonnet-5-5`) and its cost estimate; ask the owner for approval.
+- [ ] **Step 2:** Run `node scripts/eval-naming.js --yes --also-model claude-sonnet-5-5` (detached: it takes about 25 minutes); give the owner `eval/report.html`; summarise per variant: names with foreign characters, repaired/cleaned counts, the owner's natural percentage (ratings), recognition mistakes the owner or the controller notes.
+- [ ] **Step 3:** The owner decides whether to keep Haiku or switch the production model; any switch is a separate small change with its own test and a cost note in `CLAUDE.md`.
