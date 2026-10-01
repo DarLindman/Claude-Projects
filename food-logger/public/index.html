@@ -109,7 +109,7 @@
         <div class="welcome-feature-icon">📊</div>
         <div class="welcome-feature-text">
           <h4>מעקב מאקרו מלא</h4>
-          <p>קלוריות, חלבון, פחמימות, שומן וסיבים — הכל במקום אחד</p>
+          <p>קלוריות, חלבון, פחמימות, שומן וסיבים — הכול במקום אחד</p>
         </div>
       </div>
       <div class="welcome-feature fu fu-6">
@@ -147,13 +147,13 @@
         </div>
         <div id="auth-login">
           <div class="form-group"><label>שם משתמש</label><input id="login-user" type="text" placeholder="your_username" autocomplete="username"></div>
-          <div class="form-group"><label>סיסמא</label><input id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password"></div>
+          <div class="form-group"><label>סיסמה</label><input id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password"></div>
           <button class="btn btn-primary" data-action="doLogin">כניסה</button>
           <div id="auth-error" class="error-msg"></div>
         </div>
         <div id="auth-register" style="display:none">
           <div class="form-group"><label>שם משתמש</label><input id="reg-user" type="text" placeholder="לפחות 3 תווים" autocomplete="username"></div>
-          <div class="form-group"><label>סיסמא</label><input id="reg-pass" type="password" placeholder="לפחות 8 תווים" autocomplete="new-password"></div>
+          <div class="form-group"><label>סיסמה</label><input id="reg-pass" type="password" placeholder="לפחות 8 תווים" autocomplete="new-password"></div>
           <button class="btn btn-primary" data-action="doRegister">הרשמה</button>
           <div id="auth-error2" class="error-msg"></div>
         </div>
@@ -173,21 +173,21 @@
 
         <div class="form-group" style="margin-bottom:10px"><label>תאריך לידה</label><input type="date" id="reg-birthdate" lang="he" style="font-size:14px"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
-          <div class="form-group" style="margin-bottom:0"><label>גובה (ס"מ)</label><select id="reg-height"></select></div>
-          <div class="form-group" style="margin-bottom:0"><label>משקל (ק"ג)</label><select id="reg-weight"></select></div>
+          <div class="form-group" style="margin-bottom:0"><label>גובה (ס״מ)</label><select id="reg-height"></select></div>
+          <div class="form-group" style="margin-bottom:0"><label>משקל (ק״ג)</label><select id="reg-weight"></select></div>
         </div>
         <div class="form-group" style="margin-bottom:16px">
-          <label>יעד שינוי שבועי (ק"ג)</label>
+          <label>יעד שינוי שבועי (ק״ג)</label>
           <select id="reg-goal-select" data-change="setRegGoal">
-            <option value="1">+1 ק"ג (עלייה במשקל)</option>
-            <option value="0.75">+¾ ק"ג</option>
-            <option value="0.5">+½ ק"ג</option>
-            <option value="0.25">+¼ ק"ג</option>
+            <option value="1">+1 ק״ג (עלייה במשקל)</option>
+            <option value="0.75">+¾ ק״ג</option>
+            <option value="0.5">+½ ק״ג</option>
+            <option value="0.25">+¼ ק״ג</option>
             <option value="0" selected>0 (שמירה על משקל)</option>
-            <option value="-0.25">-¼ ק"ג</option>
-            <option value="-0.5">-½ ק"ג</option>
-            <option value="-0.75">-¾ ק"ג</option>
-            <option value="-1">-1 ק"ג (הרזיה מהירה)</option>
+            <option value="-0.25">-¼ ק״ג</option>
+            <option value="-0.5">-½ ק״ג</option>
+            <option value="-0.75">-¾ ק״ג</option>
+            <option value="-1">-1 ק״ג (הרזיה מהירה)</option>
           </select>
         </div>
 
@@ -350,7 +350,7 @@
       <div id="cal-goal-section" style="display:none">
         <div class="cal-goal-bar">
           <div class="cal-goal-label">
-            <span id="cal-goal-text">0 / 0 קל'</span>
+            <span id="cal-goal-text">0 / 0 קק״ל</span>
           </div>
           <div class="cal-goal-track-outer">
             <div id="pet-diary-wrap" style="position:absolute;bottom:7px;right:-24px;z-index:1;pointer-events:none;display:flex;flex-direction:column;align-items:center;width:48px;transition:right .7s cubic-bezier(.4,0,.2,1)">
@@ -364,7 +364,7 @@
 
     <div class="card">
       <div class="card-title">ארוחות</div>
-      <div id="meal-list"><div class="empty-state"><div class="empty-icon">🍽️</div><p>אין ארוחות מתועדות היום<br>לחץ על המצלמה לצלם אוכל</p></div></div>
+      <div id="meal-list"><div class="empty-state"><div class="empty-icon">🍽️</div><p>אין ארוחות מתועדות<br>לחץ על ➕ כדי להוסיף ארוחה</p></div></div>
     </div>
   </div>
 </div>
@@ -413,12 +413,12 @@
   <div class="receipt" id="receipt-body">
 
     <div class="receipt-header">
-      <span class="receipt-title">── ניתוח ─</span>
+      <span class="receipt-title">── ניתוח ──</span>
       <span class="receipt-time" id="receipt-time"></span>
     </div>
 
     <div class="receipt-row receipt-name-row">
-      <textarea id="res-name" class="receipt-name-input" placeholder="שם האוכל" rows="1"></textarea>
+      <textarea id="res-name" class="receipt-name-input" placeholder="שם המנה" rows="1"></textarea>
     </div>
 
     <hr class="receipt-hr">
@@ -468,7 +468,7 @@
       <div id="weekly-avg-box"></div>
       <div id="pet-stats-wrap" style="text-align:center;padding:8px 0 4px"></div>
       <div class="card">
-        <div class="card-title">7 ימים אחרונים — קלוריות</div>
+        <div class="card-title">7 הימים האחרונים — קלוריות</div>
         <div class="chart-wrap" id="weekly-chart"></div>
       </div>
       <div class="card">
@@ -521,7 +521,7 @@
       <div class="card-title">הוסף מדידה</div>
       <div class="weight-log-form">
         <div class="form-group"><label>תאריך</label><input type="date" id="weight-date"></div>
-        <div class="form-group"><label>משקל (ק"ג)</label><input type="number" id="weight-val" step="0.1" min="20" max="400" placeholder="70.0"></div>
+        <div class="form-group"><label>משקל (ק״ג)</label><input type="number" id="weight-val" step="0.1" min="20" max="400" placeholder="70.0"></div>
         <button class="btn btn-primary" data-action="addWeightLog">הוסף</button>
       </div>
       <div id="weight-add-error" class="error-msg"></div>
@@ -552,7 +552,7 @@
         <div class="settings-arrow">›</div>
       </div>
       <div class="settings-item" data-action="openModal" data-arg="modal-change-pass">
-        <div><div class="settings-label">שינוי סיסמא</div></div>
+        <div><div class="settings-label">שינוי סיסמה</div></div>
         <div class="settings-arrow">›</div>
       </div>
       <div class="settings-item" data-action="doLogout">
@@ -594,9 +594,9 @@
 <div class="modal-overlay" id="modal-change-pass" data-action="closeModalBackdrop" data-arg="modal-change-pass">
   <div class="modal-sheet">
     <button class="modal-close" data-action="closeModal" data-arg="modal-change-pass">✕</button>
-    <div class="modal-title">שינוי סיסמא</div>
-    <div class="form-group"><label>סיסמא נוכחית</label><input id="cp-current" type="password"></div>
-    <div class="form-group"><label>סיסמא חדשה</label><input id="cp-new" type="password"></div>
+    <div class="modal-title">שינוי סיסמה</div>
+    <div class="form-group"><label>סיסמה נוכחית</label><input id="cp-current" type="password"></div>
+    <div class="form-group"><label>סיסמה חדשה</label><input id="cp-new" type="password"></div>
     <button class="btn btn-primary" data-action="doChangePassword">שמור</button>
     <div id="cp-error" class="error-msg"></div>
   </div>
@@ -620,19 +620,19 @@
     </div>
 
     <div class="form-group" style="margin-bottom:10px"><label>תאריך לידה</label><input type="date" id="mp-birthdate" lang="he" data-change="updateMpPreview" style="font-size:14px"></div>
-    <div class="form-group" style="margin-bottom:16px"><label>גובה (ס"מ)</label><select id="mp-height" data-change="updateMpPreview"></select></div>
+    <div class="form-group" style="margin-bottom:16px"><label>גובה (ס״מ)</label><select id="mp-height" data-change="updateMpPreview"></select></div>
     <div class="form-group" style="margin-bottom:16px">
-      <label>יעד שינוי שבועי (ק"ג)</label>
+      <label>יעד שינוי שבועי (ק״ג)</label>
       <select id="mp-goal-select" data-change="setMpGoal">
-        <option value="1">+1 ק"ג (עלייה במשקל)</option>
-        <option value="0.75">+¾ ק"ג</option>
-        <option value="0.5">+½ ק"ג</option>
-        <option value="0.25">+¼ ק"ג</option>
+        <option value="1">+1 ק״ג (עלייה במשקל)</option>
+        <option value="0.75">+¾ ק״ג</option>
+        <option value="0.5">+½ ק״ג</option>
+        <option value="0.25">+¼ ק״ג</option>
         <option value="0">0 (שמירה על משקל)</option>
-        <option value="-0.25">-¼ ק"ג</option>
-        <option value="-0.5">-½ ק"ג</option>
-        <option value="-0.75">-¾ ק"ג</option>
-        <option value="-1">-1 ק"ג (הרזיה מהירה)</option>
+        <option value="-0.25">-¼ ק״ג</option>
+        <option value="-0.5">-½ ק״ג</option>
+        <option value="-0.75">-¾ ק״ג</option>
+        <option value="-1">-1 ק״ג (הרזיה מהירה)</option>
       </select>
     </div>
 

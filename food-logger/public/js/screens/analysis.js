@@ -20,7 +20,7 @@ export async function saveEntry() {
   saveBtn.textContent = 'שומר...';
   const body = {
     meal_type: state.selectedMeal,
-    food_name: document.getElementById('res-name').value.trim() || 'אוכל לא ידוע',
+    food_name: document.getElementById('res-name').value.trim() || 'מנה ללא שם',
     calories: +document.getElementById('res-cal').value || 0,
     protein_g: +document.getElementById('res-pro').value || 0,
     carbs_g: +document.getElementById('res-carb').value || 0,

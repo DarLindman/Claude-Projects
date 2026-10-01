@@ -98,10 +98,10 @@ for (const [i, payload] of PAYLOADS.entries()) {
     await expect(page.locator('#weight-chart svg')).toBeVisible();
     await expectInert(page, 'weight');
 
-    // ── settings: "מחובר כ: <username>" ─────────────────────────────────
+    // ── settings: "מחובר בתור <username>" ──────────────────────────────
     await page.locator('#nav-settings').click();
     await expect(page.locator('#screen-settings')).toBeVisible();
-    await expect(page.locator('#settings-user')).toHaveText(`מחובר כ: ${payload}`);
+    await expect(page.locator('#settings-user')).toHaveText(`מחובר בתור ${payload}`);
     await expect(page.locator('#settings-user').getByText(payload)).toBeVisible();
     await expectInert(page, 'settings');
 

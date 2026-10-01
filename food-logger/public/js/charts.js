@@ -9,7 +9,7 @@ export function renderStatAvgBox(elId, rows, rec, label, customAvg) {
   if (rec > 0) {
     const diff = avgCal - rec;
     const cls = diff <= 0 ? 'under' : 'over';
-    diffHtml = html`<div class="avg-diff ${cls}">${diff > 0 ? '+' : ''}${diff} קל'</div><div style="font-size:11px;color:var(--muted)">מהמומלץ</div>`;
+    diffHtml = html`<div class="avg-diff ${cls}">${diff > 0 ? '+' : ''}${diff} קק״ל</div><div style="font-size:11px;color:var(--muted)">מהמומלץ</div>`;
   }
   setHtml(el, html`<div class="avg-box"><div class="avg-box-left"><div class="avg-val">${avgCal}</div><div class="avg-label">${label}</div></div><div class="avg-box-right">${diffHtml}</div></div>`);
 }

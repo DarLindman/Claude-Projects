@@ -35,7 +35,7 @@ let logoutCount = 0;
 export async function setLoggedIn(u) {
   const startedAt = logoutCount;
   username = u;
-  document.getElementById('settings-user').textContent = `מחובר כ: ${u}`;
+  document.getElementById('settings-user').textContent = `מחובר בתור ${u}`;
   // Load profile from server; fall back to localStorage
   try {
     const serverProfile = await apiFetch('/api/profile');

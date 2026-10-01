@@ -29,7 +29,7 @@ export function doRegister() {
   const p = document.getElementById('reg-pass').value;
   document.getElementById('auth-error2').textContent = '';
   if (u.length < 3 || u.length > 50 || p.length < 8) {
-    document.getElementById('auth-error2').textContent = 'שם משתמש חייב להכיל 3–50 תווים, סיסמא לפחות 8';
+    document.getElementById('auth-error2').textContent = 'שם המשתמש צריך להכיל 3–50 תווים, והסיסמה לפחות 8 תווים';
     return;
   }
   // Store credentials; advance to profile step WITHOUT creating the account yet

@@ -138,11 +138,11 @@ test('mergeProposals fills proposed text and reason by exact text, reports stale
 
 test('build merges given proposals and lists a stale one in the accounting section', () => {
   const out = build(undefined, { proposals: {
-    'שגיאת שרת': { proposed: 'משהו השתבש', reason: 'בהירות: בדיקה' },
+    'שגיאה במחיקה': { proposed: 'המחיקה נכשלה', reason: 'בהירות: בדיקה' },
     'טקסט שלא קיים באפליקציה': { proposed: 'x', reason: 'y' },
   } });
   assert.deepEqual(out.stale, ['טקסט שלא קיים באפליקציה']);
-  assert.match(out.markdown, /\| שגיאת שרת \| משהו השתבש \| בהירות: בדיקה \|  \|/);
+  assert.match(out.markdown, /\| שגיאה במחיקה \| המחיקה נכשלה \| בהירות: בדיקה \|  \|/);
   assert.match(out.markdown, /Review proposals: 2 in `docs\/hebrew-copy-proposals\.json`, merged into 1 rows \(1 recommended, 0 optional; 0 with an owner decision\)\. Stale proposals .*: 1\n\n- STALE: `טקסט שלא קיים באפליקציה`/);
   const none = build(undefined, { proposals: {} });
   assert.match(none.markdown, /Stale proposals .*: \(none\)/);
@@ -160,10 +160,10 @@ test('level and owner decision: rendered, validated, and a decision survives a r
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hebrew-audit-'));
   try {
     const file = path.join(dir, 'proposals.json');
-    fs.writeFileSync(file, JSON.stringify({ 'שגיאת שרת': { proposed: 'משהו השתבש', reason: 'בהירות: בדיקה', level: 'recommended', decision: 'rejected' } }));
+    fs.writeFileSync(file, JSON.stringify({ 'שגיאה במחיקה': { proposed: 'המחיקה נכשלה', reason: 'בהירות: בדיקה', level: 'recommended', decision: 'rejected' } }));
     for (let i = 0; i < 2; i++) {
       const out = build(undefined, { proposalsFile: file });
-      assert.match(out.markdown, /\| שגיאת שרת \| משהו השתבש \| בהירות: בדיקה \| rejected \|/);
+      assert.match(out.markdown, /\| שגיאה במחיקה \| המחיקה נכשלה \| בהירות: בדיקה \| rejected \|/);
       assert.match(out.markdown, /1 with an owner decision/);
     }
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }

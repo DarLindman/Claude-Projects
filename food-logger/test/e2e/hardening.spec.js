@@ -100,12 +100,12 @@ test('a wrong current password on change-password does not sign the user out', a
   const username = `wrongcp${Date.now()}`;
   await registerViaUi(page, username);
   await page.locator('#nav-settings').click();
-  await page.getByText('שינוי סיסמא', { exact: true }).first().click();
+  await page.getByText('שינוי סיסמה', { exact: true }).first().click();
   await expect(page.locator('#modal-change-pass')).toHaveClass(/open/);
   await page.locator('#cp-current').fill('not-the-password');
   await page.locator('#cp-new').fill('another-password-3');
   await page.locator('#modal-change-pass').getByRole('button', { name: 'שמור', exact: true }).click();
-  await expect(page.locator('#cp-error')).toHaveText('סיסמא נוכחית שגויה');
+  await expect(page.locator('#cp-error')).toHaveText('סיסמה נוכחית שגויה');
   await expect(page.locator('#screen-settings')).toBeVisible();
   await expect(page.locator('#bottom-nav')).toBeVisible();
   expect(await page.evaluate(() => fetch('/auth/me').then((r) => r.json()))).toEqual({ username });

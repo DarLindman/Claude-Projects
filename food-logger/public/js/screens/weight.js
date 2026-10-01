@@ -26,7 +26,7 @@ export async function addWeightLog() {
   const date = document.getElementById('weight-date').value;
   document.getElementById('weight-add-error').textContent = '';
   if (!val || isNaN(+val) || +val <= 0) {
-    document.getElementById('weight-add-error').textContent = 'הכנס משקל תקין';
+    document.getElementById('weight-add-error').textContent = 'הזן משקל תקין';
     return;
   }
   if (date && date > todayStr()) {
@@ -137,7 +137,7 @@ function renderWeightList() {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
       </button>
       <div class="weight-entry-info">
-        <div class="weight-val-big">${(+w.weight_kg).toFixed(1)} ק"ג</div>
+        <div class="weight-val-big">${(+w.weight_kg).toFixed(1)} ק״ג</div>
         <div class="weight-entry-date">${formatDate(w.logged_at)}</div>
       </div>
     </div>

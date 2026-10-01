@@ -89,11 +89,11 @@ export function getPetState(pct, hasLoggedToday, hasLoggedYesterday, daysSinceLa
 }
 
 export const PET_MESSAGES = {
-  ecstatic: name => `כל הכבוד ${name}! הגעת ליעד! 🎉`,
-  happy:    name => `כן ${name}, ככה זה! המשך כך 😊`,
+  ecstatic: name => `כל הכבוד, ${name}! הגעת ליעד! 🎉`,
+  happy:    name => `יופי, ${name}! ככה ממשיכים 😊`,
   neutral:  name => `עוד לא רשמת היום 😐`,
   sad:      name => `פספסנו אתמול... נתחיל מחדש? 😢`,
-  sleeping: name => `כמה זמן לא ראיתי אותך ${name} 🥺`,
+  sleeping: name => `כמה זמן לא ראיתי אותך, ${name} 🥺`,
 };
 
 export function setPetState(wrapEl, state) {

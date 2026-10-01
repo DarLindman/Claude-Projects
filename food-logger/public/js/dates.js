@@ -7,7 +7,7 @@ export function formatDate(str) {
   const [y, m, d] = str.split('-').map(Number);
   const date = new Date(y, m - 1, d);
   const days = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
-  const months = ['ינו','פבר','מרץ','אפר','מאי','יונ','יול','אוג','ספט','אוק','נוב','דצמ'];
+  const months = ['ינו׳','פבר׳','מרץ','אפר׳','מאי','יוני','יולי','אוג׳','ספט׳','אוק׳','נוב׳','דצמ׳'];
   const isToday = str === todayStr();
   const label = isToday ? 'היום' : `יום ${days[date.getDay()]}`;
   return `${label}, ${date.getDate()} ${months[date.getMonth()]}`;
