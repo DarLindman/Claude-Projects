@@ -74,12 +74,19 @@ async function runSide(client, analyze, photo, { guarded }) {
 
 // One run of one photo: what the user saw before (old) and gets now (new); with
 // `extraModel` also the new pipeline (same prompt and guard) on that model (extra).
-async function evaluateRun(client, photo, { extraModel } = {}) {
-  const old = await runSide(client, analyzeImageV1, photo, { guarded: false });
-  const now = await runSide(client, analyzeImage, photo, { guarded: true });
-  const result = { old, new: now };
+// With `onlyExtra` (and `extraModel`) only the extra variant runs: { extra } alone.
+async function evaluateRun(client, photo, { extraModel, onlyExtra = false } = {}) {
+  const result = {};
+  if (!(onlyExtra && extraModel)) {
+    result.old = await runSide(client, analyzeImageV1, photo, { guarded: false });
+    result.new = await runSide(client, analyzeImage, photo, { guarded: true });
+  }
   if (extraModel) {
-    const onModel = (c, args) => analyzeImage(c, { ...args, model: extraModel });
+    // temperature: null omits the field: some newer models (the Sonnet-class ones the
+    // extra variant is meant for) reject it with a 400 ("temperature is deprecated for
+    // this model"), which would fail every call for a reason unrelated to naming. The
+    // old and new variants (Haiku) keep temperature 0 exactly as production sends it.
+    const onModel = (c, args) => analyzeImage(c, { ...args, model: extraModel, temperature: null });
     result.extra = await runSide(client, onModel, photo, { guarded: true });
   }
   return result;

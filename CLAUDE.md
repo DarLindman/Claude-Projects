@@ -104,7 +104,12 @@ npm run test:e2e     # Playwright browser tests against the real app on port 310
 cd food-logger
 node scripts/eval-naming.js              # dry run: prints the photo and call counts and an estimated cost, calls nothing
 node scripts/eval-naming.js --yes        # really calls the API (ANTHROPIC_API_KEY from .env); options: --dir eval/photos --runs 3
+node scripts/eval-naming.js --also-model claude-sonnet-5-5 --yes   # adds a third column: the new pipeline on that model
+node scripts/eval-naming.js --also-model claude-sonnet-5-5 --only-extra --yes   # only the extra column, merged into the existing eval/results.json
 ```
+
+- `--also-model <id>` adds a third variant (the new prompt and guard on another model). It is sent **without the `temperature` parameter** (`analyzeImage(..., { temperature: null })`), because some newer models reject it (`400 temperature is deprecated for this model`); production and the old/new variants keep their temperature. The guard's repair calls always go to Haiku.
+- `--only-extra` (needs `--also-model`) runs only that variant, e.g. after a failed or changed extra run: it reads the existing `eval/results.json` (which must cover the same photo file names and the same `--runs`, otherwise it refuses), keeps the stored old and new results untouched, replaces the extra results and regenerates `eval/report.html`. Its dry run shows only the extra variant's call count and cost.
 
 - Photos go in `food-logger/eval/photos/` (the whole `eval/` directory is git-ignored; the photos are sent only to the Anthropic API). Output: `eval/results.json` and the report `eval/report.html`.
 - Optional `eval/ratings.json`: `{ "<file name>": { "natural": true|false, "note": "" } }`; the report then shows the share of natural names.

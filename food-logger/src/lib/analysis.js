@@ -107,13 +107,18 @@ const sumItems = (items) => items.reduce((acc, item) => ({
 }), { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
 
 // ─── Analyze food image ───────────────────────────────────────────────────────
-// `model` is for the evaluation tool; production callers leave it out and get MODEL.
-async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL }) {
+// `model` and `temperature` are for the evaluation tool; production callers leave them out
+// and get MODEL at temperature 0. `temperature: null` omits the field from the request,
+// because some newer models reject it ("temperature is deprecated for this model").
+async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL, temperature = 0 }) {
   if (typeof model !== 'string' || !model.trim()) throw new TypeError('model must be a non-empty string');
+  if (temperature !== null && !(typeof temperature === 'number' && Number.isFinite(temperature) && temperature >= 0 && temperature <= 1)) {
+    throw new TypeError('temperature must be null or a finite number from 0 to 1');
+  }
   const message = await anthropic.messages.create({
     model,
     max_tokens: 1500, // the items plus room for visual_description and draft_name
-    temperature: 0,
+    ...(temperature === null ? {} : { temperature }),
     system: IMAGE_SYSTEM_PROMPT,
     messages: [{
       role: 'user',
