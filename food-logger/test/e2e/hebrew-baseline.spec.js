@@ -1,7 +1,8 @@
 'use strict';
 
 // Hebrew baseline: every screen and modal, with everything that could vary pinned, and all
-// visible text (plus placeholder / title / aria-label / alt / data-placeholder values)
+// visible text (plus placeholder / title / aria-label / alt / data-placeholder values, and the
+// home-screen name from the apple-mobile-web-app-title meta tag and the manifest)
 // compared with test/e2e/__snapshots__/he-text.json. A deliberate copy change means
 // re-recording the snapshot:
 //
@@ -49,6 +50,11 @@ test('hebrew baseline', async ({ page }) => {
   await page.goto('/');
   await screen('welcome');
   snap.set('document title', await page.title());
+  // the home-screen name: iOS reads the meta tag, Android and desktop read the manifest
+  snap.set('meta apple-mobile-web-app-title', await page.locator('meta[name="apple-mobile-web-app-title"]').getAttribute('content'));
+  const manifest = await (await page.request.get('/manifest.json')).json();
+  snap.set('manifest name', manifest.name);
+  snap.set('manifest short_name', manifest.short_name);
   await snap.capture('welcome', '#screen-welcome');
 
   await page.getByRole('button', { name: 'יש לי חשבון' }).click();

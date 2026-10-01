@@ -1,5 +1,8 @@
 {
   "document title": "יומן האוכל האישי שלך",
+  "meta apple-mobile-web-app-title": "יומן",
+  "manifest name": "יומן האוכל האישי שלך",
+  "manifest short_name": "יומן",
   "welcome :: text": "יומן.\nיומן האוכל האישי שלך\n📸\nניתוח תמונות AI\nצלם את הצלחת — בינה מלאכותית תזהה את האוכל ותחשב ערכים תזונתיים\n📊\nמעקב מאקרו מלא\nקלוריות, חלבון, פחמימות, שומן וסיבים — הכל במקום אחד\n📈\nגרפים וסטטיסטיקות\nמעקב שבועי, חודשי ושנתי — ראה את ההתקדמות שלך לאורך זמן\nהתחל עכשיו\nיש לי חשבון\nBy Dar · Instagram",
   "welcome :: attr #screen-welcome > div:nth-child(1) > div:nth-child(1) > svg:nth-child(1)@aria-label": "לוגו יומן",
   "auth login tab :: text": "יומן.\nיומן האוכל האישי שלך\nכניסה\nהרשמה\nשם משתמש\nסיסמא\nכניסה",
