@@ -1,7 +1,8 @@
 'use strict';
 
-// One evaluation step: a photo through the OLD pipeline (V1 prompt + silent stripping)
-// or the NEW one (the production analyzeImage with the real guard). Errors are
+// One evaluation step: a photo through the OLD pipeline (V1 prompt + silent stripping),
+// the NEW one (the production analyzeImage with the real guard) and, optionally, the NEW
+// one on another model. Errors are
 // recorded, never thrown, so one bad call does not lose a whole evaluation.
 
 const { analyzeImage } = require('../../src/lib/analysis');
@@ -71,11 +72,17 @@ async function runSide(client, analyze, photo, { guarded }) {
   }
 }
 
-// One run of one photo: what the user saw before (old) and gets now (new).
-async function evaluateRun(client, photo) {
+// One run of one photo: what the user saw before (old) and gets now (new); with
+// `extraModel` also the new pipeline (same prompt and guard) on that model (extra).
+async function evaluateRun(client, photo, { extraModel } = {}) {
   const old = await runSide(client, analyzeImageV1, photo, { guarded: false });
   const now = await runSide(client, analyzeImage, photo, { guarded: true });
-  return { old, new: now };
+  const result = { old, new: now };
+  if (extraModel) {
+    const onModel = (c, args) => analyzeImage(c, { ...args, model: extraModel });
+    result.extra = await runSide(client, onModel, photo, { guarded: true });
+  }
+  return result;
 }
 
 module.exports = { evaluateRun, captureGuardLog };

@@ -5,11 +5,13 @@
 // written to eval/results.json and eval/report.html. A developer tool: not part of the
 // app, not run by the tests against the real API, never run in CI.
 //
-//   node scripts/eval-naming.js [--dir eval/photos] [--runs 3] [--yes]
+//   node scripts/eval-naming.js [--dir eval/photos] [--runs 3] [--also-model <model-id>] [--yes]
 //
 // Without --yes it only prints the plan and the estimated cost and calls nothing.
 // The photos (eval/ is git-ignored) are sent only to the Anthropic API. Optional
-// eval/ratings.json: { "<file name>": { "natural": true|false, "note": "" } }.
+// eval/ratings.json: { "<file name>": { "natural": true|false, "note": "", "extra": true|false } }
+// (`natural` rates the new variant, the optional `extra` the one on --also-model).
+// --also-model adds a third variant: the NEW pipeline (same prompt and guard) on that model.
 // Everything is written inside the output directory (eval/) and nowhere else.
 
 const fs = require('node:fs');
@@ -26,8 +28,17 @@ const { summarize, renderReport } = require('./eval/report');
 // upper bound. Check the Anthropic price page before relying on it.
 const ESTIMATED_COST_PER_CALL_USD = 0.005;
 
+// ESTIMATE ONLY, for the --also-model variant: a Sonnet-class image call costs several
+// times a Haiku call (about 3x the per-token price for the same roughly 2,500 input and
+// 500 output tokens, about $0.012 to $0.015), so 0.02 is a deliberately conservative
+// round figure. The guard's repair calls always go to the production model (Haiku), so
+// they are counted at ESTIMATED_COST_PER_CALL_USD. Check the Anthropic price page.
+const COST_PER_CALL_EXTRA_USD = 0.02;
+
 const ROOT = path.join(__dirname, '..');
 const MAX_RUNS = 20;
+const USAGE = 'node scripts/eval-naming.js [--dir eval/photos] [--runs 3] [--also-model <model-id>] [--yes]';
+const MODEL_ID = /^claude-[A-Za-z0-9._-]+$/;
 
 function parseArgs(argv) {
   const opts = { dir: 'eval/photos', runs: 3, yes: false };
@@ -41,7 +52,10 @@ function parseArgs(argv) {
       const value = argv[++i];
       if (!/^\d+$/.test(value ?? '') || Number(value) < 1 || Number(value) > MAX_RUNS) throw new Error(`--runs needs a whole number from 1 to ${MAX_RUNS}`);
       opts.runs = Number(value);
-    } else throw new Error(`Unknown argument ${arg}. Usage: node scripts/eval-naming.js [--dir eval/photos] [--runs 3] [--yes]`);
+    } else if (arg === '--also-model') {
+      if (i + 1 >= argv.length || argv[i + 1].startsWith('--')) throw new Error('--also-model needs a model id (for example claude-sonnet-5-5)');
+      opts.alsoModel = argv[++i];
+    } else throw new Error(`Unknown argument ${arg}. Usage: ${USAGE}`);
   }
   return opts;
 }
@@ -71,7 +85,7 @@ async function readRatings(file, { readFile }) {
     if (!ratings || typeof ratings !== 'object' || Array.isArray(ratings)) throw new Error('not an object');
     return ratings;
   } catch (err) {
-    throw new Error(`eval/ratings.json is not valid (${err.message}); expected { "<file>": { "natural": true|false, "note": "" } }`);
+    throw new Error(`eval/ratings.json is not valid (${err.message}); expected { "<file>": { "natural": true|false, "note": "", "extra": true|false } }`);
   }
 }
 
@@ -87,6 +101,8 @@ async function run(options = {}, deps = {}) {
   const env = options.env ?? process.env;
   const runs = options.runs ?? 3;
   if (!Number.isInteger(runs) || runs < 1 || runs > MAX_RUNS) return fail(`runs must be a whole number from 1 to ${MAX_RUNS}`, d.log);
+  const alsoModel = options.alsoModel;
+  if (alsoModel !== undefined && !MODEL_ID.test(String(alsoModel))) return fail(`--also-model needs an Anthropic model id starting with "claude-" (for example claude-sonnet-5-5), got ${JSON.stringify(String(alsoModel).slice(0, 60))}`, d.log);
   const dir = path.resolve(ROOT, options.dir ?? 'eval/photos');
   const outDir = path.resolve(ROOT, options.outDir ?? 'eval');
 
@@ -106,7 +122,19 @@ async function run(options = {}, deps = {}) {
   for (const s of skipped) d.log(`Skipped ${s.file}: ${s.reason}`);
   d.log(`${photos.length} photos x ${runs} runs x 2 prompts = ${calls} API calls (up to ${maxCalls} with repair calls).`);
   d.log(`Estimated cost: up to about $${plan.estimatedCostUsd.toFixed(2)} (estimate at $${ESTIMATED_COST_PER_CALL_USD} per call; see the constant in scripts/eval-naming.js).`);
-  d.log(`The photos are sent to the Anthropic API (${MODEL}) and nowhere else. Results go to ${outDir}.`);
+  if (alsoModel) {
+    // each extra run: one call on the extra model plus up to one repair call (on MODEL)
+    const extraCalls = photos.length * runs;
+    const extraMax = extraCalls * 2;
+    const extraCost = Number((extraCalls * (COST_PER_CALL_EXTRA_USD + ESTIMATED_COST_PER_CALL_USD)).toFixed(2));
+    plan.extra = { model: alsoModel, calls: extraCalls, maxCalls: extraMax, estimatedCostUsd: extraCost };
+    plan.totalMaxCalls = maxCalls + extraMax;
+    plan.totalEstimatedCostUsd = Number((plan.estimatedCostUsd + extraCost).toFixed(2));
+    d.log(`Extra variant, the new pipeline on ${alsoModel}: ${photos.length} photos x ${runs} runs x 1 = ${extraCalls} API calls (up to ${extraMax} with repair calls).`);
+    d.log(`Estimated extra cost: up to about $${extraCost.toFixed(2)} (estimate at $${COST_PER_CALL_EXTRA_USD} per call on ${alsoModel}, repair calls at $${ESTIMATED_COST_PER_CALL_USD}; see COST_PER_CALL_EXTRA_USD in scripts/eval-naming.js).`);
+    d.log(`Total: up to ${plan.totalMaxCalls} API calls, up to about $${plan.totalEstimatedCostUsd.toFixed(2)} (estimate).`);
+  }
+  d.log(`The photos are sent to the Anthropic API (${MODEL}${alsoModel ? ` and ${alsoModel}` : ''}) and nowhere else. Results go to ${outDir}.`);
   if (!options.yes) {
     d.log('Nothing was sent. Add --yes to run it for real.');
     return { exitCode: 0, plan };
@@ -116,13 +144,18 @@ async function run(options = {}, deps = {}) {
   if (!apiKey) return fail('ANTHROPIC_API_KEY is not set (put it in food-logger/.env or the environment)', d.log);
   const client = d.createClient(apiKey);
 
-  const results = { generatedAt: d.now().toISOString(), model: MODEL, runsPerPhoto: runs, apiCalls: 0, skipped, photos: [] };
+  const variants = {
+    old: { label: 'old pipeline (V1 prompt, silent stripping)', model: MODEL },
+    new: { label: 'new pipeline (new prompt + guard)', model: MODEL },
+  };
+  if (alsoModel) variants.extra = { label: alsoModel, model: alsoModel };
+  const results = { generatedAt: d.now().toISOString(), model: MODEL, variants, runsPerPhoto: runs, apiCalls: 0, skipped, photos: [] };
   for (const [i, photo] of photos.entries()) {
     const entry = { file: photo.file, thumb: thumbFor(photo.path, outDir), runs: [] };
     for (let n = 1; n <= runs; n++) {
       d.log(`[${i + 1}/${photos.length}] ${photo.file}: run ${n}/${runs}`);
-      const result = await evaluateRun(client, photo);
-      results.apiCalls += 2 + (result.new.repairCalls || 0);
+      const result = await evaluateRun(client, photo, { extraModel: alsoModel });
+      results.apiCalls += 2 + (result.new.repairCalls || 0) + (result.extra ? 1 + (result.extra.repairCalls || 0) : 0);
       entry.runs.push(result);
     }
     results.photos.push(entry);
@@ -135,6 +168,8 @@ async function run(options = {}, deps = {}) {
   await d.writeFile(reportPath, renderReport(results, ratings));
   const summary = summarize(results, ratings);
   d.log(`Done: ${results.apiCalls} API calls. New names: ${summary.new.repaired} repaired, ${summary.new.cleaned} cleaned, ${summary.new.fallback} fallback, ${summary.new.errors} failed runs.`);
+  if (summary.extra) d.log(`Extra (${alsoModel}): ${summary.extra.repaired} repaired, ${summary.extra.cleaned} cleaned, ${summary.extra.fallback} fallback, ${summary.extra.errors} failed runs.`);
+  if (summary.naturalExtra) d.log(`Natural names on ${alsoModel}: ${summary.naturalExtra.percent}% (${summary.naturalExtra.natural} of ${summary.naturalExtra.rated} rated photos).`);
   if (summary.natural) d.log(`Natural names: ${summary.natural.percent}% (${summary.natural.natural} of ${summary.natural.rated} rated photos).`);
   d.log(`Wrote ${resultsPath} and ${reportPath}`);
   return { exitCode: 0, plan, results, summary, resultsPath, reportPath };
@@ -152,6 +187,6 @@ async function main() {
   process.exitCode = result.exitCode;
 }
 
-module.exports = { run, parseArgs, ESTIMATED_COST_PER_CALL_USD };
+module.exports = { run, parseArgs, ESTIMATED_COST_PER_CALL_USD, COST_PER_CALL_EXTRA_USD };
 
 if (require.main === module) main();

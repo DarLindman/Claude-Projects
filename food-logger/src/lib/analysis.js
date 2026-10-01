@@ -93,9 +93,11 @@ const sumItems = (items) => items.reduce((acc, item) => ({
 }), { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
 
 // ─── Analyze food image ───────────────────────────────────────────────────────
-async function analyzeImage(anthropic, { imageBase64, mimeType }) {
+// `model` is for the evaluation tool; production callers leave it out and get MODEL.
+async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL }) {
+  if (typeof model !== 'string' || !model.trim()) throw new TypeError('model must be a non-empty string');
   const message = await anthropic.messages.create({
-    model: MODEL,
+    model,
     max_tokens: 1300, // the items plus room for visual_description
     temperature: 0,
     system: IMAGE_SYSTEM_PROMPT,
