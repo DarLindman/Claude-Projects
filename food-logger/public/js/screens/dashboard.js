@@ -1,6 +1,6 @@
 import { state } from '../state.js';
 import { apiFetch } from '../api.js';
-import { todayStr } from '../dates.js';
+import { addDays, daysBetween, todayStr } from '../dates.js';
 import { html, setHtml } from '../dom.js';
 import { animateCountUp, startFireCanvas, stopFireCanvas } from '../effects.js';
 import { getFoodEmoji } from '../format.js';
@@ -86,7 +86,7 @@ export async function loadDashboard() {
   } catch {}
 
   try {
-    const { streak, lastLogDate } = await apiFetch('/api/streak');
+    const { streak, lastLogDate } = await apiFetch(`/api/streak?today=${todayStr()}`);
     const numEl = document.getElementById('dash-streak-num');
     if (numEl) numEl.textContent = streak ?? '—';
     // the label under the number: "1 יום ברצף", not "1 ימים ברצף"
@@ -95,14 +95,13 @@ export async function loadDashboard() {
     if (streak >= 1) startFireCanvas();
     else stopFireCanvas();
 
-    // Pet state — use Israel timezone to match server streak calculation
-    const toIsraelDate = d => d.toLocaleString('sv', { timeZone: 'Asia/Jerusalem' }).slice(0, 10);
-    const today = toIsraelDate(new Date());
-    const yesterday = toIsraelDate(new Date(Date.now() - 86400000));
+    // Pet state: the same local "today" the server was given for the streak
+    const today = todayStr();
+    const yesterday = addDays(today, -1);
     const hasLoggedToday = entries && entries.length > 0;
     const hasLoggedYesterday = lastLogDate === yesterday;
     const daysSinceLastLog = lastLogDate
-      ? Math.round((new Date(today) - new Date(lastLogDate)) / 86400000)
+      ? daysBetween(lastLogDate, today)
       : 999;
 
     const petState = getPetState(cal / (goal || 2000), hasLoggedToday, hasLoggedYesterday, daysSinceLastLog);

@@ -34,7 +34,7 @@ export async function addWeightLog() {
     return;
   }
   try {
-    await apiFetch('/api/weight', { method: 'POST', body: JSON.stringify({ weight_kg: +val, logged_at: date || null }) });
+    await apiFetch('/api/weight', { method: 'POST', body: JSON.stringify({ weight_kg: +val, logged_at: date || todayStr() }) });
     document.getElementById('weight-val').value = '';
     state.weightLogs = await apiFetch('/api/weight');
     renderWeightChart();

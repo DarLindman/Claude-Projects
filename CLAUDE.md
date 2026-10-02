@@ -53,6 +53,13 @@ Validated once at startup by `src/config.js`; the process refuses to start (and 
 
 The image analysis defaults to Sonnet (`IMAGE_MODEL=claude-sonnet-5-5`), about 3-5x the cost per photo of Haiku. Set a monthly spend limit in the Anthropic Console. To roll back, set `IMAGE_MODEL=claude-haiku-4-5-20251001` (the Haiku request is unchanged). Every model call of both analyses logs one numbers-only line: `[analyze] image model=<id> in=<input tokens> out=<output tokens> ms=<duration> stop=<stop_reason>` (`[analyze-text] text ...` for text; `in=? out=?` when the reply has no usage, `stop=error` when the call failed). It never holds reply text, names or identifiers; sum `in`/`out` per model to measure the real spend.
 
+### Dates and time (wall-clock model)
+
+- A meal's `logged_at` is the **user's wall-clock time**, not an instant: the browser builds it from its own local date and clock (`todayStr()` and `nowTimeStr()` in `public/js/dates.js`) and the server stores it as sent. `food_logs.logged_at` is a `TIMESTAMPTZ`, so every database session is **pinned to UTC** (`src/db/pool.js`); the stored value and the `YYYY-MM-DDTHH:mm` text read back from it are then the same wall clock, whatever zone the database or the server runs in. The server has no zone of its own and never converts.
+- "Today" is the browser's local date. `GET /api/streak` and `GET /api/stats/weekly` take `?today=YYYY-MM-DD` (the frontend always sends it); when it is absent the server falls back to the **UTC** date. The streak and the weekly window count back from that date with plain calendar arithmetic (`addDaysUtc` in `src/lib/dates.js`); the browser does the same with `addDays` / `daysBetween` (via `Date.UTC`, so no zone is involved). There is no Israel (or any other) time-zone conversion anywhere.
+- The `day` fields of the stats responses are plain `YYYY-MM-DD` strings (never timestamps), safe to compare with `todayStr()`.
+- New browser code must use the helpers in `public/js/dates.js` and must not build date or time strings by hand (`toISOString`, `toTimeString`, `toLocaleString` with a `timeZone`).
+
 ### Auth and sessions
 
 - The session is an **HttpOnly, SameSite=Strict cookie `fl_session`** (a JWT, 7 days, `Secure` in production), set by `POST /auth/register` and `POST /auth/login`. The response body holds only the username; JavaScript never sees the token. There is **no `Authorization` header** and no token in `localStorage`.
@@ -90,7 +97,7 @@ npm run test:e2e     # Playwright browser tests against the real app on port 310
 - Nothing costs money: the Anthropic client is replaced by a fake (`test/helpers/fakeAnthropic.js`), and no test calls an external service.
 - `npm test` runs files one at a time (`--test-concurrency=1`) because they share the one test database. Do not run it at the same time as `npm run test:e2e`.
 - Playwright needs its Chromium once: `npx playwright install chromium`.
-- The e2e smoke journey fails when run between 00:00 and 03:00 local time: a known, pre-existing bug (local-vs-UTC date mismatch in `editSave`), outside the Hebrew work. Run the e2e suite in the daytime.
+- `test/e2e/midnight.spec.js` runs the diary, an edit-and-save and the streak with a fake browser clock at 23:30 and then 00:30 (`page.clock.install` / `setFixedTime`); the whole e2e suite passes at any hour and in any database time zone (try `PGOPTIONS='-c timezone=America/New_York' npm run test:e2e`).
 
 ### Hebrew copy and AI naming
 
