@@ -82,7 +82,7 @@ Execution order: 1, 2, then the density rule 6 of section 5.2 (a corrected weigh
 1. A non-finite, missing or negative number becomes 0.
 2. **Weight:** `weight_g` above 2000 is capped at 2000 (nobody eats more in one item; a 1.5 litre drink fits); a missing or 0 weight stays 0 (the next rules then skip the weight-based checks).
 3. **Macros fit the weight:** `protein_g + carbs_g + fat_g + fiber_g` cannot exceed `weight_g`; when `weight_g > 0` and the sum exceeds it by more than 2%, the four macros are scaled down proportionally to fit. (The AI computes macros from the weight, so the weight is trusted first.)
-4. **Calories match the macros:** `expected = 4 * protein + 4 * carbs + 9 * fat` (fibre ignored). When `|calories - expected| > max(40, 20% of expected)`, `calories` becomes `round(expected)`. When the macros are all 0, the calories stay as given (a drink or a supplement can be listed with calories only) but still pass rule 5.
+4. **Calories match the macros:** `expected = 4 * protein + 4 * carbs + 9 * fat` (fibre ignored). With `tol = max(40, 20% of expected)`, calories below `expected - tol`, or above `expected + max(tol, ALCOHOL_KCAL_PER_G * weight_g)`, become `round(expected)`. `ALCOHOL_KCAL_PER_G` is 2.4 (a named constant): drinks carry calories no macro field holds, and 2.4 kcal per gram of weight is spirits at about 35-40 % ABV, the physical ceiling for a drink, so wine and beer keep their calories; with weight 0 the allowance is 0. When the macros are all 0, the calories stay as given (a drink or a supplement can be listed with calories only) but still pass rule 5.
 5. **Density:** calories per gram cannot exceed 9 (pure fat is the physical limit); when `weight_g > 0` and `calories > 9 * weight_g`, `calories` becomes `round(9 * weight_g)`.
 
 The numbers in these rules are named constants at the top of the module, covered by tests, and documented in `CLAUDE.md`.
@@ -113,7 +113,7 @@ The reply gets two **model-only** fields (never returned, stored or logged, like
 
 ### 5.2 Server check (rule 6 of `reconcileItems`)
 
-For an item with `volume_ml > 0` and `weight_g > 0`: the density `weight_g / volume_ml` must lie within **0.05 to 1.6 g/ml** (popcorn and foam at the bottom, dense fat, honey and nut butter at the top). Outside it, `weight_g` is moved to the nearest bound and the item's calories and macros are scaled by the same factor, so the numbers stay consistent. The bounds are named constants. The check applies the model's own reasoning to itself; it cannot tell which of the two numbers was wrong, which is why the one real run counts how often it fires before the bounds are trusted.
+For an item with `volume_ml > 0` and `weight_g > 0`: the density `weight_g / volume_ml` must lie within **0.02 to 1.6 g/ml** (popcorn, chips, loose greens and foam at the bottom, dense fat, honey and nut butter at the top). Outside it, `weight_g` is moved to the nearest bound and the item's calories and macros are scaled by the same factor, so the numbers stay consistent. A density outside one tenth of the lower bound to ten times the upper bound (0.002 to 16 g/ml) is a unit slip (litres written as ml and the like), not a wrong estimate: the item is left unchanged and the rule is not counted. `volume_ml` is read like the other numbers (`"170"` works). The bounds and the factor 10 are named constants. The check applies the model's own reasoning to itself; it cannot tell which of the two numbers was wrong, which is why the one real run counts how often it fires before the bounds are trusted.
 
 ### 5.3 Evaluation tool
 

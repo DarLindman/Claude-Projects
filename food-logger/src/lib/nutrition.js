@@ -9,9 +9,15 @@ const LIMITS = Object.freeze({
   MACRO_WEIGHT_TOLERANCE: 0.02, // macros may exceed the weight by 2% before they are scaled
   CALORIE_TOLERANCE_ABS: 40, // calories may differ from the macros' value by this many kcal...
   CALORIE_TOLERANCE_REL: 0.2, // ...or by this share of the expected value, whichever is larger
+  // Drinks carry calories no macro field holds. 2.4 kcal per gram of weight is spirits at
+  // about 35-40 % ABV, the physical ceiling for a drink; it widens only the upper tolerance.
+  ALCOHOL_KCAL_PER_G: 2.4,
   MAX_KCAL_PER_G: 9, // pure fat is the physical limit
-  MIN_DENSITY: 0.05, // g/ml; popcorn and foam
+  MIN_DENSITY: 0.02, // g/ml; popcorn, chips, loose greens and foam
   MAX_DENSITY: 1.6, // g/ml; dense fat, honey, nut butter
+  // A density outside [MIN_DENSITY / 10, MAX_DENSITY * 10] is a unit slip (litres written as ml,
+  // and the like), not a wrong estimate: the density rule leaves such an item alone.
+  UNIT_SLIP_FACTOR: 10,
 });
 
 const RULES = Object.freeze({
@@ -78,10 +84,11 @@ function reconcileOne(raw, hit) {
   // 3. density (spec 5.2): weight and volume must agree; move the weight to the nearest bound
   // and scale the nutrition by the same factor.
   run(RULES.DENSITY, () => {
-    const volume = item.volume_ml;
-    if (typeof volume !== 'number' || !Number.isFinite(volume) || volume <= 0 || item.weight_g <= 0) return;
+    const volume = toFinite(item.volume_ml);
+    if (volume === null || volume <= 0 || item.weight_g <= 0) return;
     const density = item.weight_g / volume;
     if (density >= LIMITS.MIN_DENSITY && density <= LIMITS.MAX_DENSITY) return;
+    if (density < LIMITS.MIN_DENSITY / LIMITS.UNIT_SLIP_FACTOR || density > LIMITS.MAX_DENSITY * LIMITS.UNIT_SLIP_FACTOR) return;
     const oldWeight = item.weight_g;
     const newWeight = round1(volume * (density < LIMITS.MIN_DENSITY ? LIMITS.MIN_DENSITY : LIMITS.MAX_DENSITY));
     const factor = newWeight / oldWeight;
@@ -101,11 +108,16 @@ function reconcileOne(raw, hit) {
   });
 
   // 5. calories match the macros (skipped when the macros are all 0: a drink can have calories only).
+  // The upper side also allows ALCOHOL_KCAL_PER_G per gram of weight (wine and beer carry calories
+  // no macro field holds); with weight 0 that allowance is 0.
   run(RULES.CALORIES_MACROS, () => {
     if (item.protein_g + item.carbs_g + item.fat_g === 0) return;
     const expected = 4 * item.protein_g + 4 * item.carbs_g + 9 * item.fat_g;
     const tolerance = Math.max(LIMITS.CALORIE_TOLERANCE_ABS, LIMITS.CALORIE_TOLERANCE_REL * expected);
-    if (Math.abs(item.calories - expected) > tolerance) item.calories = Math.round(expected);
+    const upperTolerance = Math.max(tolerance, LIMITS.ALCOHOL_KCAL_PER_G * item.weight_g);
+    if (item.calories < expected - tolerance || item.calories > expected + upperTolerance) {
+      item.calories = Math.round(expected);
+    }
   });
 
   // 6. calories per gram cannot exceed the physical limit.

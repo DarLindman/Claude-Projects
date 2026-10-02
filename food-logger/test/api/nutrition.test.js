@@ -16,9 +16,11 @@ test('constants are the agreed values', () => {
     MACRO_WEIGHT_TOLERANCE: 0.02,
     CALORIE_TOLERANCE_ABS: 40,
     CALORIE_TOLERANCE_REL: 0.2,
+    ALCOHOL_KCAL_PER_G: 2.4,
     MAX_KCAL_PER_G: 9,
-    MIN_DENSITY: 0.05,
+    MIN_DENSITY: 0.02,
     MAX_DENSITY: 1.6,
+    UNIT_SLIP_FACTOR: 10,
   });
 });
 
@@ -48,26 +50,30 @@ test('weight: 2000 stays, 2001 is capped to 2000', () => {
   assert.equal(cap.report.adjusted, 1);
 });
 
-test('density: exactly 0.05 and 1.6 g/ml stay', () => {
-  for (const [w, v] of [[50, 1000], [160, 100]]) {
-    const item = { weight_g: w, volume_ml: v, calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 };
-    const { items, report } = one({ ...item, calories: 100 });
+test('density: exactly 0.02 and 1.6 g/ml stay', () => {
+  for (const [w, v] of [[20, 1000], [160, 100]]) {
+    const { items, report } = one({ weight_g: w, volume_ml: v, calories: 100, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
     assert.equal(items[0].weight_g, w);
     assert.equal(items[0].calories, 100);
     assert.equal(report.rules.density, undefined);
   }
 });
 
-test('density: 0.049 is raised to 0.05 and calories/macros scale with the weight', () => {
-  // 49 g in 1000 ml -> weight 50 (factor 50/49)
-  const { items, report } = one({ name: 'popcorn', weight_g: 49, volume_ml: 1000, calories: 98, protein_g: 4.9, carbs_g: 9.8, fat_g: 0, fiber_g: 0 });
-  assert.equal(items[0].weight_g, 50);
+test('density: 0.019 is raised to 0.02 and calories scale with the weight', () => {
+  // 19 g in 1000 ml -> weight 20 (factor 20/19)
+  const { items, report } = one({ name: 'chips', weight_g: 19, volume_ml: 1000, calories: 95, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
+  assert.equal(items[0].weight_g, 20);
   assert.equal(items[0].calories, 100);
-  assert.equal(items[0].protein_g, 5);
-  assert.equal(items[0].carbs_g, 10);
   assert.equal(items[0].volume_ml, 1000);
-  assert.equal(items[0].name, 'popcorn');
+  assert.equal(items[0].name, 'chips');
   assert.equal(report.rules.density, 1);
+});
+
+test('density: macros scale with the weight too', () => {
+  // 19 g in 1000 ml -> weight 20; carbs 9.5 g -> 10 g
+  const { items } = one({ weight_g: 19, volume_ml: 1000, calories: 38, protein_g: 0, carbs_g: 9.5, fat_g: 0, fiber_g: 0 });
+  assert.equal(items[0].carbs_g, 10);
+  assert.equal(items[0].calories, 40);
 });
 
 test('density: 1.61 is lowered to 1.6 and calories/macros scale down', () => {
@@ -80,10 +86,40 @@ test('density: 1.61 is lowered to 1.6 and calories/macros scale down', () => {
   assert.equal(report.calories_delta, -2);
 });
 
+test('density: a unit slip (outside 0.002 to 16 g/ml) is left alone and not counted', () => {
+  // the inclusive ends still act: 0.002 g/ml (2 g in 1000 ml) and 16 g/ml (160 g in 10 ml)
+  const low = one({ weight_g: 2, volume_ml: 1000, calories: 10, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
+  assert.equal(low.items[0].weight_g, 20);
+  assert.equal(low.items[0].calories, 100);
+  assert.equal(low.report.rules.density, 1);
+  const high = one({ weight_g: 160, volume_ml: 10, calories: 100, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
+  assert.equal(high.items[0].weight_g, 16);
+  assert.equal(high.report.rules.density, 1);
+
+  // just beyond either end: untouched, rule not counted
+  for (const [w, v] of [[1.9, 1000], [161, 10], [500, 2], [1, 5000]]) {
+    const item = { weight_g: w, volume_ml: v, calories: 1, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 };
+    const { items, report } = one(item);
+    assert.deepEqual(items[0], item, w + ' g in ' + v + ' ml');
+    assert.equal(report.rules.density, undefined);
+    assert.equal(report.adjusted, 0);
+  }
+});
+
+test('density: volume_ml is read like the other numbers ("170" works)', () => {
+  // 340 g in "170" ml = 2 g/ml -> weight 272 (factor 0.8)
+  const { items, report } = one({ weight_g: 340, volume_ml: '170', calories: 100, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
+  assert.equal(items[0].weight_g, 272);
+  assert.equal(items[0].calories, 80);
+  assert.equal(items[0].volume_ml, '170', 'the given value is kept as it was');
+  assert.equal(report.rules.density, 1);
+});
+
 test('density: skipped without a usable volume or weight', () => {
-  for (const volume_ml of [undefined, 0, -5, '250', NaN, null]) {
-    const { items, report } = one(ok({ volume_ml, weight_g: 150 }));
-    assert.equal(items[0].weight_g, 150, String(volume_ml));
+  // weight 5000 would be a density far above 1.6 for the tiny volumes, so only a skipped rule leaves 2000
+  for (const volume_ml of [undefined, 0, -5, '', 'abc', '250 ml', NaN, Infinity, null, true, []]) {
+    const { items, report } = one(ok({ volume_ml, weight_g: 5000 }));
+    assert.equal(items[0].weight_g, 2000, String(volume_ml)); // only the weight cap acted
     assert.equal(report.rules.density, undefined, String(volume_ml));
   }
   const { items, report } = one({ weight_g: 0, volume_ml: 100, calories: 50 });
@@ -108,21 +144,60 @@ test('macro_weight: a sum of exactly 1.02x the weight stays, above is scaled to 
   assert.equal(it.weight_g, 100);
 });
 
-test('calories_macros: a deviation of exactly max(40, 20%) stays, above is replaced', () => {
+test('calories_macros: the lower side is exactly max(40, 20%) below the macros', () => {
   // expected 290: tolerance is max(40, 58) = 58
-  const at = ok({ calories: 290 + 58 });
-  assert.equal(one(at).items[0].calories, 348);
   assert.equal(one(ok({ calories: 290 - 58 })).items[0].calories, 232);
-  const over = one(ok({ calories: 290 + 59 }));
-  assert.equal(over.items[0].calories, 290);
-  assert.equal(over.report.rules.calories_macros, 1);
-  assert.equal(one(ok({ calories: 290 - 59 })).items[0].calories, 290);
+  const under = one(ok({ calories: 290 - 59 }));
+  assert.equal(under.items[0].calories, 290);
+  assert.equal(under.report.rules.calories_macros, 1);
 
-  // small expected: tolerance is the absolute 40 (expected 40 = 10 g carbs)
-  const small = { weight_g: 100, protein_g: 0, carbs_g: 10, fat_g: 0, fiber_g: 0 };
+  // small expected: the absolute 40 applies (expected 40 = 10 g carbs; weight 10 keeps the alcohol allowance at 24)
+  const small = { weight_g: 10, protein_g: 0, carbs_g: 10, fat_g: 0, fiber_g: 0 };
+  assert.equal(one({ ...small, calories: 0 }).items[0].calories, 0);
   assert.equal(one({ ...small, calories: 80 }).items[0].calories, 80);
   assert.equal(one({ ...small, calories: 81 }).items[0].calories, 40);
   assert.equal(one({ ...small, calories: 200 }).items[0].calories, 40);
+});
+
+test('calories_macros: the upper side adds ALCOHOL_KCAL_PER_G per gram; exactly on the limit stays', () => {
+  // weight 100, expected 290: limit is 290 + max(40, 58, 2.4 * 100) = 530
+  const item = (calories) => ok({ weight_g: 100, calories });
+  assert.equal(one(item(530)).items[0].calories, 530);
+  const over = one(item(531));
+  assert.equal(over.items[0].calories, 290);
+  assert.equal(over.report.rules.calories_macros, 1);
+
+  // weight 0: the allowance is 0, so the limit is 290 + 58
+  const noWeight = (calories) => ({ weight_g: 0, calories, protein_g: 20, carbs_g: 30, fat_g: 10, fiber_g: 3 });
+  assert.equal(one(noWeight(348)).items[0].calories, 348);
+  assert.equal(one(noWeight(349)).items[0].calories, 290);
+
+  // a small allowance never shrinks the normal tolerance: weight 10 (allowance 24) and expected 40 give max(40, 8, 24) = 40
+  const small = (calories) => ({ weight_g: 10, protein_g: 5, carbs_g: 5, fat_g: 0, fiber_g: 0, calories });
+  assert.equal(one(small(80)).items[0].calories, 80);
+  assert.equal(one(small(81)).items[0].calories, 40);
+});
+
+test('calories_macros: wine and beer keep the calories their carbs cannot explain', () => {
+  const wine = { name: 'wine', weight_g: 150, calories: 125, protein_g: 0.1, carbs_g: 3.8, fat_g: 0, fiber_g: 0 };
+  const beer = { name: 'beer', weight_g: 330, calories: 142, protein_g: 1.6, carbs_g: 11, fat_g: 0, fiber_g: 0 };
+  const { items, report } = reconcileItems([wine, beer]);
+  assert.deepEqual(items, [wine, beer]);
+  assert.equal(report.adjusted, 0);
+});
+
+test('calories_macros: a spirit shot with no macros keeps its calories', () => {
+  const shot = { name: 'vodka', weight_g: 44, calories: 100, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 };
+  const { items, report } = one(shot);
+  assert.deepEqual(items[0], shot);
+  assert.equal(report.adjusted, 0);
+});
+
+test('calories_macros: 900 kcal on 100 g with macros worth 125 kcal is still corrected', () => {
+  const { items, report } = one({ weight_g: 100, calories: 900, protein_g: 10, carbs_g: 10, fat_g: 5, fiber_g: 0 });
+  assert.equal(items[0].calories, 125);
+  assert.equal(report.rules.calories_macros, 1);
+  assert.equal(report.rules.kcal_density, undefined);
 });
 
 test('calories_macros: the expected value is rounded to an integer', () => {
@@ -229,12 +304,12 @@ test('a corrected weight feeds the nutrition rules (execution order)', () => {
 
 test('report counts', () => {
   const a = { name: 'a', weight_g: 100, calories: 1000, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 }; // kcal_density: 1000 -> 900
-  const b = ok({ name: 'b', calories: 500 }); // calories_macros: 500 -> 290
+  const b = ok({ name: 'b', calories: 1000 }); // calories_macros: 1000 -> 290 (the upper limit is 290 + 360 at 150 g)
   const c = ok({ name: 'c' }); // untouched
   const { items, report } = reconcileItems([a, b, c]);
   assert.equal(items[0].calories, 900);
   assert.equal(items[1].calories, 290);
-  assert.deepEqual(report, { adjusted: 2, calories_delta: -100 + -210, rules: { kcal_density: 1, calories_macros: 1 } });
+  assert.deepEqual(report, { adjusted: 2, calories_delta: -100 + -710, rules: { kcal_density: 1, calories_macros: 1 } });
 });
 
 test('report: an item hitting several rules counts once in adjusted and once per rule', () => {
