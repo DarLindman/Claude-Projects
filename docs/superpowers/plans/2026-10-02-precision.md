@@ -215,6 +215,56 @@ Inputs and conditions the spec implies but would not otherwise be tested, most l
 
 ---
 
+---
+
+## Addendum 2026-10-03 — after the single real run (owner decisions)
+
+The one authorised run showed the portion method of Task 7 raises calories by about 19% (25 of 30 photos higher; an egg-salad sandwich at 1,282 kcal and a steak at 1,551 kcal looked implausible to the owner), triples the output (about 640 to 1,970 tokens) and doubles the time (about 8 s to 17 s). The model chose "standard dinner plate, 26 cm" in 26 of 30 photos: it assumed the scale instead of measuring it. The owner decided (2026-10-03): (1) the portion method of Task 7 is NOT merged as it is; (2) speed matters: even 8 s is a lot; (3) up to **3 further real runs** on the 30 photos are authorised (about 0.2-0.4 USD each) for a speed experiment and then a prompt that grounds the scale in what is visible (cutlery, plate, cup) instead of assuming it. The docs (platform.claude.com, the `effort` and `thinking` pages) say Sonnet 5.5 rejects `thinking: disabled`, accepts `thinking: {"type": "between_tools"}` with `output_config: {"effort": "low"}` (GA, no beta header, no other fields with `between_tools`), and that Haiku 4.5, Opus and Fable must NOT receive these fields (400). Part 3 of the spec is superseded by this addendum where they differ; the density rule of `nutrition.js` stays and is inert when `volume_ml` is absent.
+
+Tasks 9-10 are production and tool work for subagents; Tasks 11-13 are controller steps.
+
+### Task 9: Low-latency request options for Sonnet 5 image analysis
+
+**Files:**
+- Modify: `src/lib/analysis.js`, `src/config.js`, `src/routes/analyze.js` and `src/app.js` (pass the configured effort the way `imageModel` is passed), `server.js` (the startup log line lists it), `.env.example`, `CLAUDE.md` ("Operating the image model")
+- Test: `test/api/analyze-model.test.js` (extend), `test/api/config.test.js` (extend)
+
+**Interfaces:**
+- Produces in `analysis.js`: `requestOptionsFor(model: string, effort?: string | null): { thinking?: object, output_config?: object }` (exported). For a model id starting with `claude-sonnet-5`: `effort` undefined or `'low'` gives `{ thinking: { type: 'between_tools' }, output_config: { effort: 'low' } }`, `'medium'` and `'high'` give the same with that effort, `null` or `'off'` gives `{}`. Every other model gives `{}` (Haiku, Opus and Fable reject these fields). `analyzeImage(anthropic, { imageBase64, mimeType, model, temperature, effort, prompts })`: the request spreads `requestOptionsFor(model, effort)`; `effort` undefined means the default (low); `prompts` is an optional evaluation-only override `{ system: string, user: string }` replacing `IMAGE_SYSTEM_PROMPT` and `IMAGE_USER_MESSAGE` (production never passes it).
+- Produces in `config.js`: `config.imageEffort` from env `IMAGE_EFFORT` (one of `low`, `medium`, `high`, `off`; default `low`; anything else is a startup error listed with the other config problems, like the existing `IMAGE_MODEL` check); the analyze route passes it as `effort` (`'off'` maps to `null`). The startup log line shows `imageEffort=<value>`.
+
+- [ ] **Step 1: Write failing tests:** with the fake client, a `claude-sonnet-5-5` image request body contains `thinking: { type: 'between_tools' }` and `output_config: { effort: 'low' }` and still no `temperature`; `effort: 'medium'` sends medium; `effort: null` sends neither; a Haiku model request and a `claude-opus-5-5` request contain neither field; the route sends the configured effort (`IMAGE_EFFORT=high` via `buildTestApp({ env })` reaches the request; `off` sends none); config rejects `IMAGE_EFFORT=extreme` with a message naming the variable; the `prompts` override replaces the system and user texts in the request; the text analysis request is unchanged (no new fields).
+- [ ] **Step 2: Run** `node --test test/api/analyze-model.test.js test/api/config.test.js` — expect FAIL.
+- [ ] **Step 3: Implement** as specified; keep `maxTokensFor` and `temperatureFor` as they are; the usage log line format must not change (tests pin its regex).
+- [ ] **Step 4: Run** `npm test` — expect PASS.
+- [ ] **Step 5: Document** `IMAGE_EFFORT` (what it does, the values, rollback `IMAGE_EFFORT=off`) and the rule that Haiku, Opus and Fable never get these fields, in `CLAUDE.md` and `.env.example`.
+- [ ] **Step 6: Commit** `feat: low-latency request options for Sonnet 5 image analysis (IMAGE_EFFORT)`.
+
+### Task 10: Evaluation variants (prompt, effort) and per-call latency
+
+**Files:**
+- Modify: `scripts/eval-naming.js`, `scripts/eval/pipeline.js`, `scripts/eval/report.js`, `scripts/eval/summary.js`
+- Create: `scripts/eval/prompts/prePortion.js`
+- Test: `test/api/eval-naming-extra.test.js`, `test/api/eval-only-extra.test.js`, `test/api/analysis-prompt.test.js` (hash test of the frozen copy)
+
+**Interfaces:**
+- Consumes: `analyzeImage(..., { effort, prompts })` (Task 9).
+- `scripts/eval/prompts/prePortion.js` exports `{ IMAGE_SYSTEM_PROMPT, IMAGE_USER_MESSAGE }`: the runtime image prompt exactly as it was at commit `b67661f` (before the portion method of Task 7), as rendered strings; a hash test (sha256 of both strings, computed once from `git show b67661f:food-logger/src/lib/prompts.js`) freezes it like the V1 prompt. Further variants are added later as files in the same directory with the same two exports.
+- CLI: `--prompt <name>` (a file name in `scripts/eval/prompts/` without `.js`; an unknown name is an error) and `--effort <low|medium|high|off>` apply to the extra variant (the `--also-model` run); the recorded `variants.extra` gets `prompt` and `effort` fields and the report's extra column label shows them.
+- Each recorded side gains `ms`, `inputTokens`, `outputTokens` and `stopReason` of the (last) model call, measured in the instrumented client wrapper from wall-clock time and the response `usage` (`null` when absent); the summary and the report show the average and maximum latency and the average tokens of the extra variant; old results without these fields still render.
+
+- [ ] **Step 1: Write failing tests** (fake client, no real API): `--prompt prePortion` sends the frozen texts; an unknown prompt name fails with a clear message; `--effort off` sends no effort fields and `--effort medium` sends medium on the extra variant; the recorded side has `ms` and token counts from a fake `usage`; the report shows average latency and escapes the prompt label; the hash test of the frozen file; results without the new fields render.
+- [ ] **Step 2: Run** the eval test files — expect FAIL.
+- [ ] **Step 3: Implement** as specified (no change under `src/` beyond what Task 9 added).
+- [ ] **Step 4: Run** `npm test` — expect PASS.
+- [ ] **Step 5: Commit** `feat: evaluation can compare prompts and effort and shows latency`.
+
+### Tasks 11-13 (controller)
+
+- Task 11: real run 1 (authorised): `--also-model claude-sonnet-5-5 --only-extra --runs 1 --prompt prePortion` (effort default low): latency, tokens, calories against the earlier columns, names. Report to the owner.
+- Task 12: draft a scale-grounded prompt `scripts/eval/prompts/portionV2.js` (opus implementer; general rules only, no food dictionary: compare the plate and the cutlery visible in the photo, known sizes of common cutlery and containers, do not default to a 26 cm plate, avoid inflating portions), a review, then real run 2 (authorised); an optional run 3 for one tweak.
+- Task 13: apply the winning prompt as the runtime prompt (restore the pre-portion text or install V2; remove the unused model-only fields and the Task 7 tests accordingly; docs and audit doc), final whole-branch review, owner report with "Rulings I made", PR.
+
 ## Self-review notes
 
 - Spec coverage: section 3 → Tasks 1-3 (pin, `today`, streak, stats, browser helpers, tests, docs); section 4 → Tasks 4-6; section 5 → Tasks 7-8; success criterion 1 → verification under three zones in Tasks 1-3 plus the fixed-clock e2e; criteria 4-6 → Tasks 4, 5, 7; criterion 0 → Task 8.
