@@ -1,7 +1,7 @@
 # Food Logger — Precision (sub-project 3): consistent dates, sane numbers, better portion estimates
 
 **Date:** 2026-10-02
-**Status:** Draft — awaiting owner review
+**Status:** Approved by the owner 2026-10-02
 **Branch:** `precision` (nothing here touches `main` or the deployed Railway app until merged)
 **Scope:** `food-logger/` date handling (database session, routes `streak`, `stats`, `weight`, `food`, frontend date helpers) and the nutrition numbers and portion sizes returned by the AI analysis (`src/lib/analysis.js`, new `src/lib/nutrition.js`, prompts).
 
@@ -14,7 +14,7 @@ Sub-project 3 of the overhaul. Sub-project 1 (foundation and security) and the H
 The owner chose "precision" to mean all three parts (2026-10-02):
 
 - **Part 1, dates:** days, the streak and the weekly/monthly/yearly numbers must be right at every hour of the day, with no "meal that jumps to another day" around midnight.
-- **Part 3, portions (added later the same day):** the AI must estimate how much food is on the plate as accurately as possible, for any food, by a general method and not per-dish hard-coding. Scope **A**: improve the estimation prompt and the server-side checks only; the result screen does not change. Showing grams per item for the user to correct was offered and deferred (it is a screen change with new Hebrew text; a candidate for sub-project 4). Evidence: the same photo of a meat dish got 920 kcal with one prompt version and 622 kcal with another.
+- **Part 3, portions (added later the same day):** the AI must estimate how much food is on the plate as accurately as possible, for any food, by a general method and not per-dish hard-coding. Scope **A**: improve the estimation prompt and the server-side checks only; the result screen does not change. Showing grams per item for the user to correct was offered and **declined by the owner, also for sub-project 4**: grams are not shown to the user anywhere. Evidence: the same photo of a meat dish got 920 kcal with one prompt version and 622 kcal with another.
 - **Part 2, numbers:** the nutrition values the AI returns must be checked by deterministic rules in code (approach **A**, sanity checks). Rejected for now: a double estimate (two calls, averaged) and an external nutrition database.
 - **Exactly one real AI run is authorized** (owner, 2026-10-02): a single pass of the existing evaluation tool (`--runs 1`, 30 photos, about 30 calls, roughly 0.4 USD) at the end of Part 2, after everything else passes. It answers three open questions: do the names stay natural after the old recognition hints were removed (never measured), how many items the sanity rules of section 4 would adjust on real replies, and whether the portion method of section 5 gives gram values the owner finds plausible (the report lists the weights per photo next to the calories of the earlier runs; where the owner knows the real weight of a meal, that is the yardstick). No other real AI call is made: every test uses fake replies, and the run is not repeated. Its real-world effect afterwards is read from the numbers-only server log line.
 - Hebrew text stays flawless: no user-facing wording is added without the owner's approval; any new text goes through the Hebrew spelling guard (`test/api/hebrew-spelling.test.js`) and the snapshot test.
@@ -119,7 +119,7 @@ For an item with `volume_ml > 0` and `weight_g > 0`: the density `weight_g / vol
 
 ## 6. Out of scope
 
-Grams per item on the result screen (deferred), external nutrition database, double estimates, per-user time zones, English, any visual change, new user-facing text, switching the text analysis away from Haiku, and migrating or rewriting stored data.
+Showing grams to the user anywhere (declined by the owner, including for sub-project 4), external nutrition database, double estimates, per-user time zones, English, any visual change, new user-facing text, switching the text analysis away from Haiku, and migrating or rewriting stored data.
 
 ## 7. Testing
 
