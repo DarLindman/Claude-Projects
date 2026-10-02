@@ -169,10 +169,14 @@ for (const [label, content] of [
     assertUnavailable(await analyze());
     const lines = errorLog.mock.calls.map((c) => c.arguments.map(String).join(' '));
     const own = lines.filter((l) => l.startsWith('[analyze]'));
-    assert.equal(own.length, 1);
-    assert.match(own[0], /no text block/);
-    assert.match(own[0], /stop_reason end_turn/);
-    for (const block of content) assert.ok(own[0].includes(block.type));
+    // an unparseable reply is tried twice (see analysis-retry.test.js): one failure line per attempt
+    assert.equal(own.length, 2);
+    for (const l of own) {
+      assert.match(l, /no text block/);
+      assert.match(l, /stop_reason end_turn/);
+      for (const block of content) assert.ok(l.includes(block.type));
+    }
+    assert.equal(ctx.anthropic.calls.length, 2);
     // the route's request-id line carries the same details
     assert.ok(lines.some((l) => /AI request failed/.test(l) && /no text block/.test(l) && /stop_reason end_turn/.test(l)));
     assert.ok(!logged().includes(MARKER));
@@ -239,9 +243,11 @@ for (const [label, content] of [
     ctx.anthropic.textContent = content;
     assertUnavailable(await analyzeTextReq());
     const own = errorLog.mock.calls.map((c) => c.arguments.map(String).join(' ')).filter((l) => l.startsWith('[analyze-text]'));
-    assert.equal(own.length, 1);
-    assert.match(own[0], /stop_reason end_turn/);
-    assert.match(own[0], new RegExp(`blocks ${content[0].type}`));
+    assert.equal(own.length, 2); // one failure line per attempt (the reply is retried once)
+    for (const l of own) {
+      assert.match(l, /stop_reason end_turn/);
+      assert.match(l, new RegExp(`blocks ${content[0].type}`));
+    }
     assert.ok(!logged().includes(MARKER));
   });
 }

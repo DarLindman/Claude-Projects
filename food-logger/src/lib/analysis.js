@@ -8,7 +8,15 @@ const { replyText, blockTypes, stopReasonOf, extractJson, isPlainObject } = requ
 // Thrown when the model's reply cannot be turned into nutrition items. Routes
 // map it to the "could not analyze the AI response" 500; any other error maps
 // to the endpoint-specific generic 500.
-class AnalysisParseError extends Error {}
+// `kind` (what was wrong, e.g. 'JSON parse error') and `stopReason` are API-enum-like
+// values, safe to log; neither ever holds reply text.
+class AnalysisParseError extends Error {
+  constructor(message, { kind, stopReason } = {}) {
+    super(message);
+    this.kind = kind;
+    this.stopReason = stopReason;
+  }
+}
 
 const IMAGE_SYSTEM_PROMPT = `אתה מנתח תזונה מומחה. נתח תמונות אוכל לפי השיטה הבאה:
 
@@ -127,13 +135,31 @@ function parseReply(message, kind, tag, accept) {
   const fail = (what, length) => {
     const details = `${what} (reply of ${length} characters in blocks ${blockTypes(message)}, stop_reason ${stopReasonOf(message)})`;
     console.error(`[${tag}] ${details}`);
-    throw new AnalysisParseError(details);
+    throw new AnalysisParseError(details, { kind: what, stopReason: stopReasonOf(message) });
   };
   const text = replyText(message);
   if (text === null) fail('no text block', 0);
   const { value, error } = extractJson(text, kind, accept);
   if (error) fail(error, text.length);
   return { value, fail: (what) => fail(what, text.length) };
+}
+
+// Runs one AI call plus the parsing of its reply (`attempt`) and, when the reply cannot be
+// turned into an answer (an AnalysisParseError: unparseable JSON, no JSON, no text block, no
+// acceptable candidate, no items), runs it once more: such a failure is intermittent (about
+// 1 in 30 image replies) and a second call usually succeeds. Never retried: an API error
+// (the SDK already retries transport errors) and a reply cut by max_tokens (it would only
+// repeat). At most one retry, so two calls per request; a second failure propagates as is.
+// The limiters count requests, not calls, so a retry doubles the cost of that one request.
+// The log line carries only the failure kind, never reply text.
+async function withParseRetry(tag, attempt) {
+  try {
+    return await attempt();
+  } catch (err) {
+    if (!(err instanceof AnalysisParseError) || err.stopReason === 'max_tokens') throw err;
+    console.warn(`[${tag}] unparseable reply, retrying once (${err.kind})`);
+    return attempt();
+  }
 }
 
 // What counts as the answer among the JSON candidates of a reply (aiReply.extractJson);
@@ -165,28 +191,30 @@ async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL, t
   if (temperature !== null && !(typeof temperature === 'number' && Number.isFinite(temperature) && temperature >= 0 && temperature <= 1)) {
     throw new TypeError('temperature must be null or a finite number from 0 to 1');
   }
-  const message = await anthropic.messages.create({
-    model,
-    max_tokens: maxTokensFor(model),
-    ...(temperature === null ? {} : { temperature }),
-    system: IMAGE_SYSTEM_PROMPT,
-    messages: [{
-      role: 'user',
-      content: [
-        {
-          type: 'image',
-          source: { type: 'base64', media_type: mimeType, data: imageBase64 }
-        },
-        { type: 'text', text: IMAGE_USER_MESSAGE }
-      ]
-    }]
-  });
-
   // The reply describes the user's meal (visual_description, draft_name), so it is never
   // logged (see parseReply).
-  const { value: parsed, fail } = parseReply(message, 'object', 'analyze', isImageAnswer);
+  const parsed = await withParseRetry('analyze', async () => {
+    const message = await anthropic.messages.create({
+      model,
+      max_tokens: maxTokensFor(model),
+      ...(temperature === null ? {} : { temperature }),
+      system: IMAGE_SYSTEM_PROMPT,
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            source: { type: 'base64', media_type: mimeType, data: imageBase64 }
+          },
+          { type: 'text', text: IMAGE_USER_MESSAGE }
+        ]
+      }]
+    });
+    const { value, fail } = parseReply(message, 'object', 'analyze', isImageAnswer);
+    if (!Array.isArray(value.items) || value.items.length === 0) fail('no items');
+    return value;
+  });
   const items = parsed.items;
-  if (!Array.isArray(items) || items.length === 0) fail('no items');
   // visual_description and draft_name are only the model's recognition and first attempt:
   // they are never read here, so they are not returned, stored or logged. Item names are
   // cleaned defensively but not returned; dish_name (the checked final name) goes through
@@ -199,18 +227,21 @@ async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL, t
 
 // ─── Analyze food text ────────────────────────────────────────────────────────
 async function analyzeText(anthropic, text) {
-  const message = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: 1200,
-    temperature: 0,
-    system: TEXT_SYSTEM_PROMPT,
-    messages: [{
-      role: 'user',
-      content: `זהה כל מאכל בטקסט וחשב ערכים תזונתיים מדויקים.\nהחזר JSON array בלבד, ללא markdown, ללא הסבר:\n${JSON.stringify(TEXT_REPLY_TEMPLATE)}\nכל הערכים מספרים. weight_g חובה — קבע אותו קודם כל.\n\nהטקסט: ${text.trim()}`
-    }]
+  const items = await withParseRetry('analyze-text', async () => {
+    const message = await anthropic.messages.create({
+      model: MODEL,
+      max_tokens: 1200,
+      temperature: 0,
+      system: TEXT_SYSTEM_PROMPT,
+      messages: [{
+        role: 'user',
+        content: `זהה כל מאכל בטקסט וחשב ערכים תזונתיים מדויקים.\nהחזר JSON array בלבד, ללא markdown, ללא הסבר:\n${JSON.stringify(TEXT_REPLY_TEMPLATE)}\nכל הערכים מספרים. weight_g חובה — קבע אותו קודם כל.\n\nהטקסט: ${text.trim()}`
+      }]
+    });
+    const { value, fail } = parseReply(message, 'array', 'analyze-text', isTextAnswer);
+    if (value.length === 0) fail('no items');
+    return value;
   });
-  const { value: items, fail } = parseReply(message, 'array', 'analyze-text', isTextAnswer);
-  if (items.length === 0) fail('no items');
   const totals = sumItems(items);
   // The shown name is what the user typed: only non-Hebrew letters are translated, the
   // rest (punctuation, emoji, digits) stays; no word limit, at most the food-name limit

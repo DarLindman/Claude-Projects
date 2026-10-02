@@ -298,10 +298,13 @@ async function withAnthropic(create, fn) {
   ctx.anthropic.messages.create = create;
   const logged = [];
   const originalLog = console.error;
+  const originalWarn = console.warn;
   console.error = (...a) => logged.push(a);
+  console.warn = () => {}; // the retry of an unparseable reply logs a line
   try { await fn(); } finally {
     ctx.anthropic.messages.create = original;
     console.error = originalLog;
+    console.warn = originalWarn;
   }
   return logged;
 }

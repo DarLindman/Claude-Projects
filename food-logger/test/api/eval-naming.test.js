@@ -308,11 +308,13 @@ test('a failing call is recorded as an error and the run goes on', async () => {
   const fake = fakeAnthropic();
   fake.imageReply = 'not json at all';
   const quiet = mock.method(console, 'error', () => {}); // analyzeImage logs the parse failure
+  const quietWarn = mock.method(console, 'warn', () => {}); // ... and the retry of an unparseable reply
   let result;
   try {
     ({ result } = await runWith(ws, { yes: true, runs: 1 }, fake));
   } finally {
     quiet.mock.restore();
+    quietWarn.mock.restore();
   }
   assert.equal(result.exitCode, 0);
   const r = result.results.photos[0].runs[0];
