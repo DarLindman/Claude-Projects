@@ -7,6 +7,7 @@ const {
   IMAGE_SYSTEM_PROMPT, IMAGE_USER_MESSAGE, TEXT_SYSTEM_PROMPT, IMAGE_REPLY_TEMPLATE, TEXT_REPLY_TEMPLATE,
 } = require('./prompts');
 const { replyText, blockTypes, stopReasonOf, extractJson, isPlainObject } = require('./aiReply');
+const { reconcileItems } = require('./nutrition');
 
 // Thrown when the model's reply cannot be turned into nutrition items. Like any other AI
 // failure, the routes map it to 502 AI_UNAVAILABLE (the details only go to the log).
@@ -108,6 +109,18 @@ const sumItems =(items) => items.reduce((acc, item) => ({
   fiber_g: acc.fiber_g + (Number(item.fiber_g) || 0),
 }), { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
 
+// Makes the numbers of the items consistent (nutrition.js) and logs, when anything changed,
+// one numbers-only line (adjusted items, the calories change and the rule ids with their
+// counts, sorted): never any meal text, name or identifier. Returns the checked items.
+function checkItems(tag, items) {
+  const { items: checked, report } = reconcileItems(items);
+  if (report.adjusted > 0) {
+    const rules = Object.keys(report.rules).sort().map((id) => `${id}:${report.rules[id]}`).join(',');
+    console.info(`[${tag}] sanity adjusted=${report.adjusted} calories_delta=${report.calories_delta} rules=${rules}`);
+  }
+  return checked;
+}
+
 // ─── Analyze food image ───────────────────────────────────────────────────────
 // `model` is the configured image model (config.imageModel) in production; without it the
 // request goes to MODEL. `temperature` defaults to temperatureFor(model); an explicit value
@@ -147,7 +160,7 @@ async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL, t
   // cleaned defensively but not returned; dish_name (the checked final name) goes through
   // the guard as is (missing or of any type it becomes the default name).
   items.forEach(item => { item.name = cleanDishName(item.name); });
-  const totals = sumItems(items);
+  const totals = sumItems(checkItems('analyze', items));
   const { name: foodName } = await ensureHebrewDishName(anthropic, parsed.dish_name, {});
   return { foodName, ...totals };
 }
@@ -169,7 +182,7 @@ async function analyzeText(anthropic, text) {
     if (value.length === 0) fail('no items');
     return value;
   });
-  const totals = sumItems(items);
+  const totals = sumItems(checkItems('analyze-text', items));
   // The shown name is what the user typed: only non-Hebrew letters are translated, the
   // rest (punctuation, emoji, digits) stays; no word limit, at most the food-name limit
   // of 200 characters, and a text without letters (such as "100") stays as typed.

@@ -53,6 +53,19 @@ Validated once at startup by `src/config.js`; the process refuses to start (and 
 
 The image analysis defaults to Sonnet (`IMAGE_MODEL=claude-sonnet-5-5`), about 3-5x the cost per photo of Haiku. Set a monthly spend limit in the Anthropic Console. To roll back, set `IMAGE_MODEL=claude-haiku-4-5-20251001` (the Haiku request is unchanged). Every model call of both analyses logs one numbers-only line: `[analyze] image model=<id> in=<input tokens> out=<output tokens> ms=<duration> stop=<stop_reason>` (`[analyze-text] text ...` for text; `in=? out=?` when the reply has no usage, `stop=error` when the call failed). It never holds reply text, names or identifiers; sum `in`/`out` per model to measure the real spend.
 
+### Nutrition sanity rules
+
+Both analyses pass the model's items through `reconcileItems` (`src/lib/nutrition.js`, pure, never throws, never drops or reorders items) after the item names are cleaned and before the totals are summed, so the response is built from the checked numbers (its shape is unchanged). Six rules run per item, in this order; the constants are `LIMITS` in that file:
+
+1. `invalid`: a present field that is not a finite number >= 0 becomes 0 (a missing field is silently 0).
+2. `weight`: `weight_g` is capped at `MAX_ITEM_WEIGHT_G` = 2000.
+3. `density`: when `volume_ml` is present, weight/volume must be within `MIN_DENSITY` 0.05 to `MAX_DENSITY` 1.6 g/ml, else the weight moves to the nearest bound and the nutrition scales by the same factor (inactive until the replies carry `volume_ml`).
+4. `macro_weight`: protein + carbs + fat + fiber may exceed `weight_g` by `MACRO_WEIGHT_TOLERANCE` = 2% at most, else the macros are scaled down to the weight.
+5. `calories_macros`: calories must be within max(`CALORIE_TOLERANCE_ABS` 40 kcal, `CALORIE_TOLERANCE_REL` 20% of expected) of 4*protein + 4*carbs + 9*fat, else they become that value (skipped when protein, carbs and fat are all 0).
+6. `kcal_density`: calories are capped at `MAX_KCAL_PER_G` = 9 per gram of weight.
+
+When any item changed, one numbers-only line is logged (`console.info`): `[analyze] sanity adjusted=<items changed> calories_delta=<total calories after minus before> rules=<id>:<count>,<id>:<count>` (`[analyze-text]` for text; rule ids sorted; counts are items per rule). Nothing is logged for a consistent reply, and never any meal text, name or identifier.
+
 ### Dates and time (wall-clock model)
 
 - A meal's `logged_at` is the **user's wall-clock time**, not an instant: the browser builds it from its own local date and clock (`todayStr()` and `nowTimeStr()` in `public/js/dates.js`) and the server stores it as sent. `food_logs.logged_at` is a `TIMESTAMPTZ`, so every database session is **pinned to UTC** (`src/db/pool.js`); the stored value and the `YYYY-MM-DDTHH:mm` text read back from it are then the same wall clock, whatever zone the database or the server runs in. The server has no zone of its own and never converts.
