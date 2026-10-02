@@ -111,12 +111,21 @@ test('the image prompt holds the recognise, draft, check steps and the naming pr
   assert.ok(!p.includes('עד 10 מילים'));
 });
 
-test('the nutrition method of the old prompt is kept word for word', () => {
+// The nutrition method of the old prompt is kept word for word EXCEPT step 1: its
+// per-food recognition hints were removed on purpose (owner decision 2026-10-02: general
+// rules only, no food dictionary) and replaced by one general sentence. Steps 2 and 3
+// and the portion anchors are frozen as they were.
+const OLD_STEP1_LINE = 'שלב 1 — זיהוי: זהה כל מרכיב גלוי תוך שימוש בהקשר המלא. דוגמאות: בשר אדום ליד אצות/אבוקדו/סויה = טונה/סשימי ולא בקר; בשר בתוך בצק עלים = וולינגטון; עיגול כהה שטוח = פטייה ולא שניצל. לגבי דגים: אל תניח סלמון אלא אם הצבע ורוד-כתום בבירור — דג לבן = דג לבן/בקלה/פילה דג, דג מטוגן שלא ברור = פילה דג מטוגן.';
+const NEW_STEP1_LINE = 'שלב 1 — זיהוי: זהה כל מרכיב גלוי תוך שימוש בהקשר המלא של הצלחת: המרקם, הצבע, צורת החיתוך והתוספות.';
+test('the nutrition method of the old prompt is kept word for word, except the new general step 1', () => {
   const methodStart = IMAGE_SYSTEM_PROMPT_V1.indexOf('שלב 1');
   const methodEnd = IMAGE_SYSTEM_PROMPT_V1.indexOf('- dish_name:');
-  const method = IMAGE_SYSTEM_PROMPT_V1.slice(methodStart, methodEnd);
-  assert.ok(method.includes('עוגני כמויות') && method.includes('שלב 2 — נסתרים'));
+  const oldMethod = IMAGE_SYSTEM_PROMPT_V1.slice(methodStart, methodEnd);
+  assert.ok(oldMethod.includes('עוגני כמויות') && oldMethod.includes('שלב 2 — נסתרים'));
+  assert.ok(oldMethod.startsWith(OLD_STEP1_LINE), 'the V1 prompt still has the old step 1');
+  const method = NEW_STEP1_LINE + oldMethod.slice(OLD_STEP1_LINE.length);
   assert.ok(IMAGE_SYSTEM_PROMPT.includes(method));
+  assert.ok(!IMAGE_SYSTEM_PROMPT.includes(OLD_STEP1_LINE));
 });
 
 test('the user message asks for visual_description, then draft_name, then dish_name, then items', () => {
@@ -154,6 +163,38 @@ test('prompt hygiene: a handful of examples and no food dictionary', () => {
   // the only Latin words are the JSON field names
   const latin = new Set(IMAGE_SYSTEM_PROMPT.match(/[A-Za-z_]+/g));
   assert.deepEqual([...latin].sort(), ['dish_name', 'draft_name', 'items', 'visual_description', 'weight_g']);
+});
+
+// Lines that map food words to food words with "=" or an arrow ("red meat next to
+// seaweed = tuna"): a food dictionary in disguise. A quantity line of the portion anchors
+// ("ביצה = 55 גרם": a digit after the "=") is a nutrition amount, not a mapping.
+function foodMappingLines(text) {
+  return text.split('\n').filter((l) => {
+    const m = /^(.*?)(?:=|→|->)\s*["״']?(.*)$/.exec(l);
+    if (!m) return false;
+    const [, left, right] = m;
+    if (/^\d/.test(right)) return false;
+    return /[א-ת]/.test(left) && /[א-ת]/.test(right);
+  });
+}
+
+test('prompt hygiene: no line maps food words to food words with = or an arrow', () => {
+  assert.deepEqual(foodMappingLines(IMAGE_SYSTEM_PROMPT), []);
+  // negative self-test: the old step 1 (and its arrow variants) would be flagged ...
+  assert.equal(foodMappingLines(OLD_STEP1_LINE).length, 1);
+  assert.equal(foodMappingLines('בשר אדום ליד אצות → טונה ולא בקר').length, 1);
+  assert.equal(foodMappingLines('בשר בתוך בצק עלים -> וולינגטון').length, 1);
+  assert.equal(foodMappingLines(IMAGE_SYSTEM_PROMPT_V1.split('\n').find((l) => l.startsWith('שלב 1'))).length, 1);
+  // ... while the portion-anchor quantity lines are allowed
+  assert.deepEqual(foodMappingLines('- ביצה = 55 גרם\n- כף שמן = 13 גרם (120 קלוריות)'), []);
+  assert.ok(IMAGE_SYSTEM_PROMPT.includes('- ביצה = 55 גרם'), 'the portion anchors are still there');
+});
+
+test('the runtime prompt no longer holds the removed per-food recognition hints', () => {
+  for (const removed of ['וולינגטון', 'סשימי', 'פטייה', 'אל תניח סלמון', 'בצק עלים', 'אצות']) {
+    assert.ok(!IMAGE_SYSTEM_PROMPT.includes(removed), `still in the prompt: ${removed}`);
+  }
+  assert.ok(IMAGE_SYSTEM_PROMPT.includes(NEW_STEP1_LINE));
 });
 
 // ─── The call and the reply ───────────────────────────────────────────────────
