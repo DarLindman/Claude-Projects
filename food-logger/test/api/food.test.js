@@ -37,6 +37,18 @@ test('GET with date returns only that day ascending; without date newest first',
   assert.deepEqual(all.body.map((r) => r.food_name), ['other-day', 'late', 'early']);
 });
 
+test('a meal belongs to the wall-clock day it was logged on, whatever the zone', async () => {
+  const c = await signedIn(ctx.app, 'midnight');
+  await c.post('/api/food', entry({ food_name: 'late', logged_at: '2026-03-01T23:30:00' }));
+  await c.post('/api/food', entry({ food_name: 'early', logged_at: '2026-03-02T00:30:00' }));
+  const first = await c.get('/api/food?date=2026-03-01');
+  assert.deepEqual(first.body.map((r) => r.food_name), ['late']);
+  assert.equal(first.body[0].logged_at, '2026-03-01T23:30:00.000Z');
+  const second = await c.get('/api/food?date=2026-03-02');
+  assert.deepEqual(second.body.map((r) => r.food_name), ['early']);
+  assert.equal(second.body[0].logged_at, '2026-03-02T00:30:00.000Z');
+});
+
 test('PUT updates and returns the row', async () => {
   const c = await signedIn(ctx.app, 'editor');
   const { body: row } = await c.post('/api/food', entry());

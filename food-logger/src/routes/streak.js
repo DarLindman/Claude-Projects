@@ -1,41 +1,39 @@
 'use strict';
 
 const express = require('express');
+const { z } = require('zod');
 const { asyncHandler } = require('../middleware/errors');
+const { validate } = require('../middleware/validate');
+const S = require('../lib/schemas');
+const { utcToday, addDaysUtc } = require('../lib/dates');
+
+const streakQuery = z.object({ today: S.optionalQuery(S.dateStr) });
 
 module.exports = function streakRoutes({ pool, auth }) {
   const router = express.Router();
 
   // ─── Streak ─────────────────────────────────────────────────────────────────
-  router.get('/', auth, asyncHandler(async (req, res) => {
-    // ::text forces pg to return 'YYYY-MM-DD' string, not a Date object
+  // Days are the wall-clock dates stored in logged_at (the session is pinned to UTC, and the
+  // browser writes its local time), and `today` is the browser's own date.
+  router.get('/', auth, validate({ query: streakQuery }), asyncHandler(async (req, res) => {
+    const today = req.valid.query.today ?? utcToday();
+    // ::text forces pg to return a 'YYYY-MM-DD' string, not a Date object
     const { rows } = await pool.query(
-      `SELECT DISTINCT (logged_at AT TIME ZONE 'UTC')::date::text AS day FROM food_logs WHERE user_id=$1 ORDER BY day DESC`,
-      [req.user.id]
+      `SELECT DISTINCT logged_at::date::text AS day FROM food_logs
+       WHERE user_id=$1 AND logged_at::date <= $2::date ORDER BY day DESC`,
+      [req.user.id, today]
     );
-    const days = rows.map(r => r.day); // already 'YYYY-MM-DD' strings
+    const days = rows.map((r) => r.day);
     if (!days.length) return res.json({ streak: 0, lastLogDate: null });
-    // Use Israel timezone to match how the frontend stores logged_at (local time sent as-is)
-    const toIsraelDate = (d) => d.toLocaleString('sv', { timeZone: 'Asia/Jerusalem' }).slice(0, 10);
-    const today = toIsraelDate(new Date());
-    const yesterday = toIsraelDate(new Date(Date.now() - 86400000));
-    if (days[0] !== today && days[0] !== yesterday) return res.json({ streak: 0, lastLogDate: days[0] });
+    const lastLogDate = days[0];
+    if (lastLogDate !== today && lastLogDate !== addDaysUtc(today, -1)) return res.json({ streak: 0, lastLogDate });
     let streak = 0;
-    let expected = days[0];
+    let expected = lastLogDate;
     for (const day of days) {
       if (day !== expected) break;
       streak++;
-      // advance expected to previous day using UTC arithmetic
-      const d = new Date(expected + 'T12:00:00Z');
-      d.setUTCDate(d.getUTCDate() - 1);
-      expected = d.toISOString().slice(0, 10);
+      expected = addDaysUtc(expected, -1);
     }
-    // Get the most recent log date in Israel timezone (consistent with streak calculation)
-    const lastRow = await pool.query(
-      `SELECT MAX((logged_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Jerusalem')::date)::text AS last_date FROM food_logs WHERE user_id = $1`,
-      [req.user.id]
-    );
-    const lastLogDate = lastRow.rows[0]?.last_date ?? null;
     res.json({ streak, lastLogDate });
   }));
 

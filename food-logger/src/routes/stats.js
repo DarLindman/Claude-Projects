@@ -5,8 +5,9 @@ const { z } = require('zod');
 const { asyncHandler } = require('../middleware/errors');
 const { validate } = require('../middleware/validate');
 const S = require('../lib/schemas');
+const { utcToday, addDaysUtc } = require('../lib/dates');
 
-const weeklyQuery = z.object({ start: S.optionalQuery(S.dateStr) });
+const weeklyQuery = z.object({ start: S.optionalQuery(S.dateStr), today: S.optionalQuery(S.dateStr) });
 const monthlyQuery = z.object({ month: S.optionalQuery(S.monthStr) });
 const yearlyQuery = z.object({ year: S.optionalQuery(S.yearStr) });
 
@@ -16,10 +17,15 @@ module.exports = function statsRoutes({ pool, auth }) {
   // ─── Statistics ─────────────────────────────────────────────────────────────
   // Weekly summary — returns 7 days of daily totals
   router.get('/weekly', auth, validate({ query: weeklyQuery }), asyncHandler(async (req, res) => {
-    const { start } = req.valid.query; // YYYY-MM-DD (start of week), defaults to 7 days ago
+    // start: YYYY-MM-DD (first day of the window). Without it the window is the 7 days ending
+    // today, where today is the browser's date (the UTC date if it did not send one).
+    const { start } = req.valid.query;
+    const today = req.valid.query.today ?? utcToday();
+    const from = start ?? addDaysUtc(today, -6);
+    const to = start ? addDaysUtc(start, 6) : today;
     const { rows } = await pool.query(`
     SELECT
-      logged_at::date AS day,
+      logged_at::date::text AS day,
       SUM(calories) AS calories,
       SUM(protein_g) AS protein_g,
       SUM(carbs_g) AS carbs_g,
@@ -27,11 +33,11 @@ module.exports = function statsRoutes({ pool, auth }) {
       SUM(fiber_g) AS fiber_g
     FROM food_logs
     WHERE user_id=$1
-      AND logged_at::date >= COALESCE($2::date, CURRENT_DATE - INTERVAL '6 days')
-      AND logged_at::date <= COALESCE($2::date + INTERVAL '6 days', CURRENT_DATE)
+      AND logged_at::date >= $2::date
+      AND logged_at::date <= $3::date
     GROUP BY day
     ORDER BY day ASC
-    `, [req.user.id, start || null]);
+    `, [req.user.id, from, to]);
     res.json(rows);
   }));
 
@@ -40,7 +46,7 @@ module.exports = function statsRoutes({ pool, auth }) {
     const { month } = req.valid.query; // YYYY-MM, defaults to current month
     const { rows } = await pool.query(`
     SELECT
-      logged_at::date AS day,
+      logged_at::date::text AS day,
       SUM(calories) AS calories,
       SUM(protein_g) AS protein_g,
       SUM(carbs_g) AS carbs_g,
