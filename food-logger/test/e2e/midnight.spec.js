@@ -72,5 +72,13 @@ test('diary, edit-and-save and streak around local midnight', async ({ page }) =
   await expect(rows).toHaveCount(1);
   await expect(rows.first().locator('.mir-name')).toHaveText('שם ערוך');
 
+  // the weekly chart has one data point, on yesterday (not on today), and counts one logged day
+  await page.locator('#nav-stats').click();
+  await expect(page.locator('#screen-stats')).toBeVisible();
+  const dataDots = page.locator('#weekly-chart circle[r="3.5"], #weekly-chart circle[r="4.5"]');
+  await expect(dataDots).toHaveCount(1);
+  await expect(page.locator('#weekly-chart circle[r="3.5"]')).toHaveCount(1); // 3.5 = not today
+  await expect(page.locator('#weekly-chart circle[r="4.5"]')).toHaveCount(0);
+
   expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
 });
