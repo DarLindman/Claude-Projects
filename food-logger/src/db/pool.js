@@ -1,6 +1,6 @@
 'use strict';
 
-const { Pool } = require('pg');
+const { Client, Pool } = require('pg');
 
 // TLS policy for the database connection (spec 3.2).
 function sslConfig(config) {
@@ -25,15 +25,37 @@ function stripSslParams(connectionString) {
 }
 
 // Every connection runs in UTC, so ::date and timestamptz casts never depend on
-// the database server's (or PGOPTIONS') time zone. pg queues queries per client,
-// so this SET always runs before the first query handed out on a new connection.
-function pinUtcSession(pool) {
-  pool.on('connect', (client) => {
-    client.query("SET TIME ZONE 'UTC'").catch((err) => {
-      console.error('failed to set the database session time zone to UTC:', err.message);
-    });
-  });
-  return pool;
+// the database server's (or PGOPTIONS') time zone. The SET happens inside
+// connect(), before pg-pool hands the client out, so no query is ever queued
+// behind it. Fail closed: if the SET fails the connection fails (and is closed),
+// never a silently unpinned one.
+class UtcClient extends Client {
+  connect(cb) {
+    if (cb) {
+      super.connect((err) => {
+        if (err) return cb(err);
+        this.query("SET TIME ZONE 'UTC'", (setErr) => {
+          if (!setErr) return cb();
+          this.end(() => cb(setErr));
+        });
+      });
+      return undefined;
+    }
+    return super
+      .connect()
+      .then(() => this.query("SET TIME ZONE 'UTC'"))
+      .then(
+        () => undefined,
+        (err) => this.end().then(
+          () => { throw err; },
+          () => { throw err; },
+        ),
+      );
+  }
+}
+
+function createPinnedPool(options) {
+  return new Pool({ ...options, Client: UtcClient });
 }
 
 function createPool(config) {
@@ -41,7 +63,7 @@ function createPool(config) {
   if (config.isProd && !config.databaseCa) {
     console.warn('DATABASE_CA is not set: database TLS certificate verification is OFF');
   }
-  return pinUtcSession(new Pool({ connectionString: stripSslParams(config.databaseUrl), ssl }));
+  return createPinnedPool({ connectionString: stripSslParams(config.databaseUrl), ssl });
 }
 
-module.exports = { createPool, sslConfig, stripSslParams, pinUtcSession };
+module.exports = { createPool, createPinnedPool, UtcClient, sslConfig, stripSslParams };

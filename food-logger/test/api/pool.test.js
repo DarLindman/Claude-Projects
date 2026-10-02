@@ -5,8 +5,8 @@ const assert = require('node:assert/strict');
 
 const { parse } = require('pg-connection-string');
 const { Pool } = require('pg');
-const { createPool, stripSslParams, pinUtcSession } = require('../../src/db/pool');
-const { createTestPool, resolveTestUrl } = require('../helpers/db');
+const { createPool, createPinnedPool, UtcClient, stripSslParams } = require('../../src/db/pool');
+const { createTestPool, ensureTestDb } = require('../helpers/db');
 
 const BASE = 'postgres://u:p@localhost:5432/db';
 
@@ -75,10 +75,7 @@ test('stripSslParams removes only ssl params', () => {
 
 // A pool whose connections ask the server for `zone` at startup (like PGOPTIONS).
 async function pinnedPoolWithServerZone(zone, extra = {}) {
-  await (await createTestPool()).end(); // makes sure the test database exists
-  return pinUtcSession(
-    new Pool({ connectionString: resolveTestUrl().toString(), options: `-c timezone=${zone}`, ...extra }),
-  );
+  return createPinnedPool({ connectionString: await ensureTestDb(), options: `-c timezone=${zone}`, ...extra });
 }
 
 test('a pinned pool reports UTC even when the server and PGOPTIONS say otherwise', async () => {
@@ -117,7 +114,7 @@ test('a timestamp without offset is read back as the same wall-clock date', asyn
 
 test('createTestPool and createPool both return pinned pools', async () => {
   const testPool = await createTestPool();
-  const prodPool = poolFor({ isProd: false, databaseUrl: resolveTestUrl().toString() });
+  const prodPool = poolFor({ isProd: false, databaseUrl: await ensureTestDb() });
   try {
     for (const pool of [testPool, prodPool]) {
       const { rows } = await pool.query("SELECT current_setting('TimeZone') AS tz");
@@ -129,19 +126,51 @@ test('createTestPool and createPool both return pinned pools', async () => {
   }
 });
 
-test('a failed SET TIME ZONE is logged, not thrown', async () => {
-  const handlers = [];
-  const fakePool = { on: (event, fn) => handlers.push([event, fn]) };
-  assert.equal(pinUtcSession(fakePool), fakePool);
-  assert.equal(handlers[0][0], 'connect');
-  const logged = [];
-  const error = console.error;
-  console.error = (...args) => logged.push(args);
-  try {
-    handlers[0][1]({ query: () => Promise.reject(new Error('boom')) });
-    await new Promise((resolve) => setImmediate(resolve));
-  } finally {
-    console.error = error;
+test('a failing SET TIME ZONE fails the connection (no silent unpinned connection)', async () => {
+  class FailingSet extends UtcClient {
+    query(text, ...rest) {
+      if (typeof text === 'string' && text.startsWith('SET TIME ZONE')) {
+        const cb = rest.find((r) => typeof r === 'function');
+        const err = new Error('set refused');
+        if (cb) {
+          process.nextTick(cb, err);
+          return undefined;
+        }
+        return Promise.reject(err);
+      }
+      return super.query(text, ...rest);
+    }
   }
-  assert.equal(logged.length, 1);
+  const pool = new Pool({ connectionString: await ensureTestDb(), Client: FailingSet });
+  try {
+    await assert.rejects(pool.query('SELECT 1'), /set refused/);
+    assert.equal(pool.totalCount, 0, 'the half-set-up connection is closed and dropped');
+  } finally {
+    await pool.end();
+  }
+});
+
+test('the promise form of UtcClient.connect also fails closed', async () => {
+  class FailingSet extends UtcClient {
+    query() {
+      return Promise.reject(new Error('set refused'));
+    }
+  }
+  const client = new FailingSet({ connectionString: await ensureTestDb() });
+  await assert.rejects(client.connect(), /set refused/);
+});
+
+test('no process warning is emitted while a pinned pool runs its first query', async () => {
+  const warnings = [];
+  const onWarning = (w) => warnings.push(w);
+  process.on('warning', onWarning);
+  const pool = createPinnedPool({ connectionString: await ensureTestDb() });
+  try {
+    await pool.query('SELECT 1');
+    await new Promise((resolve) => setImmediate(resolve)); // warnings are emitted on nextTick
+  } finally {
+    process.off('warning', onWarning);
+    await pool.end();
+  }
+  assert.deepEqual(warnings.map((w) => w.message), []);
 });
