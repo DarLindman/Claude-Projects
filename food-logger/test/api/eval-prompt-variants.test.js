@@ -15,7 +15,7 @@ const portionV2 = require('../../scripts/eval/prompts/portionV2');
 // The two lines of prePortion that portionV2 replaces on purpose.
 const OLD_STEP3_LINE = 'שלב 3 — כמויות: הערך weight_g לפי יחסים בתמונה (צלחת, כלים, ידיים כהשוואה).';
 const OLD_RESTAURANT_LINE = '- מנת מסעדה: הכל גדול יותר ממה שנראה, שמן/חמאה נסתרים תמיד נכללים.';
-const NEW_RESTAURANT_LINE = '- מנת מסעדה: רק כשההגשה נראית בבירור כמו במסעדה (הכלים, עיצוב המנה בצלחת), שמן/חמאה נסתרים תמיד נכללים; את הגודל קובע קנה המידה, לא ההנחה שהכל גדול יותר.';
+const NEW_RESTAURANT_LINE = '- מנת מסעדה: רק כשההגשה נראית בבירור כמו במסעדה (הכלים, עיצוב המנה בצלחת), שמן/חמאה נסתרים תמיד נכללים.';
 
 const templateOf = (m) => JSON.parse(m.split('\n').find((l) => l.startsWith('{')));
 const ITEM_KEYS = ['name', 'weight_g', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'fiber_g'];
