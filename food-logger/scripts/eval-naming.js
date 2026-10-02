@@ -15,7 +15,8 @@
 // It is sent WITHOUT the temperature parameter, because some newer models reject it.
 // --only-extra (needs --also-model) runs only that third variant on the photos and merges
 // it into the existing eval/results.json (same photo file names and number of runs), keeping
-// the stored old and new results untouched; it regenerates eval/report.html.
+// the stored old and new results untouched (the replaced extra's name and calories stay as
+// previousExtra); it regenerates eval/report.html.
 // Everything is written inside the output directory (eval/) and nowhere else.
 
 const fs = require('node:fs');
@@ -207,7 +208,10 @@ async function run(options = {}, deps = {}) {
         d.log(`[${i + 1}/${photos.length}] ${photo.file}: run ${n}/${runs} (extra only)`);
         const { extra } = await evaluateRun(client, photo, { extraModel: alsoModel, onlyExtra: true });
         results.apiCalls = (Number(results.apiCalls) || 0) + 1 + (extra.repairCalls || 0);
-        entry.runs.push({ ...storedPhoto.runs[n - 1], extra });
+        // the extra record being replaced survives as previousExtra (name and calories only)
+        const before = storedPhoto.runs[n - 1]?.extra;
+        const previousExtra = before && !before.error ? { name: before.name, calories: before.calories } : undefined;
+        entry.runs.push({ ...storedPhoto.runs[n - 1], extra, ...(previousExtra ? { previousExtra } : {}) });
       }
       results.photos.push(entry);
     }

@@ -265,3 +265,109 @@ test('--also-model output stays quiet: only the injected log is used', async () 
     err.mock.restore();
   }
 });
+
+// ─── weights, volumes and the sanity report of every recorded side ────────────
+test('every recorded side keeps the scale, the items with weight, volume and calories, and a sanity report', async () => {
+  const ws = workspace(['a.jpg']);
+  const { result } = await runWith(ws, { yes: true, runs: 1, alsoModel: EXTRA });
+  const r = result.results.photos[0].runs[0];
+  for (const side of ['old', 'new', 'extra']) {
+    assert.equal(r[side].scale, 'dinner plate about 26 cm', side);
+    assert.deepEqual(r[side].items, [
+      { weight_g: 150, volume_ml: 170, calories: 250 },
+      { weight_g: 150, volume_ml: 190, calories: 200 },
+    ], side);
+    assert.deepEqual(r[side].sanity, { adjusted: 0, calories_delta: 0, rules: {} }, side);
+  }
+  const saved = JSON.parse(fs.readFileSync(path.join(ws.out, 'results.json'), 'utf8'));
+  assert.deepEqual(saved.photos[0].runs[0].extra.items, r.extra.items, 'it is in results.json too');
+});
+
+test('an inconsistent item of the extra reply shows up in sanity.rules; the recorded items are the raw numbers', async () => {
+  const ws = workspace(['a.jpg']);
+  const fake = fakeAnthropic();
+  fake.imageReply = JSON.stringify({
+    scale_reference: 'a fork',
+    dish_name: 'עוף',
+    items: [{ name: 'עוף', volume_ml: 500, weight_g: 3000, calories: 900, protein_g: 40, carbs_g: 0, fat_g: 20, fiber_g: 0 }],
+  });
+  const { result } = await runWith(ws, { yes: true, runs: 1, alsoModel: EXTRA }, fake);
+  const extra = result.results.photos[0].runs[0].extra;
+  assert.equal(extra.items[0].weight_g, 3000, 'the raw weight, not the capped one');
+  assert.equal(extra.sanity.adjusted, 1);
+  assert.equal(extra.sanity.rules.weight, 1);
+});
+
+test('absent fields are recorded as null and an empty scale', async () => {
+  const ws = workspace(['a.jpg']);
+  const fake = fakeAnthropic();
+  fake.imageReply = JSON.stringify({ dish_name: 'עוף', items: [{ name: 'עוף', calories: 100 }, { name: 'x', weight_g: '60', volume_ml: 'lots' }] });
+  const { result } = await runWith(ws, { yes: true, runs: 1, alsoModel: EXTRA }, fake);
+  for (const side of ['old', 'new', 'extra']) {
+    const rec = result.results.photos[0].runs[0][side];
+    assert.equal(rec.scale, '');
+    assert.deepEqual(rec.items, [{ weight_g: null, volume_ml: null, calories: 100 }, { weight_g: null, volume_ml: null, calories: null }]);
+    assert.equal(typeof rec.sanity, 'object');
+  }
+});
+
+test('the reply is read from the first text block, whatever blocks come before it', async () => {
+  const ws = workspace(['a.jpg']);
+  const fake = fakeAnthropic();
+  fake.imageContent = [
+    { type: 'thinking', thinking: '{"dish_name":"לא זה","items":[]}' },
+    { type: 'text', text: JSON.stringify({ scale_reference: 'a hand', dish_name: 'עוף', items: [{ name: 'עוף', volume_ml: 100, weight_g: 90, calories: 150, protein_g: 20, carbs_g: 0, fat_g: 7, fiber_g: 0 }] }) },
+  ];
+  const { result } = await runWith(ws, { yes: true, runs: 1, alsoModel: EXTRA }, fake);
+  const extra = result.results.photos[0].runs[0].extra;
+  assert.equal(extra.scale, 'a hand');
+  assert.deepEqual(extra.items, [{ weight_g: 90, volume_ml: 100, calories: 150 }]);
+});
+
+// ─── the report shows the weights ─────────────────────────────────────────────
+const sideWith = (over = {}) => ({
+  name: 'עוף עם אורז', raw: 'עוף עם אורז', action: 'ok', repairCalls: 0, calories: 450,
+  scale: 'dinner plate about 26 cm',
+  items: [{ weight_g: 150, volume_ml: 170, calories: 250 }, { weight_g: 175, volume_ml: null, calories: 200 }],
+  sanity: { adjusted: 1, calories_delta: -20, rules: { density: 1 } },
+  ...over,
+});
+const withExtra = (extra, run = {}) => ({
+  runsPerPhoto: 1,
+  variants: { extra: { label: EXTRA, model: EXTRA } },
+  photos: [{ file: 'a.jpg', runs: [{ old: { name: 'עוף', raw: 'עוף', calories: 380 }, new: { ...rec('עוף'), calories: 420 }, extra, ...run }] }],
+});
+
+test('renderReport shows the extra column totals, per-item grams, scale, sanity rules and the earlier calories', () => {
+  const html = renderReport(withExtra(sideWith(), { previousExtra: { name: 'עוף', calories: 390 } }), {});
+  assert.ok(html.includes('325'), 'total grams 150 + 175');
+  assert.ok(html.includes('450'), 'total calories');
+  assert.ok(html.includes('150') && html.includes('175') && html.includes('170'), 'per-item grams and the volume');
+  assert.ok(html.includes('dinner plate about 26 cm'));
+  assert.ok(html.includes('density'), 'the rule that fired');
+  for (const earlier of ['380', '420', '390']) assert.ok(html.includes(earlier), `earlier calories ${earlier}`);
+});
+
+test('renderReport escapes a scale, sanity rule names and earlier values that carry markup', () => {
+  const extra = sideWith({ scale: '<script>alert(1)</script>', sanity: { adjusted: 1, calories_delta: 0, rules: { '<b>x</b>': 1 } } });
+  const html = renderReport(withExtra(extra, { previousExtra: { name: '<i>n</i>', calories: '<u>9</u>' } }), {});
+  assert.ok(!html.includes('<script>alert(1)'), 'no raw script');
+  assert.ok(!html.includes('<b>x</b>') && !html.includes('<u>9</u>') && !html.includes('<i>n</i>'));
+  assert.ok(html.includes('&lt;script&gt;alert(1)&lt;/script&gt;'));
+});
+
+test('renderReport copes with stored results that lack the new fields and with partial or odd ones', () => {
+  const odd = [
+    undefined,
+    { name: 'עוף', raw: 'עוף', calories: 100 },
+    { name: 'עוף', calories: 100, items: [], sanity: { adjusted: 0, calories_delta: 0, rules: {} }, scale: '' },
+    { name: 'עוף', calories: 100, items: [null, { weight_g: null }, 7], sanity: null, scale: null },
+    { name: 'עוף', items: 'x', sanity: { rules: 5 } },
+    { error: 'boom', items: [{ weight_g: 1 }] },
+  ];
+  for (const extra of odd) {
+    assert.doesNotThrow(() => renderReport(withExtra(extra), {}), JSON.stringify(extra));
+  }
+  assert.doesNotThrow(() => renderReport(withExtra(sideWith(), { old: undefined, new: undefined, previousExtra: {} }), {}));
+  assert.doesNotThrow(() => renderReport(THREE, {}));
+});

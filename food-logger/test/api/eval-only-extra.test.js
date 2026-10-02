@@ -292,3 +292,45 @@ test('--only-extra output stays quiet: only the injected log is used', async () 
     warn.mock.restore();
   }
 });
+
+// ─── the replaced extra record survives as previousExtra ──────────────────────
+test('--only-extra keeps the replaced extra as previousExtra (name and calories only) next to the new extra', async () => {
+  const ws = workspace(['a.jpg']);
+  const before = JSON.parse(await fullRun(ws, { runs: 1 }));
+  const first = before.photos[0].runs[0].extra;
+  assert.equal(first.calories, 450);
+  assert.equal('previousExtra' in before.photos[0].runs[0], false);
+
+  const fake = fakeAnthropic();
+  fake.imageReply = JSON.stringify({ scale_reference: 'a fork', dish_name: 'עוף', items: [{ name: 'עוף', volume_ml: 300, weight_g: 280, calories: 500, protein_g: 40, carbs_g: 0, fat_g: 31, fiber_g: 0 }] });
+  const { result } = await runWith(ws, { onlyExtra: true, alsoModel: EXTRA, yes: true, runs: 1 }, fake);
+  assert.equal(result.exitCode, 0);
+  const after = JSON.parse(fs.readFileSync(path.join(ws.out, 'results.json'), 'utf8'));
+  const r = after.photos[0].runs[0];
+  assert.deepEqual(r.previousExtra, { name: first.name, calories: 450 });
+  assert.deepEqual(Object.keys(r.previousExtra), ['name', 'calories']);
+  assert.equal(r.extra.name, 'עוף');
+  assert.equal(r.extra.calories, 500);
+  assert.equal(r.extra.items[0].weight_g, 280);
+  assert.equal(r.extra.scale, 'a fork');
+  assert.equal(JSON.stringify(r.old), JSON.stringify(before.photos[0].runs[0].old), 'old untouched');
+  assert.equal(JSON.stringify(r.new), JSON.stringify(before.photos[0].runs[0].new), 'new untouched');
+  const html = fs.readFileSync(path.join(ws.out, 'report.html'), 'utf8');
+  assert.ok(html.includes('450') && html.includes('500') && html.includes('280'), 'the report shows the earlier and the new numbers');
+});
+
+test('--only-extra: a stored extra that failed, or none at all, leaves no previousExtra', async () => {
+  const ws = workspace(['a.jpg']);
+  await fullRun(ws, { runs: 1 });
+  const file = path.join(ws.out, 'results.json');
+  const stored = JSON.parse(fs.readFileSync(file, 'utf8'));
+  stored.photos[0].runs[0].extra = { error: 'boom' };
+  fs.writeFileSync(file, JSON.stringify(stored));
+  await runWith(ws, { onlyExtra: true, alsoModel: EXTRA, yes: true, runs: 1 });
+  assert.equal('previousExtra' in JSON.parse(fs.readFileSync(file, 'utf8')).photos[0].runs[0], false);
+
+  const ws2 = workspace(['a.jpg']);
+  await runWith(ws2, { yes: true, runs: 1 });
+  await runWith(ws2, { onlyExtra: true, alsoModel: EXTRA, yes: true, runs: 1 });
+  assert.equal('previousExtra' in JSON.parse(fs.readFileSync(path.join(ws2.out, 'results.json'), 'utf8')).photos[0].runs[0], false);
+});
