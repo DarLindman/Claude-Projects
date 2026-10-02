@@ -75,7 +75,9 @@ A malformed `today` is `400 VALIDATION` with the standard error contract (`field
 
 New `src/lib/nutrition.js` with a pure function `reconcileItems(items)` returning `{ items, report }`. Both analyses call it on the parsed `items` before `sumItems`. It never throws and never drops an item; it only makes numbers consistent.
 
-### 4.2 Rules (per item, in this order)
+### 4.2 Rules (per item)
+
+Execution order: 1, 2, then the density rule 6 of section 5.2 (a corrected weight then feeds the nutrition rules), then 3, 4, 5.
 
 1. A non-finite, missing or negative number becomes 0.
 2. **Weight:** `weight_g` above 2000 is capped at 2000 (nobody eats more in one item; a 1.5 litre drink fits); a missing or 0 weight stays 0 (the next rules then skip the weight-based checks).
