@@ -376,3 +376,43 @@ test('an odd stop_reason value is not logged as is', async () => {
   assert.ok(!logged().includes('DRAFT-MARKER'));
   assert.match(logged(), /stop_reason unknown/);
 });
+
+// ─── The shared portion anchors ───────────────────────────────────────────────
+const { PORTION_ANCHORS, TEXT_SYSTEM_PROMPT } = require('../../src/lib/prompts');
+
+const anchorText = (v) => (Array.isArray(v) ? v.join('-') : String(v));
+
+test('every shared anchor appears in the prompts with its single value', () => {
+  assert.deepEqual(Object.keys(PORTION_ANCHORS).sort(), ['breadSliceG', 'butterTablespoonG', 'cheeseSliceG', 'eggG', 'oilTablespoonG']);
+  const lines = {
+    breadSliceG: `פרוסת לחם = ${anchorText(PORTION_ANCHORS.breadSliceG)} גרם`,
+    eggG: `ביצה = ${anchorText(PORTION_ANCHORS.eggG)} גרם`,
+    oilTablespoonG: `כף שמן = ${anchorText(PORTION_ANCHORS.oilTablespoonG)} גרם`,
+    butterTablespoonG: `חמאה כף = ${anchorText(PORTION_ANCHORS.butterTablespoonG)} גרם`,
+    cheeseSliceG: `גבינה פרוסה = ${anchorText(PORTION_ANCHORS.cheeseSliceG)} גרם`,
+  };
+  for (const [key, line] of Object.entries(lines)) {
+    assert.ok(IMAGE_SYSTEM_PROMPT.includes(line), `image prompt lacks ${key}: ${line}`);
+  }
+  assert.ok(TEXT_SYSTEM_PROMPT.includes(`לחם = 1 פרוסה = ${PORTION_ANCHORS.breadSliceG[0]} גרם`));
+  assert.ok(TEXT_SYSTEM_PROMPT.includes(`כף שמן = ${PORTION_ANCHORS.oilTablespoonG} גרם`));
+});
+
+test('the two prompts do not contradict each other', () => {
+  const oilIn = (p) => p.match(/כף שמן = (\d+) (גרם|מ"ל)/);
+  const img = oilIn(IMAGE_SYSTEM_PROMPT);
+  const txt = oilIn(TEXT_SYSTEM_PROMPT);
+  assert.ok(img && txt, 'both prompts describe the tablespoon of oil');
+  assert.equal(img[2], 'גרם');
+  assert.equal(txt[2], 'גרם');
+  assert.equal(img[1], txt[1]);
+  const [lo, hi] = PORTION_ANCHORS.breadSliceG;
+  const bread = Number(TEXT_SYSTEM_PROMPT.match(/לחם = 1 פרוסה = (\d+) גרם/)[1]);
+  assert.ok(bread >= lo && bread <= hi, 'the text bread default lies inside the image range');
+});
+
+test('PORTION_ANCHORS is frozen', () => {
+  assert.ok(Object.isFrozen(PORTION_ANCHORS));
+  assert.ok(Object.isFrozen(PORTION_ANCHORS.breadSliceG));
+  assert.ok(Object.isFrozen(PORTION_ANCHORS.cheeseSliceG));
+});

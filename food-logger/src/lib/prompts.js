@@ -3,6 +3,20 @@
 // The prompts of the two analyses and the JSON templates they show the model. A pure
 // data module (moved out of analysis.js); analysis.js re-exports the prompts.
 
+// The portion sizes both prompts state. Written once here so the image and the text prompt
+// can never give the model two different values for the same food (the text prompt once
+// said a tablespoon of oil is 13 ml while the image prompt said 13 g). A range is
+// [low, high] grams; a single value is grams. Anchors that only one prompt uses stay
+// in that prompt.
+const PORTION_ANCHORS = Object.freeze({
+  breadSliceG: Object.freeze([25, 30]),
+  eggG: 55,
+  oilTablespoonG: 13,
+  butterTablespoonG: 14,
+  cheeseSliceG: Object.freeze([20, 25]),
+});
+const anchorG = (v) => (Array.isArray(v) ? `${v[0]}-${v[1]}` : String(v));
+
 const IMAGE_SYSTEM_PROMPT = `אתה מנתח תזונה מומחה. נתח תמונות אוכל לפי השיטה הבאה:
 
 שלב 1 — זיהוי: זהה כל מרכיב גלוי תוך שימוש בהקשר המלא של הצלחת: המרקם, הצבע, צורת החיתוך והתוספות.
@@ -10,15 +24,15 @@ const IMAGE_SYSTEM_PROMPT = `אתה מנתח תזונה מומחה. נתח תמ�
 שלב 3 — כמויות: הערך weight_g לפי יחסים בתמונה (צלחת, כלים, ידיים כהשוואה).
 
 עוגני כמויות לאוכל נפוץ:
-- פרוסת לחם = 25-30 גרם
+- פרוסת לחם = ${anchorG(PORTION_ANCHORS.breadSliceG)} גרם
 - חזה עוף / שניצל = 150-200 גרם
 - המבורגר פטי = 120-150 גרם
 - אורז מבושל (מנה) = 150-200 גרם
 - תפוח אדמה בינוני = 150 גרם
-- ביצה = 55 גרם
-- כף שמן = 13 גרם (120 קלוריות)
-- חמאה כף = 14 גרם
-- גבינה פרוסה = 20-25 גרם
+- ביצה = ${anchorG(PORTION_ANCHORS.eggG)} גרם
+- כף שמן = ${anchorG(PORTION_ANCHORS.oilTablespoonG)} גרם (120 קלוריות)
+- חמאה כף = ${anchorG(PORTION_ANCHORS.butterTablespoonG)} גרם
+- גבינה פרוסה = ${anchorG(PORTION_ANCHORS.cheeseSliceG)} גרם
 
 הנחות:
 - מנת מסעדה: הכל גדול יותר ממה שנראה, שמן/חמאה נסתרים תמיד נכללים.
@@ -85,9 +99,9 @@ const TEXT_SYSTEM_PROMPT = `אתה מחשבון תזונה מדויק למשתמ
   סרדינים (ריבוי) = 45 גרם (כ-3 סרדינים קטנים).
   עוף/בשר = 100 גרם מבושל.
   אורז/פסטה = 100 גרם מבושל.
-  לחם = 1 פרוסה = 25 גרם.
+  לחם = 1 פרוסה = ${PORTION_ANCHORS.breadSliceG[0]} גרם.
   אגוז מלך (יחיד) = 1 חצי גרעין = 5 גרם. אגוזי מלך (ריבוי ללא מספר) = 20 גרם.
-  כף שמן = 13 מ"ל. כפית סוכר = 4 גרם.
+  כף שמן = ${PORTION_ANCHORS.oilTablespoonG} גרם. כפית סוכר = 4 גרם.
   קופסת קוטג' / גביע קוטג' = 250 גרם (גודל סטנדרטי ישראלי).
   שקית פריכיות קטנה = 30 גרם. שקית פריכיות גדולה = 60 גרם.
   גביע יוגורט = 150 גרם. גביע גבינה = 250 גרם.
@@ -100,6 +114,7 @@ const TEXT_SYSTEM_PROMPT = `אתה מחשבון תזונה מדויק למשתמ
 בעברית תקנית בלבד — אפס אנגלית, אפס לטינית.`;
 
 module.exports = {
+  PORTION_ANCHORS,
   IMAGE_SYSTEM_PROMPT,
   IMAGE_USER_MESSAGE,
   TEXT_SYSTEM_PROMPT,
