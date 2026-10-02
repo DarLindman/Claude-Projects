@@ -7,6 +7,7 @@ const {
   IMAGE_SYSTEM_PROMPT, IMAGE_USER_MESSAGE, TEXT_SYSTEM_PROMPT, IMAGE_REPLY_TEMPLATE, TEXT_REPLY_TEMPLATE,
 } = require('./prompts');
 const { replyText, blockTypes, stopReasonOf, extractJson, isPlainObject } = require('./aiReply');
+const { reconcileItems } = require('./nutrition');
 
 // Thrown when the model's reply cannot be turned into nutrition items. Like any other AI
 // failure, the routes map it to 502 AI_UNAVAILABLE (the details only go to the log).
@@ -22,14 +23,32 @@ class AnalysisParseError extends Error {
 
 // The per-model request rules of the image analysis, in one place. Haiku (an id starting
 // with claude-haiku) keeps its request exactly as it always was: temperature 0 and
-// max_tokens 1500 (the items plus room for visual_description and draft_name). Every other
+// max_tokens 1500 (the items plus room for visual_description, scale_reference and
+// draft_name). Every other
 // model gets no temperature (null omits the field; newer models reject it with a 400,
-// "temperature is deprecated for this model") and max_tokens 6000: Sonnet may write a
-// thinking block first and its tokens count against max_tokens, which cut the JSON answer
-// off at 1500. It is only a cap; what is billed is what the model writes.
+// "temperature is deprecated for this model") and max_tokens 6000: Sonnet can spend thinking
+// tokens before its answer (many without the low-latency fields, IMAGE_EFFORT=off; far fewer
+// at the default effort low, see requestOptionsFor) and they count against max_tokens, which
+// once cut the JSON answer off at 1500. It is only a cap; what is billed is what the model writes.
 const isHaiku = (model) => model.startsWith('claude-haiku');
 const temperatureFor = (model) => (isHaiku(model) ? 0 : null);
 const maxTokensFor = (model) => (isHaiku(model) ? 1500 : 6000);
+
+// Low-latency options of the Sonnet 5 image request. Sonnet 5.5 spends many hidden thinking
+// tokens before answering (about 8-17 s per photo); `thinking: { type: 'between_tools' }`
+// with `output_config: { effort }` (low, medium or high; GA, no beta header) cuts that.
+// Only an id starting with claude-sonnet-5 gets them: Haiku, Opus and Fable reject these
+// fields with a 400, so every other model gets {}. `effort` undefined means the default
+// (low); null or 'off' sends nothing (the rollback, IMAGE_EFFORT=off). Never combined with
+// `thinking: disabled` or `budget_tokens` (rejected by these models).
+const EFFORTS = ['low', 'medium', 'high'];
+function requestOptionsFor(model, effort) {
+  if (typeof model !== 'string' || !model.startsWith('claude-sonnet-5')) return {};
+  if (effort === null || effort === 'off') return {};
+  const level = effort === undefined ? 'low' : effort;
+  if (!EFFORTS.includes(level)) throw new TypeError(`effort must be one of ${EFFORTS.join('|')}, off or null`);
+  return { thinking: { type: 'between_tools' }, output_config: { effort: level } };
+}
 
 // The JSON of a reply, or an AnalysisParseError. The reply describes the user's meal, so it
 // is never logged or put in the error: a failure logs (under `tag`) only its kind, the
@@ -108,24 +127,44 @@ const sumItems =(items) => items.reduce((acc, item) => ({
   fiber_g: acc.fiber_g + (Number(item.fiber_g) || 0),
 }), { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
 
+// Makes the numbers of the items consistent (nutrition.js) and logs, when anything changed,
+// one numbers-only line (adjusted items, the calories change and the rule ids with their
+// counts, sorted): never any meal text, name or identifier. Returns the checked items.
+function checkItems(tag, items) {
+  const { items: checked, report } = reconcileItems(items);
+  if (report.adjusted > 0) {
+    const rules = Object.keys(report.rules).sort().map((id) => `${id}:${report.rules[id]}`).join(',');
+    console.info(`[${tag}] sanity adjusted=${report.adjusted} calories_delta=${report.calories_delta} rules=${rules}`);
+  }
+  return checked;
+}
+
 // ─── Analyze food image ───────────────────────────────────────────────────────
 // `model` is the configured image model (config.imageModel) in production; without it the
 // request goes to MODEL. `temperature` defaults to temperatureFor(model); an explicit value
 // wins (the evaluation tool): null omits the field, a number from 0 to 1 is sent.
-async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL, temperature }) {
+// `effort` (config.imageEffort in production) goes through requestOptionsFor(model, effort):
+// undefined is the default (low), null omits the Sonnet 5 low-latency fields.
+// `prompts` ({ system, user }) replaces IMAGE_SYSTEM_PROMPT and IMAGE_USER_MESSAGE; it is for
+// the evaluation tool only and production never passes it.
+async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL, temperature, effort, prompts }) {
   if (typeof model !== 'string' || !model.trim()) throw new TypeError('model must be a non-empty string');
   if (temperature === undefined) temperature = temperatureFor(model);
   if (temperature !== null && !(typeof temperature === 'number' && Number.isFinite(temperature) && temperature >= 0 && temperature <= 1)) {
     throw new TypeError('temperature must be null or a finite number from 0 to 1');
   }
-  // The reply describes the user's meal (visual_description, draft_name), so it is never
-  // logged (see parseReply).
+  const systemPrompt = prompts?.system ?? IMAGE_SYSTEM_PROMPT;
+  const userMessage = prompts?.user ?? IMAGE_USER_MESSAGE;
+  const options = requestOptionsFor(model, effort);
+  // The reply describes the user's meal (visual_description, scale_reference, draft_name),
+  // so it is never logged (see parseReply).
   const parsed = await withParseRetry('analyze', async () => {
     const message = await callModel(anthropic, 'analyze', 'image', {
       model,
       max_tokens: maxTokensFor(model),
       ...(temperature === null ? {} : { temperature }),
-      system: IMAGE_SYSTEM_PROMPT,
+      ...options,
+      system: systemPrompt,
       messages: [{
         role: 'user',
         content: [
@@ -133,7 +172,7 @@ async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL, t
             type: 'image',
             source: { type: 'base64', media_type: mimeType, data: imageBase64 }
           },
-          { type: 'text', text: IMAGE_USER_MESSAGE }
+          { type: 'text', text: userMessage }
         ]
       }]
     });
@@ -142,12 +181,13 @@ async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL, t
     return value;
   });
   const items = parsed.items;
-  // visual_description and draft_name are only the model's recognition and first attempt:
-  // they are never read here, so they are not returned, stored or logged. Item names are
+  // visual_description, scale_reference and draft_name are only the model's recognition,
+  // scale and first attempt: they are never read here, so they are not returned, stored or
+  // logged. Item names are
   // cleaned defensively but not returned; dish_name (the checked final name) goes through
   // the guard as is (missing or of any type it becomes the default name).
   items.forEach(item => { item.name = cleanDishName(item.name); });
-  const totals = sumItems(items);
+  const totals = sumItems(checkItems('analyze', items));
   const { name: foodName } = await ensureHebrewDishName(anthropic, parsed.dish_name, {});
   return { foodName, ...totals };
 }
@@ -169,7 +209,7 @@ async function analyzeText(anthropic, text) {
     if (value.length === 0) fail('no items');
     return value;
   });
-  const totals = sumItems(items);
+  const totals = sumItems(checkItems('analyze-text', items));
   // The shown name is what the user typed: only non-Hebrew letters are translated, the
   // rest (punctuation, emoji, digits) stays; no word limit, at most the food-name limit
   // of 200 characters, and a text without letters (such as "100") stays as typed.
@@ -184,6 +224,8 @@ module.exports = {
   AnalysisParseError,
   analyzeImage,
   analyzeText,
+  isImageAnswer,
   temperatureFor,
   maxTokensFor,
+  requestOptionsFor,
 };

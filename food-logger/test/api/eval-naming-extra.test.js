@@ -13,6 +13,7 @@ const { run, parseArgs, ESTIMATED_COST_PER_CALL_USD, COST_PER_CALL_EXTRA_USD } =
 const { analyzeImage } = require('../../src/lib/analysis');
 const { MODEL } = require('../../src/lib/anthropic');
 const { REPAIR_PROMPT_PREFIX } = require('../../src/lib/hebrewName');
+const { IMAGE_REPLY_TEMPLATE } = require('../../src/lib/prompts');
 
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01]);
 const KEY = { ANTHROPIC_API_KEY: 'sk-test-not-real' };
@@ -264,4 +265,228 @@ test('--also-model output stays quiet: only the injected log is used', async () 
     out.mock.restore();
     err.mock.restore();
   }
+});
+
+// ─── weights, volumes and the sanity report of every recorded side ────────────
+test('every recorded side keeps the scale, the items with weight, volume and calories, and a sanity report', async () => {
+  const ws = workspace(['a.jpg']);
+  const { result } = await runWith(ws, { yes: true, runs: 1, alsoModel: EXTRA });
+  const r = result.results.photos[0].runs[0];
+  for (const side of ['old', 'new', 'extra']) {
+    assert.equal(r[side].scale, 'fork about 19 cm; plate about 26 cm', side);
+    // the scale-grounded prompt asks for no volume: an absent volume_ml is recorded as null
+    assert.deepEqual(r[side].items, [
+      { weight_g: 150, volume_ml: null, calories: 250 },
+      { weight_g: 150, volume_ml: null, calories: 200 },
+    ], side);
+    assert.deepEqual(r[side].sanity, { adjusted: 0, calories_delta: 0, rules: {} }, side);
+  }
+  const saved = JSON.parse(fs.readFileSync(path.join(ws.out, 'results.json'), 'utf8'));
+  assert.deepEqual(saved.photos[0].runs[0].extra.items, r.extra.items, 'it is in results.json too');
+});
+
+test('an inconsistent item of the extra reply shows up in sanity.rules; the recorded items are the raw numbers', async () => {
+  const ws = workspace(['a.jpg']);
+  const fake = fakeAnthropic();
+  fake.imageReply = JSON.stringify({
+    scale_reference: 'a fork',
+    dish_name: 'עוף',
+    items: [{ name: 'עוף', volume_ml: 500, weight_g: 3000, calories: 900, protein_g: 40, carbs_g: 0, fat_g: 20, fiber_g: 0 }],
+  });
+  const { result } = await runWith(ws, { yes: true, runs: 1, alsoModel: EXTRA }, fake);
+  const extra = result.results.photos[0].runs[0].extra;
+  assert.equal(extra.items[0].weight_g, 3000, 'the raw weight, not the capped one');
+  assert.equal(extra.sanity.adjusted, 1);
+  assert.equal(extra.sanity.rules.weight, 1);
+});
+
+test('absent fields are recorded as null and an empty scale', async () => {
+  const ws = workspace(['a.jpg']);
+  const fake = fakeAnthropic();
+  fake.imageReply = JSON.stringify({ dish_name: 'עוף', items: [{ name: 'עוף', calories: 100 }, { name: 'x', weight_g: '60', volume_ml: 'lots' }] });
+  const { result } = await runWith(ws, { yes: true, runs: 1, alsoModel: EXTRA }, fake);
+  for (const side of ['old', 'new', 'extra']) {
+    const rec = result.results.photos[0].runs[0][side];
+    assert.equal(rec.scale, '');
+    assert.deepEqual(rec.items, [{ weight_g: null, volume_ml: null, calories: 100 }, { weight_g: null, volume_ml: null, calories: null }]);
+    assert.equal(typeof rec.sanity, 'object');
+  }
+});
+
+test('the reply is read from the first text block, whatever blocks come before it', async () => {
+  const ws = workspace(['a.jpg']);
+  const fake = fakeAnthropic();
+  fake.imageContent = [
+    { type: 'thinking', thinking: '{"dish_name":"לא זה","items":[]}' },
+    { type: 'text', text: JSON.stringify({ scale_reference: 'a hand', dish_name: 'עוף', items: [{ name: 'עוף', volume_ml: 100, weight_g: 90, calories: 150, protein_g: 20, carbs_g: 0, fat_g: 7, fiber_g: 0 }] }) },
+  ];
+  const { result } = await runWith(ws, { yes: true, runs: 1, alsoModel: EXTRA }, fake);
+  const extra = result.results.photos[0].runs[0].extra;
+  assert.equal(extra.scale, 'a hand');
+  assert.deepEqual(extra.items, [{ weight_g: 90, volume_ml: 100, calories: 150 }]);
+});
+
+// ─── the report shows the weights ─────────────────────────────────────────────
+const sideWith = (over = {}) => ({
+  name: 'עוף עם אורז', raw: 'עוף עם אורז', action: 'ok', repairCalls: 0, calories: 450,
+  scale: 'dinner plate about 26 cm',
+  items: [{ weight_g: 150, volume_ml: 170, calories: 250 }, { weight_g: 175, volume_ml: null, calories: 200 }],
+  sanity: { adjusted: 1, calories_delta: -20, rules: { density: 1 } },
+  ...over,
+});
+const withExtra = (extra, run = {}) => ({
+  runsPerPhoto: 1,
+  variants: { extra: { label: EXTRA, model: EXTRA } },
+  photos: [{ file: 'a.jpg', runs: [{ old: { name: 'עוף', raw: 'עוף', calories: 380 }, new: { ...rec('עוף'), calories: 420 }, extra, ...run }] }],
+});
+
+test('renderReport shows the extra column totals, per-item grams, scale, sanity rules and the earlier calories', () => {
+  const html = renderReport(withExtra(sideWith(), { previousExtra: { name: 'עוף', calories: 390 } }), {});
+  assert.ok(html.includes('325'), 'total grams 150 + 175');
+  assert.ok(html.includes('450'), 'total calories');
+  assert.ok(html.includes('150') && html.includes('175') && html.includes('170'), 'per-item grams and the volume');
+  assert.ok(html.includes('dinner plate about 26 cm'));
+  assert.ok(html.includes('density'), 'the rule that fired');
+  for (const earlier of ['380', '420', '390']) assert.ok(html.includes(earlier), `earlier calories ${earlier}`);
+});
+
+test('renderReport escapes a scale, sanity rule names and earlier values that carry markup', () => {
+  const extra = sideWith({ scale: '<script>alert(1)</script>', sanity: { adjusted: 1, calories_delta: 0, rules: { '<b>x</b>': 1 } } });
+  const html = renderReport(withExtra(extra, { previousExtra: { name: '<i>n</i>', calories: '<u>9</u>' } }), {});
+  assert.ok(!html.includes('<script>alert(1)'), 'no raw script');
+  assert.ok(!html.includes('<b>x</b>') && !html.includes('<u>9</u>') && !html.includes('<i>n</i>'));
+  assert.ok(html.includes('&lt;script&gt;alert(1)&lt;/script&gt;'));
+});
+
+test('renderReport copes with stored results that lack the new fields and with partial or odd ones', () => {
+  const odd = [
+    undefined,
+    { name: 'עוף', raw: 'עוף', calories: 100 },
+    { name: 'עוף', calories: 100, items: [], sanity: { adjusted: 0, calories_delta: 0, rules: {} }, scale: '' },
+    { name: 'עוף', calories: 100, items: [null, { weight_g: null }, 7], sanity: null, scale: null },
+    { name: 'עוף', items: 'x', sanity: { rules: 5 } },
+    { error: 'boom', items: [{ weight_g: 1 }] },
+  ];
+  for (const extra of odd) {
+    assert.doesNotThrow(() => renderReport(withExtra(extra), {}), JSON.stringify(extra));
+  }
+  assert.doesNotThrow(() => renderReport(withExtra(sideWith(), { old: undefined, new: undefined, previousExtra: {} }), {}));
+  assert.doesNotThrow(() => renderReport(THREE, {}));
+});
+
+// ─── the recording matches what production parsed ─────────────────────────────
+const REAL_ANSWER = {
+  visual_description: 'a plate',
+  scale_reference: 'a fork, 19 cm',
+  draft_name: 'עוף',
+  dish_name: 'עוף בגריל',
+  items: [{ name: 'עוף', volume_ml: 300, weight_g: 280, calories: 460, protein_g: 40, carbs_g: 0, fat_g: 31, fiber_g: 0 }],
+};
+const REAL_ITEMS = [{ weight_g: 280, volume_ml: 300, calories: 460 }];
+
+test('a reply with prose, a stray {x} and the JSON: new and extra record the real answer (old, with its legacy parse, fails)', async () => {
+  const ws = workspace(['a.jpg']);
+  const fake = fakeAnthropic();
+  fake.imageReply = `Here {x} is my answer: ${JSON.stringify(REAL_ANSWER)}`;
+  const { result } = await runWith(ws, { yes: true, runs: 1, alsoModel: EXTRA }, fake);
+  const r = result.results.photos[0].runs[0];
+  for (const side of ['new', 'extra']) {
+    assert.equal(r[side].parsed, true, side);
+    assert.equal(r[side].raw, 'עוף בגריל', side);
+    assert.equal(r[side].scale, 'a fork, 19 cm', side);
+    assert.deepEqual(r[side].items, REAL_ITEMS, side);
+  }
+  assert.match(r.old.error, /invalid JSON/, 'the frozen V1 parse cannot read it, as before');
+});
+
+test('an echoed template before the real answer is skipped: the recording is of the real answer', async () => {
+  const ws = workspace(['a.jpg']);
+  const fake = fakeAnthropic();
+  fake.imageReply = `${JSON.stringify(IMAGE_REPLY_TEMPLATE)}\n${JSON.stringify(REAL_ANSWER)}`;
+  const { result } = await runWith(ws, { yes: true, runs: 1, alsoModel: EXTRA }, fake);
+  const r = result.results.photos[0].runs[0];
+  for (const side of ['new', 'extra']) {
+    assert.equal(r[side].name, 'עוף בגריל', side);
+    assert.equal(r[side].raw, 'עוף בגריל', side);
+    assert.equal(r[side].scale, 'a fork, 19 cm', side);
+    assert.deepEqual(r[side].items, REAL_ITEMS, side);
+    assert.equal(r[side].parsed, true, side);
+  }
+});
+
+test('the text blocks of the reply are read like production: joined consecutive blocks', async () => {
+  const ws = workspace(['a.jpg']);
+  const fake = fakeAnthropic();
+  const json = JSON.stringify(REAL_ANSWER);
+  fake.imageContent = [{ type: 'text', text: json.slice(0, 40) }, { type: 'text', text: json.slice(40) }];
+  const { result } = await runWith(ws, { yes: true, runs: 1, alsoModel: EXTRA }, fake);
+  assert.deepEqual(result.results.photos[0].runs[0].extra.items, REAL_ITEMS);
+});
+
+test('the report marks a reply that could not be read, and shows a partial gram total with a note', () => {
+  const unread = renderReport(withExtra({ name: 'עוף', raw: 'עוף', action: 'ok', calories: 100, parsed: false }), {});
+  assert.ok(unread.includes('לא נקראה'), 'a visible marker');
+  const flagless = renderReport(withExtra(sideWith({ parsed: undefined })), {});
+  assert.ok(!flagless.includes('לא נקראה'), 'old results without the flag are not marked');
+  const partial = renderReport(withExtra(sideWith({ items: [{ weight_g: 150, volume_ml: 170, calories: 250 }, { weight_g: null, volume_ml: null, calories: 200 }] })), {});
+  assert.ok(partial.includes('150+? g') && partial.includes('חסר משקל'), 'a lower-bound total, flagged');
+  assert.ok(!partial.includes('150 g</span> &middot;'), 'not shown as a clean total');
+});
+
+test('the report shows the earlier calories also when the new extra is an error record', () => {
+  const html = renderReport(withExtra({ error: 'boom-extra' }, { previousExtra: { name: 'עוף', calories: 391 } }), {});
+  assert.ok(html.includes('boom-extra') && html.includes('391') && html.includes('380'));
+});
+
+// ─── latency and tokens of the extra variant ──────────────────────────────────
+const timed = (ms, inputTokens, outputTokens, over = {}) => ({ ...sideWith(), ms, inputTokens, outputTokens, stopReason: 'end_turn', ...over });
+const withRuns = (extras, variantExtra = { label: EXTRA, model: EXTRA }) => ({
+  runsPerPhoto: extras.length,
+  variants: { extra: variantExtra },
+  photos: [{ file: 'a.jpg', runs: extras.map((extra) => ({ old: rec('עוף'), new: rec('עוף'), extra })) }],
+});
+
+test('summarize gives the average and maximum latency and the average tokens of the extra variant', () => {
+  const s = summarize(withRuns([timed(2000, 2000, 500), timed(4000, 3000, 700), timed(9000, 1000, 300)]), {});
+  assert.deepEqual(s.extraStats, { calls: 3, avgMs: 5000, maxMs: 9000, avgInputTokens: 2000, avgOutputTokens: 500 });
+});
+
+test('the latency statistics skip missing numbers independently and are absent when nothing was measured', () => {
+  const s = summarize(withRuns([timed(1000, null, null), timed(3000, 2000, 600), { name: 'עוף', calories: 1 }, { error: 'boom' }]), {});
+  assert.equal(s.extraStats.calls, 2);
+  assert.equal(s.extraStats.avgMs, 2000);
+  assert.equal(s.extraStats.maxMs, 3000);
+  assert.equal(s.extraStats.avgInputTokens, 2000, 'only the call that has tokens counts');
+  assert.equal(summarize(withRuns([sideWith()]), {}).extraStats, null, 'results from before the latency fields');
+  assert.equal(summarize(THREE, {}).extraStats, null);
+  assert.equal(summarize({ runsPerPhoto: 1, photos: [{ file: 'a.jpg', runs: [{ old: rec('עוף'), new: rec('עוף') }] }] }, {}).extraStats, null, 'no extra variant');
+  const noTokens = summarize(withRuns([timed(1500, null, null)]), {}).extraStats;
+  assert.equal(noTokens.avgMs, 1500);
+  assert.equal(noTokens.avgInputTokens, null);
+  assert.equal(noTokens.avgOutputTokens, null);
+});
+
+test('renderReport shows the average and maximum latency and the average tokens, and a latency per extra record', () => {
+  const html = renderReport(withRuns([timed(2000, 2000, 500), timed(4000, 3000, 700)]), {});
+  assert.ok(html.includes('זמן תגובה'), 'a latency line');
+  assert.ok(html.includes('3.0 s') && html.includes('4.0 s'), 'average 3.0 s, maximum 4.0 s');
+  assert.ok(html.includes('2500') && html.includes('600'), 'average input and output tokens');
+  assert.ok(html.includes('2.0 s') && html.includes('end_turn'), 'the per-record line');
+});
+
+test('renderReport shows the prompt and the effort in the extra column label, HTML-escaped', () => {
+  const html = renderReport(withRuns([timed(1000, 1, 1)], { label: EXTRA, model: EXTRA, prompt: 'prePortion', effort: 'medium' }), {});
+  assert.ok(html.includes('prePortion') && html.includes('medium'));
+  assert.equal((html.match(/<th>עכשיו על /g) || []).length, 2, 'summary table and the photo table');
+  const evil = renderReport(withRuns([timed(1000, 1, 1, { stopReason: '<b>x</b>' })], { label: EXTRA, model: EXTRA, prompt: '<script>alert(1)</script>', effort: '"><img src=x onerror=alert(2)>' }), {});
+  for (const raw of ['<script>alert(1)', '<img src=x', '<b>x</b>']) assert.ok(!evil.includes(raw), `no raw ${raw}`);
+  assert.ok(evil.includes('&lt;script&gt;alert(1)'));
+});
+
+test('results from before the latency, prompt and effort fields render without any of those lines', () => {
+  const html = renderReport(withExtra(sideWith()), {});
+  assert.ok(!html.includes('זמן תגובה'));
+  assert.ok(!html.includes('undefined') && !html.includes('NaN') && !html.includes('null'));
+  const odd = [timed('x', 'y', {}), timed(-5, 1, 1), timed(NaN, Infinity, 1), timed(null, null, null)];
+  for (const extra of odd) assert.doesNotThrow(() => renderReport(withRuns([extra]), {}), JSON.stringify(extra));
 });

@@ -5,6 +5,7 @@
 
 const path = require('node:path');
 const { Pool } = require('pg');
+const { createPinnedPool } = require('../../src/db/pool');
 
 require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env'), quiet: true });
 
@@ -24,7 +25,8 @@ function resolveTestUrl() {
   return url;
 }
 
-async function createTestPool() {
+// Makes sure the (safety-checked) test database exists; resolves to its URL string.
+async function ensureTestDb() {
   const url = resolveTestUrl();
   const name = dbName(url);
   // Safety check happens before any connection is made.
@@ -41,11 +43,15 @@ async function createTestPool() {
   } finally {
     await adminPool.end();
   }
-  return new Pool({ connectionString: url.toString() });
+  return url.toString();
+}
+
+async function createTestPool() {
+  return createPinnedPool({ connectionString: await ensureTestDb() });
 }
 
 async function resetDb(pool) {
   await pool.query('TRUNCATE users, food_logs, weight_logs, user_profiles RESTART IDENTITY CASCADE');
 }
 
-module.exports = { createTestPool, resetDb };
+module.exports = { createTestPool, ensureTestDb, resetDb, resolveTestUrl };

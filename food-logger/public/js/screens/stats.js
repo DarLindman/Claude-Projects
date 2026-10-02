@@ -1,7 +1,7 @@
 import { state } from '../state.js';
 import { apiFetch } from '../api.js';
 import { renderLineChart, renderStatAvgBox, renderStatMacros } from '../charts.js';
-import { addMonths, formatDateShort, formatDayCount, formatMonth, todayStr } from '../dates.js';
+import { addDays, addMonths, formatDateShort, formatDayCount, formatMonth, todayStr } from '../dates.js';
 import { html, setHtml } from '../dom.js';
 import { cloneCapybara, setPetState } from '../pet.js';
 import { calcRecommendedCal } from '../profile.js';
@@ -94,17 +94,15 @@ export async function loadStats() {
 
 async function loadWeeklyStats() {
   try {
-    const rows = await apiFetch('/api/stats/weekly');
+    const rows = await apiFetch(`/api/stats/weekly?today=${todayStr()}`);
     const rec = calcRecommendedCal();
     renderStatAvgBox('weekly-avg-box', rows, rec, 'ממוצע קלוריות יומי');
     const chartEl = document.getElementById('weekly-chart');
     // Build last 7 days including today, filling zeros for missing days
-    const todayDate = new Date();
     const todayDs = todayStr();
     const chartDays = [];
     for (let i = 6; i >= 0; i--) {
-      const d = new Date(todayDate); d.setDate(todayDate.getDate() - i);
-      const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const ds = addDays(todayDs, -i);
       const found = rows.find(r => r.day.slice(0,10) === ds);
       chartDays.push(found || { day: ds, calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
     }

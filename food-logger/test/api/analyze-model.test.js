@@ -9,7 +9,7 @@ const { buildTestApp, signedIn } = require('../helpers/app');
 const { fakeAnthropic, IMAGE_ITEMS, TEXT_ITEMS } = require('../helpers/fakeAnthropic');
 const { MODEL } = require('../../src/lib/anthropic');
 const {
-  IMAGE_SYSTEM_PROMPT, IMAGE_USER_MESSAGE, TEXT_SYSTEM_PROMPT, analyzeImage, analyzeText, temperatureFor,
+  IMAGE_SYSTEM_PROMPT, IMAGE_USER_MESSAGE, TEXT_SYSTEM_PROMPT, analyzeImage, analyzeText, temperatureFor, requestOptionsFor,
 } = require('../../src/lib/analysis');
 const { REPAIR_PROMPT_PREFIX } = require('../../src/lib/hebrewName');
 
@@ -57,11 +57,14 @@ test('analyzeImage on a non-Haiku model omits temperature; on any claude-haiku i
   const sonnet = fakeAnthropic();
   await analyzeImage(sonnet, { imageBase64: JPEG_BASE64, mimeType: 'image/jpeg', model: SONNET });
   const s = sonnet.calls.find((c) => !isRepairCall(c));
-  assert.deepEqual(Object.keys(s), ['model', 'max_tokens', 'system', 'messages']);
+  assert.deepEqual(Object.keys(s), ['model', 'max_tokens', 'thinking', 'output_config', 'system', 'messages']);
   assert.equal(s.model, SONNET);
+  assert.equal('temperature' in s, false);
   const { temperature, ...rest } = haikuImageRequest(SONNET);
   assert.equal(temperature, 0);
-  assert.equal(JSON.stringify(s), JSON.stringify({ ...rest, max_tokens: 6000 }));
+  assert.equal(JSON.stringify(s), JSON.stringify({
+    model: rest.model, max_tokens: 6000, thinking: { type: 'between_tools' }, output_config: { effort: 'low' }, system: rest.system, messages: rest.messages,
+  }));
 
   const haiku = fakeAnthropic();
   await analyzeImage(haiku, { imageBase64: JPEG_BASE64, mimeType: 'image/jpeg', model: 'claude-haiku-5-0' });
@@ -75,6 +78,57 @@ test('an explicit temperature wins over the rule: null omits, a number is sent',
   const b = fakeAnthropic();
   await analyzeImage(b, { imageBase64: JPEG_BASE64, mimeType: 'image/jpeg', model: MODEL, temperature: null });
   assert.equal('temperature' in b.calls[0], false);
+});
+
+// ─── Low-latency request options (Sonnet 5 only) ──────────────────────────────
+test('requestOptionsFor: Sonnet 5 gets between_tools thinking and an effort; every other model gets nothing', () => {
+  const low = { thinking: { type: 'between_tools' }, output_config: { effort: 'low' } };
+  assert.deepEqual(requestOptionsFor(SONNET), low);
+  assert.deepEqual(requestOptionsFor(SONNET, undefined), low);
+  assert.deepEqual(requestOptionsFor(SONNET, 'low'), low);
+  assert.deepEqual(requestOptionsFor('claude-sonnet-5-0', 'medium'), { thinking: { type: 'between_tools' }, output_config: { effort: 'medium' } });
+  assert.deepEqual(requestOptionsFor(SONNET, 'high'), { thinking: { type: 'between_tools' }, output_config: { effort: 'high' } });
+  assert.deepEqual(requestOptionsFor(SONNET, null), {});
+  assert.deepEqual(requestOptionsFor(SONNET, 'off'), {});
+  for (const m of ['claude-haiku-4-5-20251001', 'claude-opus-5-5', 'claude-fable-1', 'claude-sonnet-4-5']) {
+    for (const e of [undefined, 'low', 'high', null]) assert.deepEqual(requestOptionsFor(m, e), {}, `${m} ${e}`);
+  }
+});
+
+test('analyzeImage on Sonnet 5: low by default, medium when asked, none for null; never a temperature', async () => {
+  const run = async (opts) => {
+    const fake = fakeAnthropic();
+    await analyzeImage(fake, { imageBase64: JPEG_BASE64, mimeType: 'image/jpeg', model: SONNET, ...opts });
+    return fake.calls.find((c) => !isRepairCall(c));
+  };
+  const d = await run({});
+  assert.deepEqual(d.thinking, { type: 'between_tools' });
+  assert.deepEqual(d.output_config, { effort: 'low' });
+  assert.equal('temperature' in d, false);
+  assert.deepEqual((await run({ effort: 'medium' })).output_config, { effort: 'medium' });
+  const off = await run({ effort: null });
+  assert.equal('thinking' in off, false);
+  assert.equal('output_config' in off, false);
+  assert.deepEqual(Object.keys(off), ['model', 'max_tokens', 'system', 'messages']);
+});
+
+test('Haiku and Opus image requests never carry thinking or output_config', async () => {
+  for (const model of ['claude-haiku-4-5-20251001', 'claude-opus-5-5']) {
+    const fake = fakeAnthropic();
+    await analyzeImage(fake, { imageBase64: JPEG_BASE64, mimeType: 'image/jpeg', model, effort: 'high' });
+    const call = fake.calls.find((c) => !isRepairCall(c));
+    assert.equal('thinking' in call, false, model);
+    assert.equal('output_config' in call, false, model);
+  }
+});
+
+test('the evaluation-only prompts option replaces the system and user texts', async () => {
+  const fake = fakeAnthropic();
+  await analyzeImage(fake, { imageBase64: JPEG_BASE64, mimeType: 'image/jpeg', model: SONNET, prompts: { system: 'SYS-OVERRIDE', user: 'USER-OVERRIDE' } });
+  const call = fake.calls.find((c) => !isRepairCall(c));
+  assert.equal(call.system, 'SYS-OVERRIDE');
+  assert.deepEqual(call.messages[0].content[1], { type: 'text', text: 'USER-OVERRIDE' });
+  assert.equal(call.messages[0].content[0].type, 'image');
 });
 
 // ─── The route on the configured model ───────────────────────────────────────
@@ -105,7 +159,27 @@ test('by default the image route uses the configured model (Sonnet) without temp
   assert.deepEqual(res.body, { foodName: 'עוף עם אורז', ...IMAGE_TOTALS });
   const call = ctx.anthropic.calls[0];
   assert.equal(call.model, SONNET);
-  assert.deepEqual(Object.keys(call), ['model', 'max_tokens', 'system', 'messages']);
+  assert.deepEqual(Object.keys(call), ['model', 'max_tokens', 'thinking', 'output_config', 'system', 'messages']);
+  assert.deepEqual(call.thinking, { type: 'between_tools' });
+  assert.deepEqual(call.output_config, { effort: 'low' });
+});
+
+test('IMAGE_EFFORT reaches the request: high is sent, off sends neither field', async () => {
+  for (const [effort, expected] of [['high', { effort: 'high' }], ['off', undefined]]) {
+    const app = await buildTestApp({ env: { IMAGE_EFFORT: effort }, limits: { analyzePerHour: 1000 } });
+    try {
+      const c = await signedIn(app.app, `effortUser${effort}`);
+      const res = await c.post('/api/analyze', { imageBase64: JPEG_BASE64 });
+      assert.equal(res.status, 200);
+      const call = app.anthropic.calls[0];
+      assert.deepEqual(call.output_config, expected);
+      assert.equal('thinking' in call, expected !== undefined);
+      assert.equal('output_config' in call, expected !== undefined);
+      assert.equal('temperature' in call, false);
+    } finally {
+      await app.pool.end();
+    }
+  }
 });
 
 test('IMAGE_MODEL=claude-haiku-4-5-20251001 gives the Haiku request of today, byte for byte', async () => {

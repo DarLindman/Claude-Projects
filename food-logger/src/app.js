@@ -72,7 +72,7 @@ function createApp({ config, pool, anthropic, icon = null, limits = {} }) {
   const deps = { pool, anthropic, config, auth };
 
   app.use('/auth', authRoutes({ ...deps, ipLimiter, usernameLimiter, changePasswordIpLimiter, changePasswordUserLimiter }));
-  app.use('/api', analyzeRoutes({ ...deps, analyzeLimiter, analyzeIpLimiter, imageModel: config.imageModel }));
+  app.use('/api', analyzeRoutes({ ...deps, analyzeLimiter, analyzeIpLimiter, imageModel: config.imageModel, imageEffort: config.imageEffort }));
   app.use('/api/food', foodRoutes(deps));
   app.use('/api/weight', weightRoutes(deps));
   app.use('/api/profile', profileRoutes(deps));

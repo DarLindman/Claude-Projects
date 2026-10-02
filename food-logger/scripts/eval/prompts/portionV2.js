@@ -1,38 +1,30 @@
 'use strict';
 
-// The prompts of the two analyses and the JSON templates they show the model. A pure
-// data module (moved out of analysis.js); analysis.js re-exports the prompts.
+// FROZEN prompt variant for the evaluation tool (scripts/, never loaded by src/).
+// Select it with: --prompt portionV2
+//
+// The owner approved it on 2026-10-03 after the real runs, and src/lib/prompts.js now renders
+// exactly these two strings as the runtime image prompt. Do not edit:
+// test/api/analysis-prompt.test.js checks their SHA-256 (taken at commit 4826029) and that the
+// runtime strings equal them. A future prompt change updates src/lib/prompts.js, this file
+// and those hashes together, on purpose (or adds a new variant file to compare against).
+//
+// prePortion (the frozen pre-portion prompt) with ONLY the portion estimation changed:
+// - step 3 is replaced by SCALE_METHOD: calibrate the size from objects of roughly standard
+//   size in the frame (cutlery, glass, can, card, hand), derive the plate or bowl diameter
+//   from them instead of assuming one, and write that in the model-only field
+//   scale_reference; then the weight from the apparent size and the usual density of the
+//   kind of food, with no upward bias (no volumes, no per-food numbers);
+// - the restaurant assumption no longer inflates sizes: it applies only when the serving
+//   clearly looks like a restaurant, and then adds the hidden oil/butter only;
+// - the user message lists scale_reference between visual_description and draft_name.
+// Everything else (naming rules, anchors, item fields) is prePortion word for word
+// (test/api/eval-prompt-variants.test.js checks the difference).
 
-// The portion sizes both prompts state. Written once here so the image and the text prompt
-// can never give the model two different values for the same food (the text prompt once
-// said a tablespoon of oil is 13 ml while the image prompt said 13 g). A range is
-// [low, high] grams; a single value is grams. Anchors that only one prompt uses stay
-// in that prompt.
-const PORTION_ANCHORS = Object.freeze({
-  breadSliceG: Object.freeze([25, 30]),
-  eggG: 55,
-  oilTablespoonG: 13,
-  butterTablespoonG: 14,
-  cheeseSliceG: Object.freeze([20, 25]),
-});
-const anchorG = (v) => (Array.isArray(v) ? `${v[0]}-${v[1]}` : String(v));
-
-// Step 3 of the image prompt: the scale-grounded portion method (owner decision 2026-10-03,
-// after three real runs; it replaced a volume-and-density method that raised calories and
-// tripled the output). The model calibrates the size against objects of roughly standard size
-// visible in the frame (cutlery, a glass, a can, a card, a hand), derives the plate or bowl
-// diameter from them instead of assuming one, writes that in the model-only field
-// scale_reference (never returned, stored or logged, like visual_description), then estimates
-// each item's weight from its apparent size and the usual density of the kind of food, with no
-// upward bias. No per-item volume, no per-dish rules, no food dictionary.
-// The rendered prompt is byte-identical to scripts/eval/prompts/portionV2.js (the evaluated
-// variant); a test pins both, so a prompt change updates the two on purpose.
 const SCALE_METHOD = `שלב 3 — כמויות לפי קנה מידה מהתמונה:
 א. קנה מידה: חפש בתמונה חפצים שגודלם קבוע פחות או יותר, והשווה אליהם: מזלג באורך כ־19-20 ס״מ, סכין שולחן באורך כ־22 ס״מ, כף אוכל באורך כ־18-19 ס״מ, כפית באורך כ־14 ס״מ, כוס או ספל ברוחב כ־7-8 ס״מ, פחית 330 מ״ל ברוחב כ־6.6 ס״מ, כרטיס אשראי באורך 8.6 ס״מ, כף יד בוגרת ברוחב כ־8-9 ס״מ. צלחת אינה תמיד בקוטר 26 ס״מ: צלחות ביתיות הן בדרך כלל בקוטר 20-28 ס״מ, וקערה או צלחת קינוח קטנות יותר. הסק את קוטר הצלחת או הקערה מהחפצים שלידה; רק כשאין בתמונה שום חפץ להשוואה, הנח צלחת ביתית בקוטר של כ־24 ס״מ. כתוב בשדה scale_reference, בביטוי קצר באנגלית, באיזה חפץ השתמשת להשוואה ומה קוטר הצלחת או הקערה שיצא לך.
 ב. משקל: הערך את weight_g של כל מרכיב לפי גודלו ביחס לקנה המידה הזה (השטח שהוא תופס והעובי או הגובה שלו) ולפי הצפיפות הרגילה של סוג המזון (באותו נפח, מזון דחוס שוקל יותר ממזון אוורירי), ולא לפי גודל מנה שהנחת מראש. אל תנפח: בצלחת ביתית רגילה יש בדרך כלל מנה רגילה אחת, לא שתיים. סמוך על קנה המידה שמדדת, ולא על נטייה להגדיל או להקטין.`;
 
-// The restaurant assumption applies only when the serving clearly looks like a restaurant, and
-// then adds the hidden oil/butter only (it no longer inflates sizes).
 const RESTAURANT_LINE = '- מנת מסעדה: רק כשההגשה נראית בבירור כמו במסעדה (הכלים, עיצוב המנה בצלחת), שמן/חמאה נסתרים תמיד נכללים.';
 
 const IMAGE_SYSTEM_PROMPT = `אתה מנתח תזונה מומחה. נתח תמונות אוכל לפי השיטה הבאה:
@@ -42,15 +34,15 @@ const IMAGE_SYSTEM_PROMPT = `אתה מנתח תזונה מומחה. נתח תמ�
 ${SCALE_METHOD}
 
 עוגני כמויות לאוכל נפוץ:
-- פרוסת לחם = ${anchorG(PORTION_ANCHORS.breadSliceG)} גרם
+- פרוסת לחם = 25-30 גרם
 - חזה עוף / שניצל = 150-200 גרם
 - המבורגר פטי = 120-150 גרם
 - אורז מבושל (מנה) = 150-200 גרם
 - תפוח אדמה בינוני = 150 גרם
-- ביצה = ${anchorG(PORTION_ANCHORS.eggG)} גרם
-- כף שמן = ${anchorG(PORTION_ANCHORS.oilTablespoonG)} גרם (120 קלוריות)
-- חמאה כף = ${anchorG(PORTION_ANCHORS.butterTablespoonG)} גרם
-- גבינה פרוסה = ${anchorG(PORTION_ANCHORS.cheeseSliceG)} גרם
+- ביצה = 55 גרם
+- כף שמן = 13 גרם (120 קלוריות)
+- חמאה כף = 14 גרם
+- גבינה פרוסה = 20-25 גרם
 
 הנחות:
 ${RESTAURANT_LINE}
@@ -83,64 +75,9 @@ ${RESTAURANT_LINE}
 * חזה עוף צלוי ולידו אורז: "חזה עוף צלוי עם אורז" — המרכיב העיקרי, אופן ההכנה והתוספת.
 * פרוסת עוגה שלא רואים ממה היא עשויה: "עוגה" — שם כללי ונכון, ולא ניחוש של סוג מסוים.`;
 
-// The JSON templates the prompts show the model, in one place: the prompts are built from
-// them, and the reply parsing rejects a model's echo of them (a template has zero
-// nutrition and a placeholder name, so taking it for the answer would be a wrong 200).
-const TEMPLATE_ITEM = Object.freeze({ name: 'שם בעברית', weight_g: 0, calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
-const TEXT_REPLY_TEMPLATE = Object.freeze([TEMPLATE_ITEM]);
-// The image reply adds the model-only scale_reference after visual_description; its items use
-// the same item template as the text reply.
-const IMAGE_REPLY_TEMPLATE = Object.freeze({
-  visual_description: 'short neutral English description',
-  scale_reference: 'reference objects and the plate diameter',
-  draft_name: 'טיוטה ראשונה של השם',
-  dish_name: 'השם הסופי של המנה',
-  items: TEXT_REPLY_TEMPLATE,
-});
-
-// The user message of the image request: the reply fields in the order the model
-// fills them (recognise, find the scale, draft the name, re-read and fix it, then the
-// nutrition items, the weight before the calories).
 const IMAGE_USER_MESSAGE = `זהה כל מרכיב בנפרד. השב עם JSON object בלבד, ללא markdown, והשדות בסדר הזה:
-${JSON.stringify(IMAGE_REPLY_TEMPLATE)}
+{"visual_description":"short neutral English description","scale_reference":"reference objects and the plate diameter","draft_name":"טיוטה ראשונה של השם","dish_name":"השם הסופי של המנה","items":[{"name":"שם בעברית","weight_g":0,"calories":0,"protein_g":0,"carbs_g":0,"fat_g":0,"fiber_g":0}]}
 visual_description קודם (זיהוי), אחריו scale_reference (קנה המידה וקוטר הצלחת), אחריו draft_name (טיוטה לפי כללי השמות), אחריו dish_name (קרא שוב את הטיוטה, בדוק כל מילה מול כללי השמות ותקן מה שצריך), ורק אז items.
 weight_g קודם — אז חשב קלוריות לפי weight_g בלבד.`;
 
-const TEXT_SYSTEM_PROMPT = `אתה מחשבון תזונה מדויק למשתמשים ישראלים.
-
-== כללי כמויות ==
-
-כמות מפורשת במספר — חשב בדיוק לפי מה שכתוב, ללא שינוי.
-  "100 גרם אורז" = 100 גרם בדיוק. "3 ביצים" = 3 ביצים בדיוק.
-
-צורת יחיד ללא מספר = בדיוק 1 יחידה (הנחיה מכוונת, אסור להתעלם):
-  "סרדין" = 1 סרדין בלבד.  "אנשובי" = 1 פילה (~5 גרם).  "ביצה" = ביצה 1.
-
-ללא כמות ולא מספר — השתמש בכמות הקבועה הבאה (אל תחרוג ממנה):
-  טונה במים = 85 גרם נטו מסוננת.
-  סרדינים (ריבוי) = 45 גרם (כ-3 סרדינים קטנים).
-  עוף/בשר = 100 גרם מבושל.
-  אורז/פסטה = 100 גרם מבושל.
-  לחם = 1 פרוסה = ${PORTION_ANCHORS.breadSliceG[0]} גרם.
-  אגוז מלך (יחיד) = 1 חצי גרעין = 5 גרם. אגוזי מלך (ריבוי ללא מספר) = 20 גרם.
-  כף שמן = ${PORTION_ANCHORS.oilTablespoonG} גרם. כפית סוכר = 4 גרם.
-  קופסת קוטג' / גביע קוטג' = 250 גרם (גודל סטנדרטי ישראלי).
-  שקית פריכיות קטנה = 30 גרם. שקית פריכיות גדולה = 60 גרם.
-  גביע יוגורט = 150 גרם. גביע גבינה = 250 גרם.
-
-== כלל קריטי לשמירה על עקביות ==
-לכל פריט, קבע תחילה את weight_g (משקל בגרמים) ורק אז חשב את שאר הערכים.
-הערכים התזונתיים חייבים להיות עקביים לחלוטין עם weight_g שבחרת.
-
-== שמות ==
-בעברית תקנית בלבד — אפס אנגלית, אפס לטינית.`;
-
-module.exports = {
-  PORTION_ANCHORS,
-  SCALE_METHOD,
-  IMAGE_SYSTEM_PROMPT,
-  IMAGE_USER_MESSAGE,
-  TEXT_SYSTEM_PROMPT,
-  IMAGE_REPLY_TEMPLATE,
-  TEXT_REPLY_TEMPLATE,
-};
+module.exports = { IMAGE_SYSTEM_PROMPT, IMAGE_USER_MESSAGE, SCALE_METHOD };

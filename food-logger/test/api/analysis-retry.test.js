@@ -223,6 +223,6 @@ test('a retried request logs a usage line per call; a rejected call logs stop=er
 test('the usage line leaves the request and the returned object unchanged', async () => {
   ctx.anthropic.usage = { input_tokens: 1, output_tokens: 2 };
   const res = await analyze();
-  assert.deepEqual(Object.keys(ctx.anthropic.calls[0]), ['model', 'max_tokens', 'system', 'messages']);
+  assert.deepEqual(Object.keys(ctx.anthropic.calls[0]), ['model', 'max_tokens', 'thinking', 'output_config', 'system', 'messages']);
   assert.deepEqual(Object.keys(res.body), ['foodName', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'fiber_g']);
 });

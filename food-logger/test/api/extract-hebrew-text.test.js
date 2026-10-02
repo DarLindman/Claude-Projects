@@ -121,6 +121,40 @@ test('the committed docs/hebrew-copy-audit.md equals what the extractor generate
   assert.equal(committed.replace(/\r\n/g, '\n'), build().markdown.replace(/\r\n/g, '\n'));
 });
 
+test('the generated audit does not depend on line endings (CRLF and LF checkouts give the same result)', () => {
+  const files = {
+    'public/index.html': '<div>\n  <p>שלום עולם</p>\n</div>\n',
+    'public/manifest.json': '{\n  "name": "יומן אוכל"\n}\n',
+    'public/js/a.js': "const a = 'שמור';\n// הערה\nconst t = `שורה\nשנייה`;\n",
+    'src/b.js': "module.exports = 'מחק';\n",
+    'src/lib/prompts.js': "const P = `הנחיה בעברית\nעם שורה שנייה\nושלישית`;\n",
+  };
+  const make = (eol) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), `hebrew-eol-${eol === '\n' ? 'lf' : 'crlf'}-`));
+    for (const [rel, text] of Object.entries(files)) {
+      const full = path.join(dir, rel);
+      fs.mkdirSync(path.dirname(full), { recursive: true });
+      fs.writeFileSync(full, text.replace(/\n/g, eol));
+    }
+    return dir;
+  };
+  const lf = make('\n');
+  const crlf = make('\r\n');
+  try {
+    assert.ok(fs.readFileSync(path.join(crlf, 'src/lib/prompts.js'), 'utf8').includes('\r\n'), 'the fixture really has CRLF');
+    const a = build(lf, { proposals: {} });
+    const b = build(crlf, { proposals: {} });
+    assert.ok(a.rows.length >= 4 && /\(\d+ characters\)/.test(a.promptList), 'the fixture produces rows and a prompt entry');
+    assert.deepEqual(b.rows, a.rows);
+    assert.equal(b.promptList, a.promptList);
+    assert.deepEqual(b.stats, a.stats);
+    assert.equal(b.markdown, a.markdown);
+  } finally {
+    fs.rmSync(lf, { recursive: true, force: true });
+    fs.rmSync(crlf, { recursive: true, force: true });
+  }
+});
+
 test('mergeProposals fills proposed text and reason by exact text, reports stale ones, leaves the owner column empty', () => {
   const rows = dedupe([
     { text: 'סיסמא', file: 'a.html', line: 1, where: 'label' },

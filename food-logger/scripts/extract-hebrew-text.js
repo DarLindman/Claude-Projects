@@ -79,7 +79,9 @@ function build(root = ROOT, opts = {}) {
   const stats = [];
   const prompts = [];
   for (const { file, type } of sources(root)) {
-    const src = fs.readFileSync(path.join(root, file), 'utf8');
+    // Normalise line endings so counts, lines and excerpts are the same on LF and CRLF
+    // (core.autocrlf) checkouts.
+    const src = fs.readFileSync(path.join(root, file), 'utf8').replace(/\r\n/g, '\n');
     if (PROMPT_FILES.has(file)) {
       const mine = tokenize(src).literals.map((l) => ({ l, body: bodyOf(l) })).filter((x) => HEBREW.test(x.body))
         .map(({ l, body }) => ({ file, line: l.startLine, endLine: l.endLine, chars: body.length, start: body.replace(/\s+/g, ' ').slice(0, 60) }));

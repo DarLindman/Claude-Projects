@@ -4,7 +4,9 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
 const { parse } = require('pg-connection-string');
-const { createPool, stripSslParams } = require('../../src/db/pool');
+const { Pool } = require('pg');
+const { createPool, createPinnedPool, UtcClient, stripSslParams } = require('../../src/db/pool');
+const { createTestPool, ensureTestDb } = require('../helpers/db');
 
 const BASE = 'postgres://u:p@localhost:5432/db';
 
@@ -67,4 +69,155 @@ test('stripSslParams removes only ssl params', () => {
   assert.equal(stripSslParams(BASE), BASE);
   assert.equal(stripSslParams(`${BASE}?sslmode=require`), BASE);
   assert.equal(stripSslParams(`${BASE}?a=1&ssl=true&b=2`), `${BASE}?a=1&b=2`);
+});
+
+// ─── The session time zone is pinned to UTC ──────────────────────────────────
+
+// A pool whose connections ask the server for `zone` at startup (like PGOPTIONS).
+async function pinnedPoolWithServerZone(zone, extra = {}) {
+  return createPinnedPool({ connectionString: await ensureTestDb(), options: `-c timezone=${zone}`, ...extra });
+}
+
+test('a pinned pool reports UTC even when the server and PGOPTIONS say otherwise', async () => {
+  const pool = await pinnedPoolWithServerZone('Asia/Jerusalem');
+  try {
+    const { rows } = await pool.query('SHOW TIME ZONE');
+    assert.deepEqual(rows[0], { TimeZone: 'UTC' });
+  } finally {
+    await pool.end();
+  }
+});
+
+test('every connection of the pool is pinned', async () => {
+  const pool = await pinnedPoolWithServerZone('Asia/Jerusalem', { max: 5 });
+  try {
+    const results = await Promise.all(
+      Array.from({ length: 5 }, () => pool.query("SELECT current_setting('TimeZone') AS tz, pg_sleep(0.1)")),
+    );
+    assert.deepEqual(results.map((r) => r.rows[0].tz), ['UTC', 'UTC', 'UTC', 'UTC', 'UTC']);
+  } finally {
+    await pool.end();
+  }
+});
+
+test('a timestamp without offset is read back as the same wall-clock date', async () => {
+  const pool = await pinnedPoolWithServerZone('America/New_York');
+  try {
+    const d = await pool.query("SELECT '2026-03-01T23:30:00'::timestamptz::date::text AS d");
+    assert.equal(d.rows[0].d, '2026-03-01');
+    const t = await pool.query("SELECT ('2026-03-01T23:30:00'::timestamptz AT TIME ZONE 'UTC')::text AS t");
+    assert.equal(t.rows[0].t, '2026-03-01 23:30:00');
+  } finally {
+    await pool.end();
+  }
+});
+
+test('createTestPool and createPool both return pinned pools', async () => {
+  const testPool = await createTestPool();
+  const prodPool = poolFor({ isProd: false, databaseUrl: await ensureTestDb() });
+  try {
+    for (const pool of [testPool, prodPool]) {
+      const { rows } = await pool.query("SELECT current_setting('TimeZone') AS tz");
+      assert.equal(rows[0].tz, 'UTC');
+    }
+  } finally {
+    await testPool.end();
+    await prodPool.end();
+  }
+});
+
+test('a failing SET TIME ZONE fails the connection (no silent unpinned connection)', async () => {
+  class FailingSet extends UtcClient {
+    query(text, ...rest) {
+      if (typeof text === 'string' && text.startsWith('SET TIME ZONE')) {
+        const cb = rest.find((r) => typeof r === 'function');
+        const err = new Error('set refused');
+        if (cb) {
+          process.nextTick(cb, err);
+          return undefined;
+        }
+        return Promise.reject(err);
+      }
+      return super.query(text, ...rest);
+    }
+  }
+  const pool = new Pool({ connectionString: await ensureTestDb(), Client: FailingSet });
+  try {
+    await assert.rejects(pool.query('SELECT 1'), /set refused/);
+    assert.equal(pool.totalCount, 0, 'the half-set-up connection is closed and dropped');
+  } finally {
+    await pool.end();
+  }
+});
+
+test('the promise form of UtcClient.connect also fails closed', async () => {
+  class FailingSet extends UtcClient {
+    query() {
+      return Promise.reject(new Error('set refused'));
+    }
+  }
+  const client = new FailingSet({ connectionString: await ensureTestDb() });
+  await assert.rejects(client.connect(), /set refused/);
+});
+
+test('no process warning is emitted while a pinned pool runs its first query', async () => {
+  const warnings = [];
+  const onWarning = (w) => warnings.push(w);
+  process.on('warning', onWarning);
+  const pool = createPinnedPool({ connectionString: await ensureTestDb() });
+  try {
+    await pool.query('SELECT 1');
+    await new Promise((resolve) => setImmediate(resolve)); // warnings are emitted on nextTick
+  } finally {
+    process.off('warning', onWarning);
+    await pool.end();
+  }
+  assert.deepEqual(warnings.map((w) => w.message), []);
+});
+
+test('a socket error during the SET round trip fails the query and does not crash the process', async () => {
+  // pg-pool attaches its idle error listener only after connect() completes, so without
+  // the temporary listener in UtcClient this error would be an unhandled 'error' event.
+  class ResetDuringSet extends UtcClient {
+    query(text, ...rest) {
+      if (typeof text === 'string' && text.startsWith('SET TIME ZONE')) {
+        this.connection.stream.destroy(new Error('ECONNRESET'));
+      }
+      return super.query(text, ...rest);
+    }
+  }
+  const uncaught = [];
+  const onUncaught = (e) => uncaught.push(e);
+  process.on('uncaughtException', onUncaught);
+  const pool = new Pool({ connectionString: await ensureTestDb(), Client: ResetDuringSet });
+  try {
+    await assert.rejects(pool.query('SELECT 1'));
+    await new Promise((resolve) => setTimeout(resolve, 50)); // let any stray 'error' event surface
+  } finally {
+    process.off('uncaughtException', onUncaught);
+    await pool.end();
+  }
+  assert.deepEqual(uncaught.map((e) => e.message), []);
+});
+
+test('the promise form of UtcClient.connect survives a socket error during the SET too', async () => {
+  class ResetDuringSet extends UtcClient {
+    query(text, ...rest) {
+      if (typeof text === 'string' && text.startsWith('SET TIME ZONE')) {
+        this.connection.stream.destroy(new Error('ECONNRESET'));
+      }
+      return super.query(text, ...rest);
+    }
+  }
+  const uncaught = [];
+  const onUncaught = (e) => uncaught.push(e);
+  process.on('uncaughtException', onUncaught);
+  try {
+    const client = new ResetDuringSet({ connectionString: await ensureTestDb() });
+    await assert.rejects(client.connect());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  } finally {
+    process.off('uncaughtException', onUncaught);
+  }
+  assert.deepEqual(uncaught.map((e) => e.message), []);
 });

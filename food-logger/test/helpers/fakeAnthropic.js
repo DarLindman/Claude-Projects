@@ -7,8 +7,8 @@
 //     or throws; an Error instance makes the call reject). Default: 'סלט'
 //   - user content is an array (image request)         -> `fake.imageReply` when set (a
 //     string, for malformed-reply tests), else a JSON object with visual_description,
-//     draft_name, dish_name and items (the shape the image prompt asks for); the
-//     response's stop_reason is `fake.imageStopReason` when set, else 'end_turn'
+//     scale_reference, draft_name, dish_name and items (the shape the image prompt asks
+//     for); the response's stop_reason is `fake.imageStopReason` when set, else 'end_turn'
 //   - otherwise (text request)                         -> `fake.textReply` when set (a
 //     string), else a JSON array of items
 // `fake.usage`, when set, is returned as the `usage` of the image and text responses.
@@ -66,7 +66,7 @@ function fakeAnthropic() {
         if (Array.isArray(content)) {
           if (fake.imageContent !== undefined) return { content: fake.imageContent, stop_reason: fake.imageStopReason ?? 'end_turn', ...usage };
           const text = fake.imageReply !== undefined ? fake.imageReply
-            : JSON.stringify({ visual_description: 'grilled chicken with white rice', draft_name: 'עוף עם אורז לבן', dish_name: 'עוף עם אורז', items: IMAGE_ITEMS });
+            : JSON.stringify({ visual_description: 'grilled chicken with white rice', scale_reference: 'fork about 19 cm; plate about 26 cm', draft_name: 'עוף עם אורז לבן', dish_name: 'עוף עם אורז', items: IMAGE_ITEMS });
           return { ...reply(text), stop_reason: fake.imageStopReason ?? 'end_turn', ...usage };
         }
         if (fake.textContent !== undefined) return { content: fake.textContent, stop_reason: 'end_turn', ...usage };

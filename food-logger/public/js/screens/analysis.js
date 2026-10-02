@@ -1,6 +1,6 @@
 import { state } from '../state.js';
 import { apiFetch } from '../api.js';
-import { todayStr } from '../dates.js';
+import { nowTimeStr, todayStr } from '../dates.js';
 import { showToast } from '../dom.js';
 import { spawnConfetti } from '../effects.js';
 import { cloneCapybara, setPetState } from '../pet.js';
@@ -26,7 +26,7 @@ export async function saveEntry() {
     carbs_g: +document.getElementById('res-carb').value || 0,
     fat_g: +document.getElementById('res-fat').value || 0,
     fiber_g: +document.getElementById('res-fiber').value || 0,
-    logged_at: todayStr() + 'T' + (document.getElementById('res-time')?.value || new Date().toTimeString().slice(0, 5)) + ':00',
+    logged_at: todayStr() + 'T' + (document.getElementById('res-time')?.value || nowTimeStr()) + ':00',
   };
   try {
     await apiFetch('/api/food', { method: 'POST', body: JSON.stringify(body) });

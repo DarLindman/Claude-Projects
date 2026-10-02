@@ -2,6 +2,7 @@ import { state } from '../state.js';
 import { apiFetch } from '../api.js';
 import { _cameraCapyState, scheduleCameraHappy } from '../pet.js';
 import { navigate } from '../router.js';
+import { nowTimeStr } from '../dates.js';
 import { analysisMessageFor } from '../errors.js';
 
 let _placeholderIv = null;
@@ -80,8 +81,7 @@ export async function analyzeText() {
     document.getElementById('res-fiber').value = (+data.fiber_g || 0).toFixed(1);
 
     document.getElementById('analysis-loading').style.display = 'none';
-    const now = new Date();
-    const hhmm = now.toTimeString().slice(0, 5);
+    const hhmm = nowTimeStr();
     const rtEl = document.getElementById('receipt-time');
     if (rtEl) rtEl.textContent = hhmm;
     const timeInput = document.getElementById('res-time');
@@ -123,8 +123,7 @@ export async function analyzeFood() {
     document.getElementById('res-fiber').value = (+data.fiber_g || 0).toFixed(1);
 
     document.getElementById('analysis-loading').style.display = 'none';
-    const now = new Date();
-    const hhmm = now.toTimeString().slice(0, 5);
+    const hhmm = nowTimeStr();
     const rtEl = document.getElementById('receipt-time');
     if (rtEl) rtEl.textContent = hhmm;
     const timeInput = document.getElementById('res-time');

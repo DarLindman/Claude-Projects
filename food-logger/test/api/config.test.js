@@ -176,6 +176,27 @@ test('an invalid IMAGE_MODEL is a startup error naming IMAGE_MODEL, reported wit
   );
 });
 
+// ─── IMAGE_EFFORT ────────────────────────────────────────────────────────────
+test('IMAGE_EFFORT defaults to low and accepts low, medium, high and off (trimmed)', () => {
+  assert.equal(loadConfig({ ...base }).imageEffort, 'low');
+  for (const v of ['low', 'medium', 'high', 'off']) assert.equal(loadConfig({ ...base, IMAGE_EFFORT: v }).imageEffort, v);
+  assert.equal(loadConfig({ ...base, IMAGE_EFFORT: '  high' + String.fromCharCode(10) }).imageEffort, 'high');
+});
+
+test('an invalid IMAGE_EFFORT is a startup error naming IMAGE_EFFORT, reported with other problems', () => {
+  for (const bad of ['extreme', 'LOW', '', '  ', 'none']) {
+    assert.throws(
+      () => loadConfig({ ...base, IMAGE_EFFORT: bad }),
+      (e) => e instanceof Error && e.message.includes('IMAGE_EFFORT'),
+      `IMAGE_EFFORT ${JSON.stringify(bad)} must be rejected`
+    );
+  }
+  assert.throws(
+    () => loadConfig({ ...base, JWT_SECRET: 'short', IMAGE_EFFORT: 'extreme' }),
+    (e) => e.message.includes('JWT_SECRET') && e.message.includes('IMAGE_EFFORT')
+  );
+});
+
 test('the .env.example IMAGE_MODEL line, if uncommented, is a valid id', () => {
   const text = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', '.env.example'), 'utf8');
   const lines = text.split(/\r?\n/).filter((l) => /^#?\s*IMAGE_MODEL=/.test(l));

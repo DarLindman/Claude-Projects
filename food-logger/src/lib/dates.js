@@ -34,4 +34,16 @@ function isRealDateTime(str) {
   return true;
 }
 
-module.exports = { isRealDate, isRealMonth, isRealDateTime };
+// Calendar arithmetic on a valid YYYY-MM-DD; Date.UTC and the UTC getters only, so the
+// process time zone never enters. The server has no zone of its own: the browser sends its
+// own wall-clock `today`, and the UTC date is only the fallback when it does not.
+function addDaysUtc(dateStr, n) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+}
+
+function utcToday() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+module.exports = { isRealDate, isRealMonth, isRealDateTime, addDaysUtc, utcToday };

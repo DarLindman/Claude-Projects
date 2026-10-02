@@ -59,7 +59,8 @@ test('analyzeImage with temperature null leaves the temperature field out of the
   await analyzeImage(fake, { ...ARGS, model: EXTRA, temperature: null });
   const call = fake.calls.find((c) => !isRepairCall(c));
   assert.equal('temperature' in call, false);
-  assert.deepEqual(Object.keys(call), ['model', 'max_tokens', 'system', 'messages']);
+  // EXTRA is a Sonnet 5 id, so it also carries the low-latency fields (requestOptionsFor)
+  assert.deepEqual(Object.keys(call), ['model', 'max_tokens', 'thinking', 'output_config', 'system', 'messages']);
   assert.equal(call.model, EXTRA);
 });
 
@@ -226,7 +227,7 @@ test('--only-extra with --yes merges the extra results and leaves old and new by
   const after = JSON.parse(fs.readFileSync(path.join(ws.out, 'results.json'), 'utf8'));
   assert.deepEqual(after.variants.old, before.variants.old);
   assert.deepEqual(after.variants.new, before.variants.new);
-  assert.deepEqual(after.variants.extra, { label: EXTRA, model: EXTRA }, 'the extra metadata is replaced');
+  assert.deepEqual(after.variants.extra, { label: EXTRA, model: EXTRA, prompt: 'production', effort: 'low' }, 'the extra metadata is replaced (with the prompt and effort it ran with)');
   assert.equal(after.generatedAt, before.generatedAt);
   assert.equal(after.photos.length, before.photos.length);
   before.photos.forEach((photo, i) => {
@@ -291,4 +292,242 @@ test('--only-extra output stays quiet: only the injected log is used', async () 
     err.mock.restore();
     warn.mock.restore();
   }
+});
+
+// ─── the replaced extra record survives as previousExtra ──────────────────────
+test('--only-extra keeps the replaced extra as previousExtra (name and calories only) next to the new extra', async () => {
+  const ws = workspace(['a.jpg']);
+  const before = JSON.parse(await fullRun(ws, { runs: 1 }));
+  const first = before.photos[0].runs[0].extra;
+  assert.equal(first.calories, 450);
+  assert.equal('previousExtra' in before.photos[0].runs[0], false);
+
+  const fake = fakeAnthropic();
+  fake.imageReply = JSON.stringify({ scale_reference: 'a fork', dish_name: 'עוף', items: [{ name: 'עוף', volume_ml: 300, weight_g: 280, calories: 500, protein_g: 40, carbs_g: 0, fat_g: 31, fiber_g: 0 }] });
+  const { result } = await runWith(ws, { onlyExtra: true, alsoModel: EXTRA, yes: true, runs: 1 }, fake);
+  assert.equal(result.exitCode, 0);
+  const after = JSON.parse(fs.readFileSync(path.join(ws.out, 'results.json'), 'utf8'));
+  const r = after.photos[0].runs[0];
+  assert.deepEqual(r.previousExtra, { name: first.name, calories: 450 });
+  assert.deepEqual(Object.keys(r.previousExtra), ['name', 'calories']);
+  assert.equal(r.extra.name, 'עוף');
+  assert.equal(r.extra.calories, 500);
+  assert.equal(r.extra.items[0].weight_g, 280);
+  assert.equal(r.extra.scale, 'a fork');
+  assert.equal(JSON.stringify(r.old), JSON.stringify(before.photos[0].runs[0].old), 'old untouched');
+  assert.equal(JSON.stringify(r.new), JSON.stringify(before.photos[0].runs[0].new), 'new untouched');
+  const html = fs.readFileSync(path.join(ws.out, 'report.html'), 'utf8');
+  assert.ok(html.includes('450') && html.includes('500') && html.includes('280'), 'the report shows the earlier and the new numbers');
+});
+
+test('--only-extra: a stored extra that failed, or none at all, leaves no previousExtra', async () => {
+  const ws = workspace(['a.jpg']);
+  await fullRun(ws, { runs: 1 });
+  const file = path.join(ws.out, 'results.json');
+  const stored = JSON.parse(fs.readFileSync(file, 'utf8'));
+  stored.photos[0].runs[0].extra = { error: 'boom' };
+  fs.writeFileSync(file, JSON.stringify(stored));
+  await runWith(ws, { onlyExtra: true, alsoModel: EXTRA, yes: true, runs: 1 });
+  assert.equal('previousExtra' in JSON.parse(fs.readFileSync(file, 'utf8')).photos[0].runs[0], false);
+
+  const ws2 = workspace(['a.jpg']);
+  await runWith(ws2, { yes: true, runs: 1 });
+  await runWith(ws2, { onlyExtra: true, alsoModel: EXTRA, yes: true, runs: 1 });
+  assert.equal('previousExtra' in JSON.parse(fs.readFileSync(path.join(ws2.out, 'results.json'), 'utf8')).photos[0].runs[0], false);
+});
+
+// ─── --prompt, --effort and the per-call latency (fakes only) ─────────────────
+const FROZEN = require('../../scripts/eval/prompts/prePortion');
+const { IMAGE_SYSTEM_PROMPT, IMAGE_USER_MESSAGE } = require('../../src/lib/prompts');
+const userTextOf = (call) => call.messages[0].content.find((b) => b.type === 'text').text;
+
+test('parseArgs reads --prompt and --effort, and refuses a bad effort or a missing value', () => {
+  assert.deepEqual(parseArgs(['--also-model', EXTRA, '--prompt', 'prePortion', '--effort', 'medium']),
+    { dir: 'eval/photos', runs: 3, yes: false, alsoModel: EXTRA, prompt: 'prePortion', effort: 'medium' });
+  assert.equal(parseArgs(['--effort', 'off']).effort, 'off');
+  assert.throws(() => parseArgs(['--prompt']), /--prompt/);
+  assert.throws(() => parseArgs(['--prompt', '--yes']), /--prompt/);
+  assert.throws(() => parseArgs(['--effort']), /--effort/);
+  assert.throws(() => parseArgs(['--effort', 'max']), /--effort.*low.*medium.*high.*off/);
+});
+
+test('--prompt prePortion sends the frozen texts on the extra variant only', async () => {
+  const ws = workspace(['a.jpg']);
+  const { result, fake } = await runWith(ws, { yes: true, alsoModel: EXTRA, prompt: 'prePortion', runs: 1 });
+  assert.equal(result.exitCode, 0);
+  const imageCalls = fake.calls.filter((c) => !isRepairCall(c));
+  assert.equal(imageCalls.length, 3);
+  const extraCall = imageCalls.find((c) => c.model === EXTRA);
+  assert.equal(extraCall.system, FROZEN.IMAGE_SYSTEM_PROMPT);
+  assert.equal(userTextOf(extraCall), FROZEN.IMAGE_USER_MESSAGE);
+  const newCall = imageCalls.filter((c) => c.model === MODEL)[1];
+  assert.equal(newCall.system, IMAGE_SYSTEM_PROMPT, 'the new variant keeps the runtime prompt');
+  assert.equal(userTextOf(newCall), IMAGE_USER_MESSAGE);
+  assert.equal(result.results.variants.extra.prompt, 'prePortion');
+});
+
+test('without --prompt the extra call sends the runtime prompt and the variant says so', async () => {
+  const ws = workspace(['a.jpg']);
+  const { result, fake } = await runWith(ws, { yes: true, alsoModel: EXTRA, runs: 1 });
+  const extraCall = fake.calls.find((c) => !isRepairCall(c) && c.model === EXTRA);
+  assert.equal(extraCall.system, IMAGE_SYSTEM_PROMPT);
+  assert.equal(result.results.variants.extra.prompt, 'production');
+});
+
+test('an unknown --prompt name is refused with a clear message, before anything is sent or written', async () => {
+  for (const options of [{}, { yes: true }]) {
+    const ws = workspace(['a.jpg']);
+    const { result, lines, created } = await runWith(ws, { alsoModel: EXTRA, prompt: 'doesNotExist', runs: 1, ...options });
+    assert.equal(result.exitCode, 1);
+    assert.match(result.error, /doesNotExist/);
+    assert.match(result.error, /prePortion/, 'lists the available names');
+    assert.ok(lines.some((l) => l.startsWith('ERROR:') && l.includes('doesNotExist')));
+    assert.equal(created(), 0);
+    assert.ok(!fs.existsSync(ws.out));
+  }
+  for (const bad of ['../src/lib/prompts', 'a/b', '', 'x.js', '..']) {
+    const ws = workspace(['a.jpg']);
+    const { result, created } = await runWith(ws, { yes: true, alsoModel: EXTRA, prompt: bad, runs: 1 });
+    assert.equal(result.exitCode, 1, JSON.stringify(bad));
+    assert.equal(created(), 0);
+  }
+});
+
+test('--prompt and --effort need --also-model', async () => {
+  for (const options of [{ prompt: 'prePortion' }, { effort: 'low' }]) {
+    const ws = workspace(['a.jpg']);
+    const { result, created } = await runWith(ws, { yes: true, runs: 1, ...options });
+    assert.equal(result.exitCode, 1);
+    assert.match(result.error, /--also-model/);
+    assert.equal(created(), 0);
+  }
+});
+
+test('an unknown effort in the options is refused', async () => {
+  const ws = workspace(['a.jpg']);
+  const { result, created } = await runWith(ws, { yes: true, alsoModel: EXTRA, effort: 'max', runs: 1 });
+  assert.equal(result.exitCode, 1);
+  assert.match(result.error, /effort/);
+  assert.equal(created(), 0);
+});
+
+test('--effort off sends no effort fields; the default and medium go to the extra variant only', async () => {
+  const sent = async (effort) => {
+    const ws = workspace(['a.jpg']);
+    const { result, fake } = await runWith(ws, { yes: true, alsoModel: EXTRA, runs: 1, ...(effort ? { effort } : {}) });
+    const imageCalls = fake.calls.filter((c) => !isRepairCall(c));
+    return { extra: imageCalls.find((c) => c.model === EXTRA), others: imageCalls.filter((c) => c.model !== EXTRA), variant: result.results.variants.extra };
+  };
+  const off = await sent('off');
+  assert.equal('thinking' in off.extra, false);
+  assert.equal('output_config' in off.extra, false);
+  assert.equal(off.variant.effort, 'off');
+  const medium = await sent('medium');
+  assert.deepEqual(medium.extra.output_config, { effort: 'medium' });
+  assert.deepEqual(medium.extra.thinking, { type: 'between_tools' });
+  assert.equal(medium.variant.effort, 'medium');
+  const dflt = await sent();
+  assert.deepEqual(dflt.extra.output_config, { effort: 'low' });
+  assert.equal(dflt.variant.effort, 'low');
+  for (const r of [off, medium, dflt]) {
+    for (const c of r.others) assert.ok(!('output_config' in c) && !('thinking' in c), 'old and new are unaffected');
+  }
+});
+
+test('the recorded effort says off when the model gets no effort fields (a model that is not Sonnet 5)', async () => {
+  const ws = workspace(['a.jpg']);
+  const { result, fake } = await runWith(ws, { yes: true, alsoModel: 'claude-first-extra', effort: 'high', runs: 1 });
+  assert.equal(result.results.variants.extra.effort, 'off');
+  assert.ok(!('output_config' in fake.calls.find((c) => !isRepairCall(c) && c.model === 'claude-first-extra')));
+});
+
+test('--only-extra with --prompt and --effort applies them and records them, keeping old and new', async () => {
+  const ws = workspace(['a.jpg']);
+  const before = JSON.parse(await fullRun(ws, { runs: 1 }));
+  const { result, fake } = await runWith(ws, { onlyExtra: true, alsoModel: EXTRA, prompt: 'prePortion', effort: 'high', yes: true, runs: 1 });
+  assert.equal(result.exitCode, 0);
+  const calls = fake.calls.filter((c) => !isRepairCall(c));
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].system, FROZEN.IMAGE_SYSTEM_PROMPT);
+  assert.deepEqual(calls[0].output_config, { effort: 'high' });
+  const after = JSON.parse(fs.readFileSync(path.join(ws.out, 'results.json'), 'utf8'));
+  assert.equal(after.variants.extra.prompt, 'prePortion');
+  assert.equal(after.variants.extra.effort, 'high');
+  assert.equal(JSON.stringify(after.photos[0].runs[0].new), JSON.stringify(before.photos[0].runs[0].new));
+  const html = fs.readFileSync(path.join(ws.out, 'report.html'), 'utf8');
+  assert.ok(html.includes('prePortion') && html.includes('high'), 'the extra column label shows prompt and effort');
+});
+
+test('every recorded side has ms and the usage of the (last) model call; null when the usage is absent', async () => {
+  const ws = workspace(['a.jpg']);
+  const fake = fakeAnthropic();
+  fake.usage = { input_tokens: 2100, output_tokens: 640 };
+  fake.imageStopReason = 'max_tokens';
+  const { result } = await runWith(ws, { yes: true, alsoModel: EXTRA, runs: 1 }, fake);
+  const r = result.results.photos[0].runs[0];
+  for (const side of [r.old, r.new, r.extra]) {
+    assert.ok(Number.isInteger(side.ms) && side.ms >= 0, 'wall-clock ms');
+    assert.equal(side.inputTokens, 2100);
+    assert.equal(side.outputTokens, 640);
+    assert.equal(side.stopReason, 'max_tokens');
+  }
+  const ws2 = workspace(['a.jpg']);
+  const { result: bare } = await runWith(ws2, { yes: true, alsoModel: EXTRA, runs: 1 });
+  const side = bare.results.photos[0].runs[0].extra;
+  assert.ok(side.ms >= 0);
+  assert.equal(side.inputTokens, null);
+  assert.equal(side.outputTokens, null);
+  assert.equal(side.stopReason, 'end_turn');
+});
+
+test('the recorded ms is the wall-clock time of the call', async () => {
+  const ws = workspace(['a.jpg']);
+  const fake = fakeAnthropic();
+  const original = fake.messages.create;
+  fake.messages.create = async (args) => { await new Promise((r) => setTimeout(r, 40)); return original(args); };
+  const { result } = await runWith(ws, { yes: true, alsoModel: EXTRA, runs: 1 }, fake);
+  const extra = result.results.photos[0].runs[0].extra;
+  assert.ok(extra.ms >= 35 && extra.ms < 5000, `ms ${extra.ms}`);
+});
+
+test('after an unparseable reply and a retry the side records the last call only', async () => {
+  const ws = workspace(['a.jpg']);
+  const fake = fakeAnthropic();
+  const original = fake.messages.create;
+  let imageCalls = 0;
+  fake.messages.create = async (args) => {
+    if (!isRepairCall(args) && args.model === EXTRA) {
+      imageCalls++;
+      if (imageCalls === 1) return { content: [{ type: 'text', text: 'no json here' }], stop_reason: 'end_turn', usage: { input_tokens: 1, output_tokens: 2 } };
+      const out = await original(args);
+      return { ...out, usage: { input_tokens: 900, output_tokens: 300 } };
+    }
+    return original(args);
+  };
+  const { result } = await runWith(ws, { yes: true, alsoModel: EXTRA, runs: 1 }, fake);
+  const extra = result.results.photos[0].runs[0].extra;
+  assert.equal(imageCalls, 2);
+  assert.equal(extra.inputTokens, 900);
+  assert.equal(extra.outputTokens, 300);
+});
+
+test('a failing call is still recorded with its ms and null tokens', async () => {
+  const ws = workspace(['a.jpg']);
+  const fake = fakeAnthropic();
+  fake.messages.create = async () => { throw new Error('boom'); };
+  const { result } = await runWith(ws, { yes: true, alsoModel: EXTRA, runs: 1 }, fake);
+  const extra = result.results.photos[0].runs[0].extra;
+  assert.match(extra.error, /boom/);
+  assert.ok(extra.ms >= 0);
+  assert.equal(extra.inputTokens, null);
+  assert.equal(extra.stopReason, null);
+});
+
+test('the dry run shows the prompt and the effort of the extra variant and sends nothing', async () => {
+  const ws = workspace(['a.jpg']);
+  const { result, lines, created } = await runWith(ws, { alsoModel: EXTRA, prompt: 'prePortion', effort: 'medium', runs: 1 });
+  assert.equal(result.exitCode, 0);
+  assert.equal(created(), 0);
+  const text = lines.join('\n');
+  assert.ok(text.includes('prePortion') && text.includes('medium'));
 });

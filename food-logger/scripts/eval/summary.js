@@ -51,6 +51,27 @@ function naturalOf(photos, ratings, field) {
 // The third variant exists when the results say so (variants.extra) or any run holds one.
 const hasExtra = (results) => Boolean(results?.variants?.extra) || (results?.photos || []).some((p) => (p.runs || []).some((r) => r.extra));
 
+// Latency and tokens of one side, from the fields the evaluation records per call (ms,
+// inputTokens, outputTokens). Every field is averaged over the records that have a usable
+// number, so a record without tokens still counts for the latency. null when no record holds
+// a latency (results from before these fields, or no such side).
+const usable = (v) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null);
+const mean = (list) => (list.length ? Math.round(list.reduce((a, b) => a + b, 0) / list.length) : null);
+
+function statsOf(runs, side) {
+  const recs = runs.map((r) => r[side]).filter((rec) => rec && typeof rec === 'object');
+  const pick = (field) => recs.map((rec) => usable(rec[field])).filter((v) => v !== null);
+  const ms = pick('ms');
+  if (!ms.length) return null;
+  return {
+    calls: ms.length,
+    avgMs: mean(ms),
+    maxMs: Math.max(...ms),
+    avgInputTokens: mean(pick('inputTokens')),
+    avgOutputTokens: mean(pick('outputTokens')),
+  };
+}
+
 function summarize(results, ratings) {
   const photos = results.photos || [];
   const all = photos.flatMap((p) => p.runs || []);
@@ -62,6 +83,7 @@ function summarize(results, ratings) {
     old: countSide(all, 'old'),
     new: countSide(all, 'new'),
     extra: extra ? countSide(all, 'extra') : null,
+    extraStats: extra ? statsOf(all, 'extra') : null,
     natural: naturalOf(photos, ratings, 'natural'),
     naturalExtra: extra ? naturalOf(photos, ratings, 'extra') : null,
   };

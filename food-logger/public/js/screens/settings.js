@@ -3,14 +3,13 @@ import { apiFetch } from '../api.js';
 import { closeModal, html, openModal, setHtml, showToast } from '../dom.js';
 import { calcRecommendedCal, updateSettingsProfileSub } from '../profile.js';
 import { messageFor } from '../errors.js';
+import { todayStr } from '../dates.js';
 import { doLogout } from '../session.js';
 
 // Populate dropdown selects for profile fields
 export function populateProfileSelects() {
-  const today = new Date();
-  const pad = n => String(n).padStart(2, '0');
-  const todayISO = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
-  const minBD = `${today.getFullYear() - 100}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+  const todayISO = todayStr();
+  const minBD = `${+todayISO.slice(0, 4) - 100}${todayISO.slice(4)}`;
   ['reg-birthdate', 'mp-birthdate'].forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.max = todayISO; el.min = minBD; }
