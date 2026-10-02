@@ -59,12 +59,16 @@ Both analyses pass the model's items through `reconcileItems` (`src/lib/nutritio
 
 1. `invalid`: a present field that is not a finite number >= 0 becomes 0 (a missing field is silently 0).
 2. `weight`: `weight_g` is capped at `MAX_ITEM_WEIGHT_G` = 2000.
-3. `density`: when `volume_ml` is present, weight/volume must be within `MIN_DENSITY` 0.05 to `MAX_DENSITY` 1.6 g/ml, else the weight moves to the nearest bound and the nutrition scales by the same factor (inactive until the replies carry `volume_ml`).
+3. `density`: when `volume_ml` is present, weight/volume must be within `MIN_DENSITY` 0.05 to `MAX_DENSITY` 1.6 g/ml, else the weight moves to the nearest bound and the nutrition scales by the same factor (only image items carry `volume_ml`, see "Portion estimation"; an item without it skips the rule).
 4. `macro_weight`: protein + carbs + fat + fiber may exceed `weight_g` by `MACRO_WEIGHT_TOLERANCE` = 2% at most, else the macros are scaled down to the weight.
 5. `calories_macros`: calories must be within max(`CALORIE_TOLERANCE_ABS` 40 kcal, `CALORIE_TOLERANCE_REL` 20% of expected) of 4*protein + 4*carbs + 9*fat, else they become that value (skipped when protein, carbs and fat are all 0).
 6. `kcal_density`: calories are capped at `MAX_KCAL_PER_G` = 9 per gram of weight.
 
 When any item changed, one numbers-only line is logged (`console.info`): `[analyze] sanity adjusted=<items changed> calories_delta=<total calories after minus before> rules=<id>:<count>,<id>:<count>` (`[analyze-text]` for text; rule ids sorted; counts are items per rule). Nothing is logged for a consistent reply, and never any meal text, name or identifier.
+
+### Portion estimation (image)
+
+Step 3 of `IMAGE_SYSTEM_PROMPT` is `PORTION_METHOD` (`src/lib/prompts.js`), a general procedure with no per-dish rules: (1) find a reference of known size in the photo (a dinner plate about 26 cm, a fork about 19 cm, a hand, a cup, a bottle, a slice of bread, a packaged product); (2) estimate each item's dimensions in cm, including height, and its volume in ml; (3) convert volume to grams by a general density of the physical kind of food (dense solids, cooked grains and mashed food, chopped vegetables, leafy greens, liquids, oils, baked goods); then calories from the weight only; (4) with no reference, assume the usual portion for that kind of dish (the anchors and the restaurant line still apply). The image reply template is `{ visual_description, scale_reference, draft_name, dish_name, items }`, each image item with `volume_ml` before `weight_g` (`IMAGE_TEMPLATE_ITEM`; the text template is unchanged). `scale_reference` (short English phrase) and `volume_ml` are **model-only**, like `visual_description`: never returned, stored or logged; the server uses `volume_ml` only for the `density` rule. A reply without them is accepted as before (for example after an `IMAGE_MODEL` rollback to Haiku). They add roughly 100 output tokens per analysis.
 
 ### Dates and time (wall-clock model)
 

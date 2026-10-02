@@ -17,11 +17,23 @@ const PORTION_ANCHORS = Object.freeze({
 });
 const anchorG = (v) => (Array.isArray(v) ? `${v[0]}-${v[1]}` : String(v));
 
+// Step 3 of the image prompt (spec 5.1): how to estimate a portion, by a general method for
+// any food and never per dish. Scale from a reference of known size, then each item's size
+// and volume, then the weight from the volume by the density of the physical kind of food,
+// then the calories from the weight. scale_reference and volume_ml are model-only fields
+// (like visual_description): never returned, stored or logged; nutrition.js only checks
+// that weight_g and volume_ml agree (the density rule).
+const PORTION_METHOD = `שלב 3 — כמויות, בסדר הזה:
+א. קנה מידה: מצא בתמונה חפץ שגודלו ידוע: צלחת הגשה רגילה (קוטר של כ־26 ס״מ), מזלג (כ־19 ס״מ), כף יד, כוס, בקבוק, פרוסת לחם או מוצר ארוז. כתוב אותו בשדה scale_reference, בביטוי קצר באנגלית.
+ב. נפח: לכל מרכיב הערך את מידותיו בס״מ, כולל הגובה (ערימה, עומק הקערה), ומהן את נפחו במ״ל. כתוב אותו בשדה volume_ml.
+ג. משקל: המר את הנפח לגרמים לפי הצפיפות הכללית של סוג המזון, בגרם למ״ל: מוצק דחוס כ־1, דגנים מבושלים ומחית כ־0.8, ירקות קצוצים כ־0.6, עלים ירוקים כ־0.2, נוזלים כ־1, שמנים כ־0.9, מאפים 0.3-0.5. כתוב את התוצאה בשדה weight_g, ורק לפיו חשב את הקלוריות ואת שאר הערכים.
+ד. אם אין בתמונה חפץ להשוואה, הנח את גודל המנה המקובל לסוג כזה של מאכל, והיעזר בעוגנים ובהנחות שלהלן.`;
+
 const IMAGE_SYSTEM_PROMPT = `אתה מנתח תזונה מומחה. נתח תמונות אוכל לפי השיטה הבאה:
 
 שלב 1 — זיהוי: זהה כל מרכיב גלוי תוך שימוש בהקשר המלא של הצלחת: המרקם, הצבע, צורת החיתוך והתוספות.
 שלב 2 — נסתרים: שקול תמיד רכיבים לא גלויים — שמן טיגון, חמאה, ציפוי, רוטב, שמן זית.
-שלב 3 — כמויות: הערך weight_g לפי יחסים בתמונה (צלחת, כלים, ידיים כהשוואה).
+${PORTION_METHOD}
 
 עוגני כמויות לאוכל נפוץ:
 - פרוסת לחם = ${anchorG(PORTION_ANCHORS.breadSliceG)} גרם
@@ -70,19 +82,24 @@ const IMAGE_SYSTEM_PROMPT = `אתה מנתח תזונה מומחה. נתח תמ�
 // nutrition and a placeholder name, so taking it for the answer would be a wrong 200).
 const TEMPLATE_ITEM = Object.freeze({ name: 'שם בעברית', weight_g: 0, calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
 const TEXT_REPLY_TEMPLATE = Object.freeze([TEMPLATE_ITEM]);
+// An image item also carries volume_ml (model-only), written before weight_g: the weight is
+// derived from the volume (PORTION_METHOD). The text items stay without it.
+const IMAGE_TEMPLATE_ITEM = Object.freeze({ name: 'שם בעברית', volume_ml: 0, weight_g: 0, calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
 const IMAGE_REPLY_TEMPLATE = Object.freeze({
   visual_description: 'short neutral English description',
+  scale_reference: 'reference object and its size',
   draft_name: 'טיוטה ראשונה של השם',
   dish_name: 'השם הסופי של המנה',
-  items: TEXT_REPLY_TEMPLATE,
+  items: Object.freeze([IMAGE_TEMPLATE_ITEM]),
 });
 
 // The user message of the image request: the reply fields in the order the model
-// fills them (recognise, draft the name, re-read and fix it, then the nutrition items).
+// fills them (recognise, find the scale, draft the name, re-read and fix it, then the
+// nutrition items, each with its volume before its weight).
 const IMAGE_USER_MESSAGE = `זהה כל מרכיב בנפרד. השב עם JSON object בלבד, ללא markdown, והשדות בסדר הזה:
 ${JSON.stringify(IMAGE_REPLY_TEMPLATE)}
-visual_description קודם (זיהוי), אחריו draft_name (טיוטה לפי כללי השמות), אחריו dish_name (קרא שוב את הטיוטה, בדוק כל מילה מול כללי השמות ותקן מה שצריך), ורק אז items.
-weight_g קודם — אז חשב קלוריות לפי weight_g בלבד.`;
+visual_description קודם (זיהוי), אחריו scale_reference (קנה המידה), אחריו draft_name (טיוטה לפי כללי השמות), אחריו dish_name (קרא שוב את הטיוטה, בדוק כל מילה מול כללי השמות ותקן מה שצריך), ורק אז items.
+בכל פריט volume_ml קודם, אחריו weight_g לפי הנפח, ורק אז חשב קלוריות לפי weight_g בלבד.`;
 
 const TEXT_SYSTEM_PROMPT = `אתה מחשבון תזונה מדויק למשתמשים ישראלים.
 
@@ -115,6 +132,7 @@ const TEXT_SYSTEM_PROMPT = `אתה מחשבון תזונה מדויק למשתמ
 
 module.exports = {
   PORTION_ANCHORS,
+  PORTION_METHOD,
   IMAGE_SYSTEM_PROMPT,
   IMAGE_USER_MESSAGE,
   TEXT_SYSTEM_PROMPT,

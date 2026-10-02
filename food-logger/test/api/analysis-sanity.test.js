@@ -88,6 +88,29 @@ test('text: an adjusted reply logs exactly one numbers-only line under the text 
   assert.ok(!lines().join('\n').includes(ITEM_NAME));
 });
 
+// The density rule (spec 5.2): 500 g in 100 ml is 5 g/ml, above the 1.6 g/ml bound, so the
+// weight becomes 160 g and the calories and macros scale by the same factor 0.32.
+// The macros are consistent with 500 g: 4*100 + 4*50 + 9*25 = 825 kcal.
+test('an item whose weight contradicts its volume is corrected', async () => {
+  const dense = { name: ITEM_NAME, volume_ml: 100, weight_g: 500, calories: 825, protein_g: 100, carbs_g: 50, fat_g: 25, fiber_g: 5 };
+  ctx.anthropic.imageReply = JSON.stringify({ visual_description: 'x', scale_reference: 'fork about 19 cm', draft_name: DISH_NAME, dish_name: DISH_NAME, items: [dense] });
+  const res = await analyze();
+  assert.equal(res.status, 200, res.text);
+  assert.deepEqual(res.body, { foodName: DISH_NAME, calories: 264, protein_g: 32, carbs_g: 16, fat_g: 8, fiber_g: 1.6 });
+  assert.deepEqual(Object.keys(res.body), KEYS);
+  const s = sanityLines();
+  assert.equal(s.length, 1);
+  assert.match(s[0], /^\[analyze\] sanity adjusted=1 calories_delta=-561 rules=density:1$/);
+  assert.ok(!lines().join('\n').includes(ITEM_NAME) && !lines().join('\n').includes('fork'));
+});
+
+test('the default fake image items pass the density rule untouched', async () => {
+  assert.ok(IMAGE_ITEMS.every((i) => i.volume_ml > 0 && i.weight_g / i.volume_ml >= 0.05 && i.weight_g / i.volume_ml <= 1.6));
+  ctx.anthropic.imageReply = undefined;
+  assert.equal((await analyze()).status, 200);
+  assert.equal(sanityLines().length, 0);
+});
+
 test('the log line lists several rules sorted by id with their counts', async () => {
   // item 1: 3000 g is capped to 2000 (weight); item 2: 900 kcal vs 125 (calories_macros)
   const heavy = { name: 'x', weight_g: 3000, calories: 1000, protein_g: 100, carbs_g: 100, fat_g: 40, fiber_g: 0 };

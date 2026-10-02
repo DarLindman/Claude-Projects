@@ -13,6 +13,9 @@ const { IMAGE_ITEMS } = require('../helpers/fakeAnthropic');
 const { IMAGE_SYSTEM_PROMPT, IMAGE_USER_MESSAGE } = require('../../src/lib/analysis');
 const { DEFAULT_DISH_NAME } = require('../../src/lib/hebrewName');
 const { IMAGE_SYSTEM_PROMPT_V1, imageUserMessageV1 } = require('../../scripts/eval/imagePromptV1');
+const {
+  PORTION_METHOD, IMAGE_REPLY_TEMPLATE, TEXT_REPLY_TEMPLATE, PORTION_ANCHORS, TEXT_SYSTEM_PROMPT,
+} = require('../../src/lib/prompts');
 
 const JPEG_BASE64 = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01]).toString('base64');
 const IMAGE_TOTALS = { calories: 450, protein_g: 34, carbs_g: 44, fat_g: 12.5, fiber_g: 1 };
@@ -111,21 +114,77 @@ test('the image prompt holds the recognise, draft, check steps and the naming pr
   assert.ok(!p.includes('עד 10 מילים'));
 });
 
-// The nutrition method of the old prompt is kept word for word EXCEPT step 1: its
-// per-food recognition hints were removed on purpose (owner decision 2026-10-02: general
-// rules only, no food dictionary) and replaced by one general sentence. Steps 2 and 3
-// and the portion anchors are frozen as they were.
+// The nutrition method of the old prompt is kept word for word EXCEPT step 1 and step 3.
+// Step 1's per-food recognition hints were removed on purpose (owner decision 2026-10-02:
+// general rules only, no food dictionary) and replaced by one general sentence; the
+// one-line step 3 became the general portion method (PORTION_METHOD, spec 5.1). Step 2,
+// the portion anchors and the assumptions are frozen as they were.
 const OLD_STEP1_LINE = 'שלב 1 — זיהוי: זהה כל מרכיב גלוי תוך שימוש בהקשר המלא. דוגמאות: בשר אדום ליד אצות/אבוקדו/סויה = טונה/סשימי ולא בקר; בשר בתוך בצק עלים = וולינגטון; עיגול כהה שטוח = פטייה ולא שניצל. לגבי דגים: אל תניח סלמון אלא אם הצבע ורוד-כתום בבירור — דג לבן = דג לבן/בקלה/פילה דג, דג מטוגן שלא ברור = פילה דג מטוגן.';
 const NEW_STEP1_LINE = 'שלב 1 — זיהוי: זהה כל מרכיב גלוי תוך שימוש בהקשר המלא של הצלחת: המרקם, הצבע, צורת החיתוך והתוספות.';
-test('the nutrition method of the old prompt is kept word for word, except the new general step 1', () => {
+const OLD_STEP3_LINE = 'שלב 3 — כמויות: הערך weight_g לפי יחסים בתמונה (צלחת, כלים, ידיים כהשוואה).';
+test('the nutrition method of the old prompt is kept word for word, except the new steps 1 and 3', () => {
   const methodStart = IMAGE_SYSTEM_PROMPT_V1.indexOf('שלב 1');
   const methodEnd = IMAGE_SYSTEM_PROMPT_V1.indexOf('- dish_name:');
   const oldMethod = IMAGE_SYSTEM_PROMPT_V1.slice(methodStart, methodEnd);
   assert.ok(oldMethod.includes('עוגני כמויות') && oldMethod.includes('שלב 2 — נסתרים'));
   assert.ok(oldMethod.startsWith(OLD_STEP1_LINE), 'the V1 prompt still has the old step 1');
-  const method = NEW_STEP1_LINE + oldMethod.slice(OLD_STEP1_LINE.length);
+  assert.ok(oldMethod.includes(OLD_STEP3_LINE), 'the V1 prompt still has the old step 3');
+  const method = (NEW_STEP1_LINE + oldMethod.slice(OLD_STEP1_LINE.length)).replace(OLD_STEP3_LINE, PORTION_METHOD);
   assert.ok(IMAGE_SYSTEM_PROMPT.includes(method));
   assert.ok(!IMAGE_SYSTEM_PROMPT.includes(OLD_STEP1_LINE));
+  assert.ok(!IMAGE_SYSTEM_PROMPT.includes(OLD_STEP3_LINE));
+});
+
+// ─── The portion method (spec 5.1): scale, size and volume, weight, no reference ─
+test('the image prompt contains the portion method', () => {
+  assert.equal(typeof PORTION_METHOD, 'string');
+  assert.ok(IMAGE_SYSTEM_PROMPT.includes(PORTION_METHOD));
+  assert.ok(PORTION_METHOD.startsWith('שלב 3 — כמויות'));
+  for (const s of ['scale_reference', 'volume_ml', 'weight_g', '26', '19']) {
+    assert.ok(PORTION_METHOD.includes(s), `missing: ${s}`);
+  }
+  // in this order: the reference, the volume, the weight
+  const sr = PORTION_METHOD.indexOf('scale_reference');
+  const vm = PORTION_METHOD.indexOf('volume_ml');
+  const wg = PORTION_METHOD.indexOf('weight_g');
+  assert.ok(sr < vm && vm < wg);
+  // the method sits between step 2 and the portion anchors
+  const p = IMAGE_SYSTEM_PROMPT;
+  assert.ok(p.indexOf('שלב 2') < p.indexOf(PORTION_METHOD) && p.indexOf(PORTION_METHOD) < p.indexOf('עוגני כמויות'));
+});
+
+test('the method names no dish', () => {
+  for (const dish of ['שניצל', 'פלאפל', 'המבורגר', 'פיצה', 'אורז', 'עוף', 'פסטה', 'סלט']) {
+    assert.ok(!PORTION_METHOD.includes(dish), `a dish in the method: ${dish}`);
+  }
+  assert.deepEqual(foodMappingLines(PORTION_METHOD), []);
+});
+
+test('the user message lists the reply fields in order', () => {
+  const m = IMAGE_USER_MESSAGE;
+  const keys = ['"visual_description"', '"scale_reference"', '"draft_name"', '"dish_name"', '"items"'].map((k) => m.indexOf(k));
+  assert.ok(keys[0] >= 0, 'visual_description is listed');
+  for (let i = 1; i < keys.length; i += 1) assert.ok(keys[i - 1] < keys[i], `field ${i} out of order`);
+  const template = JSON.parse(m.split('\n').find((l) => l.startsWith('{')));
+  assert.deepEqual(Object.keys(template), ['visual_description', 'scale_reference', 'draft_name', 'dish_name', 'items']);
+  const item = Object.keys(template.items[0]);
+  assert.ok(item.indexOf('volume_ml') >= 0 && item.indexOf('volume_ml') < item.indexOf('weight_g'), 'volume_ml before weight_g');
+  assert.ok(item.indexOf('weight_g') < item.indexOf('calories'));
+  // the words after the JSON shape: the volume, then the weight, then calories from the weight only
+  const after = m.slice(m.indexOf('}]}') + 3);
+  const wSr = after.indexOf('scale_reference');
+  assert.ok(after.indexOf('visual_description') < wSr && wSr < after.indexOf('draft_name'));
+  const wVol = after.indexOf('volume_ml');
+  const wW = after.indexOf('weight_g');
+  assert.ok(wVol >= 0 && wVol < wW);
+  assert.ok(after.includes('קלוריות לפי weight_g בלבד'));
+});
+
+test('the text template and its items stay without the image-only fields', () => {
+  assert.ok(!('volume_ml' in TEXT_REPLY_TEMPLATE[0]));
+  assert.ok(!('scale_reference' in IMAGE_REPLY_TEMPLATE.items[0]));
+  assert.deepEqual(Object.keys(TEXT_REPLY_TEMPLATE[0]), ['name', 'weight_g', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'fiber_g']);
+  assert.ok(!TEXT_SYSTEM_PROMPT.includes('volume_ml') && !TEXT_SYSTEM_PROMPT.includes('scale_reference'));
 });
 
 test('the user message asks for visual_description, then draft_name, then dish_name, then items', () => {
@@ -143,7 +202,8 @@ test('the user message asks for visual_description, then draft_name, then dish_n
   const wIt = after.indexOf('items');
   assert.ok(wVd >= 0 && wVd < wDr && wDr < wDn && wDn < wIt);
   assert.ok(after.includes('קרא שוב את הטיוטה'));
-  assert.ok(m.includes('weight_g קודם'));
+  // (was 'weight_g קודם' before the portion method: now the volume comes first, spec 5.1)
+  assert.ok(m.includes('volume_ml קודם'));
 });
 
 // Illustrative examples are lines starting with EXAMPLE_MARKER. They explain a
@@ -162,7 +222,7 @@ test('prompt hygiene: a handful of examples and no food dictionary', () => {
   }
   // the only Latin words are the JSON field names
   const latin = new Set(IMAGE_SYSTEM_PROMPT.match(/[A-Za-z_]+/g));
-  assert.deepEqual([...latin].sort(), ['dish_name', 'draft_name', 'items', 'visual_description', 'weight_g']);
+  assert.deepEqual([...latin].sort(), ['dish_name', 'draft_name', 'items', 'scale_reference', 'visual_description', 'volume_ml', 'weight_g']);
 });
 
 // Lines that map food words to food words with "=" or an arrow ("red meat next to
@@ -341,6 +401,61 @@ test('a dish_name missing next to a draft_name gives the default name, never the
   assert.deepEqual(res.body, { foodName: DEFAULT_DISH_NAME, ...IMAGE_TOTALS });
 });
 
+// ─── scale_reference and volume_ml: model-only, like visual_description ──────
+const withoutModelOnly = (items) => items.map(({ volume_ml, ...rest }) => rest);
+
+test('the fake image reply carries a scale_reference and a volume_ml per item', async () => {
+  const fakeReply = await ctx.anthropic.messages.create({ messages: [{ role: 'user', content: [] }] });
+  const reply = JSON.parse(fakeReply.content[0].text);
+  assert.equal(typeof reply.scale_reference, 'string');
+  assert.deepEqual(Object.keys(reply), ['visual_description', 'scale_reference', 'draft_name', 'dish_name', 'items']);
+  for (const item of reply.items) {
+    assert.ok(item.volume_ml > 0);
+    const keys = Object.keys(item);
+    assert.ok(keys.indexOf('volume_ml') < keys.indexOf('weight_g'));
+  }
+});
+
+test('a reply without scale_reference and volume_ml is accepted', async () => {
+  ctx.anthropic.imageReply = JSON.stringify({ visual_description: 'x', draft_name: 'עוף', dish_name: 'עוף עם אורז', items: withoutModelOnly(IMAGE_ITEMS) });
+  const res = await analyze();
+  assert.equal(res.status, 200, res.text);
+  assert.deepEqual(res.body, { foodName: 'עוף עם אורז', ...IMAGE_TOTALS });
+  assert.equal(ctx.anthropic.calls.length, 1);
+});
+
+test('model-only fields are never returned', async () => {
+  const infoLog = mock.method(console, 'info', () => {});
+  const warnLog = mock.method(console, 'warn', () => {});
+  const marker = 'SCALE-MARKER dinner plate about 26 cm';
+  ctx.anthropic.imageReply = JSON.stringify({
+    visual_description: 'x', scale_reference: marker, draft_name: 'עוף', dish_name: 'עוף עם אורז', items: IMAGE_ITEMS,
+  });
+  const res = await analyze();
+  assert.equal(res.status, 200, res.text);
+  assert.deepEqual(Object.keys(res.body), ['foodName', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'fiber_g']);
+  assert.deepEqual(res.body, { foodName: 'עוף עם אורז', ...IMAGE_TOTALS });
+  assert.ok(!res.text.includes('scale_reference') && !res.text.includes('volume_ml') && !res.text.includes('SCALE-MARKER'));
+  const all = [infoLog, warnLog, errorLog].flatMap((l) => l.mock.calls.map((c) => c.arguments.map(String).join(' '))).join('\n');
+  assert.ok(!all.includes('SCALE-MARKER'));
+});
+
+test('an echoed template is still rejected', async () => {
+  const template = IMAGE_USER_MESSAGE.split('\n').find((l) => l.startsWith('{'));
+  assert.deepEqual(JSON.parse(template), JSON.parse(JSON.stringify(IMAGE_REPLY_TEMPLATE)));
+  assert.ok('volume_ml' in JSON.parse(template).items[0] && 'scale_reference' in JSON.parse(template));
+  for (const text of [
+    template,
+    JSON.stringify({ ...JSON.parse(template), dish_name: 'עוף' }),
+    JSON.stringify({ ...JSON.parse(template), items: IMAGE_ITEMS }),
+  ]) {
+    ctx.anthropic.imageReply = text;
+    const res = await analyze();
+    assert.equal(res.status, 502, text);
+    assert.deepEqual(res.body, { error: { code: 'AI_UNAVAILABLE' } });
+  }
+});
+
 // ─── parse failures log stop_reason (to diagnose truncation), never the reply ─
 test('a truncated reply logs its stop_reason and length, not the draft or the description', async () => {
   ctx.anthropic.imageStopReason = 'max_tokens';
@@ -378,8 +493,6 @@ test('an odd stop_reason value is not logged as is', async () => {
 });
 
 // ─── The shared portion anchors ───────────────────────────────────────────────
-const { PORTION_ANCHORS, TEXT_SYSTEM_PROMPT } = require('../../src/lib/prompts');
-
 const anchorText = (v) => (Array.isArray(v) ? v.join('-') : String(v));
 
 test('every shared anchor appears in the prompts with its single value', () => {

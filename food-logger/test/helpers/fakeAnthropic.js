@@ -7,7 +7,8 @@
 //     or throws; an Error instance makes the call reject). Default: 'סלט'
 //   - user content is an array (image request)         -> `fake.imageReply` when set (a
 //     string, for malformed-reply tests), else a JSON object with visual_description,
-//     draft_name, dish_name and items (the shape the image prompt asks for); the
+//     scale_reference, draft_name, dish_name and items (each with volume_ml before
+//     weight_g: the shape the image prompt asks for); the
 //     response's stop_reason is `fake.imageStopReason` when set, else 'end_turn'
 //   - otherwise (text request)                         -> `fake.textReply` when set (a
 //     string), else a JSON array of items
@@ -32,8 +33,8 @@ if (!console.info.isUsageFiltered) {
 }
 
 const IMAGE_ITEMS = [
-  { name: 'עוף chicken', weight_g: 150, calories: 250, protein_g: 30, carbs_g: 0, fat_g: 12, fiber_g: 0 },
-  { name: 'אורז', weight_g: 150, calories: 200, protein_g: 4, carbs_g: 44, fat_g: 0.5, fiber_g: 1 },
+  { name: 'עוף chicken', volume_ml: 170, weight_g: 150, calories: 250, protein_g: 30, carbs_g: 0, fat_g: 12, fiber_g: 0 },
+  { name: 'אורז', volume_ml: 190, weight_g: 150, calories: 200, protein_g: 4, carbs_g: 44, fat_g: 0.5, fiber_g: 1 },
 ];
 const TEXT_ITEMS = [
   { name: 'סלט', weight_g: 200, calories: 80, protein_g: 2, carbs_g: 10, fat_g: 4, fiber_g: 3 },
@@ -66,7 +67,7 @@ function fakeAnthropic() {
         if (Array.isArray(content)) {
           if (fake.imageContent !== undefined) return { content: fake.imageContent, stop_reason: fake.imageStopReason ?? 'end_turn', ...usage };
           const text = fake.imageReply !== undefined ? fake.imageReply
-            : JSON.stringify({ visual_description: 'grilled chicken with white rice', draft_name: 'עוף עם אורז לבן', dish_name: 'עוף עם אורז', items: IMAGE_ITEMS });
+            : JSON.stringify({ visual_description: 'grilled chicken with white rice', scale_reference: 'dinner plate about 26 cm', draft_name: 'עוף עם אורז לבן', dish_name: 'עוף עם אורז', items: IMAGE_ITEMS });
           return { ...reply(text), stop_reason: fake.imageStopReason ?? 'end_turn', ...usage };
         }
         if (fake.textContent !== undefined) return { content: fake.textContent, stop_reason: 'end_turn', ...usage };
