@@ -1,9 +1,9 @@
-# Food Logger — Precision (sub-project 3): consistent dates and sane nutrition numbers
+# Food Logger — Precision (sub-project 3): consistent dates, sane numbers, better portion estimates
 
 **Date:** 2026-10-02
 **Status:** Draft — awaiting owner review
 **Branch:** `precision` (nothing here touches `main` or the deployed Railway app until merged)
-**Scope:** `food-logger/` date handling (database session, routes `streak`, `stats`, `weight`, `food`, frontend date helpers) and the nutrition numbers returned by the AI analysis (`src/lib/analysis.js`, new `src/lib/nutrition.js`, prompts).
+**Scope:** `food-logger/` date handling (database session, routes `streak`, `stats`, `weight`, `food`, frontend date helpers) and the nutrition numbers and portion sizes returned by the AI analysis (`src/lib/analysis.js`, new `src/lib/nutrition.js`, prompts).
 
 Sub-project 3 of the overhaul. Sub-project 1 (foundation and security) and the Hebrew polish are merged and live; English (branch `i18n`) and the premium UI (sub-project 4) stay out of scope.
 
@@ -11,24 +11,26 @@ Sub-project 3 of the overhaul. Sub-project 1 (foundation and security) and the H
 
 ## 1. Context and agreed decisions
 
-The owner chose "precision" to mean **both** parts (2026-10-02):
+The owner chose "precision" to mean all three parts (2026-10-02):
 
 - **Part 1, dates:** days, the streak and the weekly/monthly/yearly numbers must be right at every hour of the day, with no "meal that jumps to another day" around midnight.
+- **Part 3, portions (added later the same day):** the AI must estimate how much food is on the plate as accurately as possible, for any food, by a general method and not per-dish hard-coding. Scope **A**: improve the estimation prompt and the server-side checks only; the result screen does not change. Showing grams per item for the user to correct was offered and deferred (it is a screen change with new Hebrew text; a candidate for sub-project 4). Evidence: the same photo of a meat dish got 920 kcal with one prompt version and 622 kcal with another.
 - **Part 2, numbers:** the nutrition values the AI returns must be checked by deterministic rules in code (approach **A**, sanity checks). Rejected for now: a double estimate (two calls, averaged) and an external nutrition database.
-- **Exactly one real AI run is authorized** (owner, 2026-10-02): a single pass of the existing evaluation tool (`--runs 1`, 30 photos, about 30 calls, roughly 0.4 USD) at the end of Part 2, after everything else passes. It answers two open questions: do the names stay natural after the old recognition hints were removed (never measured), and how many items the sanity rules of section 4 would adjust on real replies. No other real AI call is made: every test uses fake replies, and the run is not repeated. Its real-world effect afterwards is read from the numbers-only server log line.
+- **Exactly one real AI run is authorized** (owner, 2026-10-02): a single pass of the existing evaluation tool (`--runs 1`, 30 photos, about 30 calls, roughly 0.4 USD) at the end of Part 2, after everything else passes. It answers three open questions: do the names stay natural after the old recognition hints were removed (never measured), how many items the sanity rules of section 4 would adjust on real replies, and whether the portion method of section 5 gives gram values the owner finds plausible (the report lists the weights per photo next to the calories of the earlier runs; where the owner knows the real weight of a meal, that is the yardstick). No other real AI call is made: every test uses fake replies, and the run is not repeated. Its real-world effect afterwards is read from the numbers-only server log line.
 - Hebrew text stays flawless: no user-facing wording is added without the owner's approval; any new text goes through the Hebrew spelling guard (`test/api/hebrew-spelling.test.js`) and the snapshot test.
 
 ### Success criteria
 
 Done when **all** hold, each verified by running it:
 
-0. (Part 2 only) the one authorized run shows names still natural (owner judges by report) and the number of adjustments the rules make on real replies.
+0. (Parts 2 and 3) the one authorized run shows names still natural (owner judges by report), the number of adjustments the rules make on real replies, and per-photo weights. Target: the owner judges the total weight plausible on at least 90% of the photos, and within +-25% wherever the owner knows the true weight.
 1. `npm test` and `npm run test:e2e` pass **at every hour of the day**, including 00:00-03:00 local time (today they fail there). Verified by running the suites on a machine whose database session time zone is not UTC, and by tests that pin the clock inputs near midnight.
 2. A meal logged at 23:30 appears in the diary of that same day, edit-and-save never moves a meal to another day, and the streak and the weekly/monthly/yearly totals count it on that day.
 3. The result of every date feature depends only on the stored values and on the `today` the browser sends, never on the time zone of the server or of the database server.
 4. For any AI reply, the nutrition numbers that reach the user satisfy the rules of section 4 (verified by tests with fake replies that violate each rule), and the analysis never fails because of them.
-5. Each correction is logged as numbers only (no meal text), so the owner can see how often it happens.
-6. All existing suites pass, `npm audit --omit=dev` is clean, and the look of the app is unchanged.
+5. For any AI reply, a weight that contradicts the item's own estimated volume (section 5) is corrected (tests with fake replies); the image prompt asks for the scale reference, the volume and the weight in that order, with no food dictionary added.
+6. Each correction is logged as numbers only (no meal text), so the owner can see how often it happens.
+7. All existing suites pass, `npm audit --omit=dev` is clean, and the look of the app is unchanged.
 
 ---
 
@@ -76,7 +78,7 @@ New `src/lib/nutrition.js` with a pure function `reconcileItems(items)` returnin
 ### 4.2 Rules (per item, in this order)
 
 1. A non-finite, missing or negative number becomes 0.
-2. **Weight:** `weight_g` above 3000 is capped at 3000 (nobody eats more in one item); a missing or 0 weight stays 0 (the next rules then skip the weight-based checks).
+2. **Weight:** `weight_g` above 2000 is capped at 2000 (nobody eats more in one item; a 1.5 litre drink fits); a missing or 0 weight stays 0 (the next rules then skip the weight-based checks).
 3. **Macros fit the weight:** `protein_g + carbs_g + fat_g + fiber_g` cannot exceed `weight_g`; when `weight_g > 0` and the sum exceeds it by more than 2%, the four macros are scaled down proportionally to fit. (The AI computes macros from the weight, so the weight is trusted first.)
 4. **Calories match the macros:** `expected = 4 * protein + 4 * carbs + 9 * fat` (fibre ignored). When `|calories - expected| > max(40, 20% of expected)`, `calories` becomes `round(expected)`. When the macros are all 0, the calories stay as given (a drink or a supplement can be listed with calories only) but still pass rule 5.
 5. **Density:** calories per gram cannot exceed 9 (pure fat is the physical limit); when `weight_g > 0` and `calories > 9 * weight_g`, `calories` becomes `round(9 * weight_g)`.
@@ -93,17 +95,41 @@ The anchors both prompts share (bread, egg, tablespoon of oil, butter, cheese sl
 
 ---
 
-## 5. Out of scope
+## 5. Part 3 — Portion estimation from the image
 
-External nutrition database, double estimates, per-user time zones, English, any visual change, new user-facing text, switching the text analysis away from Haiku, and migrating or rewriting stored data.
+Image analysis only (the text analysis already has explicit quantities and defaults).
 
-## 6. Testing
+### 5.1 Method in the prompt (general, no per-dish rules)
 
-- **API (`node --test`):** `nutrition.test.js` (each rule, order, boundaries, never throws, idempotent on already-consistent items); analyze tests with fake replies that violate each rule and a log-line test (numbers only); `streak.test.js` / `stats.test.js` / `weight.test.js` with `today` near midnight and a database session set to a non-UTC zone to prove independence; a `pool.test.js` case for the session time zone; a prompts test for the shared anchors.
+`IMAGE_SYSTEM_PROMPT` replaces the one-line "step 3 — quantities" with a short procedure the model follows in order:
+1. **Scale:** find a reference of known size in the photo (a standard dinner plate is about 26 cm, a fork about 19 cm, a hand, a cup, a bottle, a slice of bread, a packaged product) and state it.
+2. **Size:** for each item estimate its dimensions in centimetres and from them its **volume in millilitres**, allowing for height (a mound, a bowl's depth).
+3. **Weight:** convert volume to grams with a general density for the *kind* of food (dense solids, cooked grains and mashed food, chopped vegetables, leafy greens, liquids, oils, baked goods) written as physical classes, not as dishes; then compute calories from the weight as today.
+4. **No visible reference:** assume the portion usual for that kind of dish; restaurant portions are larger than they look (this line already exists and stays). Existing portion anchors stay, now from the shared list of 4.4.
+
+The reply gets two **model-only** fields (never returned, stored or logged, like `visual_description`): a top-level `scale_reference` (short English phrase) and, in each item, `volume_ml` (number). The order the model writes them stays: description, scale, draft name, final name, then the items with volume before weight before calories. Expected extra output is about 100 tokens per analysis (roughly +0.002 USD at Sonnet prices); `max_tokens` already has room.
+
+### 5.2 Server check (rule 6 of `reconcileItems`)
+
+For an item with `volume_ml > 0` and `weight_g > 0`: the density `weight_g / volume_ml` must lie within **0.05 to 1.6 g/ml** (popcorn and foam at the bottom, dense fat, honey and nut butter at the top). Outside it, `weight_g` is moved to the nearest bound and the item's calories and macros are scaled by the same factor, so the numbers stay consistent. The bounds are named constants. The check applies the model's own reasoning to itself; it cannot tell which of the two numbers was wrong, which is why the one real run counts how often it fires before the bounds are trusted.
+
+### 5.3 Evaluation tool
+
+`scripts/eval-naming.js` records, for each reply, the items' `weight_g`, `volume_ml` and calories and the sanity report, and `report.html` shows the grams and total calories per photo next to the calories of the earlier runs (`eval/results-*.json`, calories only). The authorized single run (section 1) is the only real use.
+
+## 6. Out of scope
+
+Grams per item on the result screen (deferred), external nutrition database, double estimates, per-user time zones, English, any visual change, new user-facing text, switching the text analysis away from Haiku, and migrating or rewriting stored data.
+
+## 7. Testing
+
+- **API (`node --test`):** `nutrition.test.js` (including the density rule 6); an analysis-prompt test that the image prompt asks for scale, volume and weight in order and contains no food dictionary; (each rule, order, boundaries, never throws, idempotent on already-consistent items); analyze tests with fake replies that violate each rule and a log-line test (numbers only); `streak.test.js` / `stats.test.js` / `weight.test.js` with `today` near midnight and a database session set to a non-UTC zone to prove independence; a `pool.test.js` case for the session time zone; a prompts test for the shared anchors.
 - **Browser (Playwright):** the existing smoke and handlers specs run with the machine's own time zone; one more test fakes the browser clock at 23:30 and at 00:30 and checks diary, edit-and-save and the streak.
 - **No AI call** is made by any test. The single authorized real run (section 1) is a manual step at the end, with a short report of the names and of the sanity adjustments; it is not part of the test suites. The evaluation tool needs a small addition to record the numbers of each reply for this.
 
-## 7. Risks
+## 8. Risks
 
 - Pinning the session to UTC changes nothing in production (already UTC) but changes results on machines with another zone — intended, and covered by the tests above.
 - Rule 4 can overwrite a calories value the model got right while the macros were wrong. The report line lets the owner see how often corrections happen; the thresholds are constants and easy to relax.
+- Rule 6 can scale an item the model got right if its volume was the wrong number; the density bounds are wide on purpose and the single run measures how often it fires.
+- A longer reply (scale and volume) lengthens each analysis slightly; the average latency of 8 s and the worst case of 75 s are rechecked from the run's log.
