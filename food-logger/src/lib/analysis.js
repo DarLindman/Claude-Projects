@@ -23,7 +23,8 @@ class AnalysisParseError extends Error {
 
 // The per-model request rules of the image analysis, in one place. Haiku (an id starting
 // with claude-haiku) keeps its request exactly as it always was: temperature 0 and
-// max_tokens 1500 (the items plus room for visual_description and draft_name). Every other
+// max_tokens 1500 (the items plus room for visual_description, scale_reference, draft_name
+// and each item's volume_ml). Every other
 // model gets no temperature (null omits the field; newer models reject it with a 400,
 // "temperature is deprecated for this model") and max_tokens 6000: Sonnet may write a
 // thinking block first and its tokens count against max_tokens, which cut the JSON answer
@@ -131,8 +132,8 @@ async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL, t
   if (temperature !== null && !(typeof temperature === 'number' && Number.isFinite(temperature) && temperature >= 0 && temperature <= 1)) {
     throw new TypeError('temperature must be null or a finite number from 0 to 1');
   }
-  // The reply describes the user's meal (visual_description, draft_name), so it is never
-  // logged (see parseReply).
+  // The reply describes the user's meal (visual_description, scale_reference, draft_name),
+  // so it is never logged (see parseReply).
   const parsed = await withParseRetry('analyze', async () => {
     const message = await callModel(anthropic, 'analyze', 'image', {
       model,
@@ -155,8 +156,10 @@ async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL, t
     return value;
   });
   const items = parsed.items;
-  // visual_description and draft_name are only the model's recognition and first attempt:
-  // they are never read here, so they are not returned, stored or logged. Item names are
+  // visual_description, scale_reference and draft_name are only the model's recognition,
+  // scale and first attempt: they are never read here, so they are not returned, stored or
+  // logged. Each item's volume_ml is read only by the density rule of checkItems and is
+  // never returned, stored or logged either. Item names are
   // cleaned defensively but not returned; dish_name (the checked final name) goes through
   // the guard as is (missing or of any type it becomes the default name).
   items.forEach(item => { item.name = cleanDishName(item.name); });

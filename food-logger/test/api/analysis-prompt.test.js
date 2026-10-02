@@ -182,7 +182,7 @@ test('the user message lists the reply fields in order', () => {
 
 test('the text template and its items stay without the image-only fields', () => {
   assert.ok(!('volume_ml' in TEXT_REPLY_TEMPLATE[0]));
-  assert.ok(!('scale_reference' in IMAGE_REPLY_TEMPLATE.items[0]));
+  assert.deepEqual(Object.keys(IMAGE_REPLY_TEMPLATE.items[0]), ['name', 'volume_ml', 'weight_g', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'fiber_g']);
   assert.deepEqual(Object.keys(TEXT_REPLY_TEMPLATE[0]), ['name', 'weight_g', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'fiber_g']);
   assert.ok(!TEXT_SYSTEM_PROMPT.includes('volume_ml') && !TEXT_SYSTEM_PROMPT.includes('scale_reference'));
 });
@@ -222,7 +222,7 @@ test('prompt hygiene: a handful of examples and no food dictionary', () => {
   }
   // the only Latin words are the JSON field names
   const latin = new Set(IMAGE_SYSTEM_PROMPT.match(/[A-Za-z_]+/g));
-  assert.deepEqual([...latin].sort(), ['dish_name', 'draft_name', 'items', 'scale_reference', 'visual_description', 'volume_ml', 'weight_g']);
+  assert.deepEqual([...latin].sort(), ['dish_name', 'draft_name', 'items', 'none', 'scale_reference', 'visual_description', 'volume_ml', 'weight_g']);
 });
 
 // Lines that map food words to food words with "=" or an arrow ("red meat next to
