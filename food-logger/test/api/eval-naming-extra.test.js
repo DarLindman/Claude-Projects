@@ -436,3 +436,56 @@ test('the report shows the earlier calories also when the new extra is an error 
   const html = renderReport(withExtra({ error: 'boom-extra' }, { previousExtra: { name: 'עוף', calories: 391 } }), {});
   assert.ok(html.includes('boom-extra') && html.includes('391') && html.includes('380'));
 });
+
+// ─── latency and tokens of the extra variant ──────────────────────────────────
+const timed = (ms, inputTokens, outputTokens, over = {}) => ({ ...sideWith(), ms, inputTokens, outputTokens, stopReason: 'end_turn', ...over });
+const withRuns = (extras, variantExtra = { label: EXTRA, model: EXTRA }) => ({
+  runsPerPhoto: extras.length,
+  variants: { extra: variantExtra },
+  photos: [{ file: 'a.jpg', runs: extras.map((extra) => ({ old: rec('עוף'), new: rec('עוף'), extra })) }],
+});
+
+test('summarize gives the average and maximum latency and the average tokens of the extra variant', () => {
+  const s = summarize(withRuns([timed(2000, 2000, 500), timed(4000, 3000, 700), timed(9000, 1000, 300)]), {});
+  assert.deepEqual(s.extraStats, { calls: 3, avgMs: 5000, maxMs: 9000, avgInputTokens: 2000, avgOutputTokens: 500 });
+});
+
+test('the latency statistics skip missing numbers independently and are absent when nothing was measured', () => {
+  const s = summarize(withRuns([timed(1000, null, null), timed(3000, 2000, 600), { name: 'עוף', calories: 1 }, { error: 'boom' }]), {});
+  assert.equal(s.extraStats.calls, 2);
+  assert.equal(s.extraStats.avgMs, 2000);
+  assert.equal(s.extraStats.maxMs, 3000);
+  assert.equal(s.extraStats.avgInputTokens, 2000, 'only the call that has tokens counts');
+  assert.equal(summarize(withRuns([sideWith()]), {}).extraStats, null, 'results from before the latency fields');
+  assert.equal(summarize(THREE, {}).extraStats, null);
+  assert.equal(summarize({ runsPerPhoto: 1, photos: [{ file: 'a.jpg', runs: [{ old: rec('עוף'), new: rec('עוף') }] }] }, {}).extraStats, null, 'no extra variant');
+  const noTokens = summarize(withRuns([timed(1500, null, null)]), {}).extraStats;
+  assert.equal(noTokens.avgMs, 1500);
+  assert.equal(noTokens.avgInputTokens, null);
+  assert.equal(noTokens.avgOutputTokens, null);
+});
+
+test('renderReport shows the average and maximum latency and the average tokens, and a latency per extra record', () => {
+  const html = renderReport(withRuns([timed(2000, 2000, 500), timed(4000, 3000, 700)]), {});
+  assert.ok(html.includes('זמן תגובה'), 'a latency line');
+  assert.ok(html.includes('3.0 s') && html.includes('4.0 s'), 'average 3.0 s, maximum 4.0 s');
+  assert.ok(html.includes('2500') && html.includes('600'), 'average input and output tokens');
+  assert.ok(html.includes('2.0 s') && html.includes('end_turn'), 'the per-record line');
+});
+
+test('renderReport shows the prompt and the effort in the extra column label, HTML-escaped', () => {
+  const html = renderReport(withRuns([timed(1000, 1, 1)], { label: EXTRA, model: EXTRA, prompt: 'prePortion', effort: 'medium' }), {});
+  assert.ok(html.includes('prePortion') && html.includes('medium'));
+  assert.equal((html.match(/<th>עכשיו על /g) || []).length, 2, 'summary table and the photo table');
+  const evil = renderReport(withRuns([timed(1000, 1, 1, { stopReason: '<b>x</b>' })], { label: EXTRA, model: EXTRA, prompt: '<script>alert(1)</script>', effort: '"><img src=x onerror=alert(2)>' }), {});
+  for (const raw of ['<script>alert(1)', '<img src=x', '<b>x</b>']) assert.ok(!evil.includes(raw), `no raw ${raw}`);
+  assert.ok(evil.includes('&lt;script&gt;alert(1)'));
+});
+
+test('results from before the latency, prompt and effort fields render without any of those lines', () => {
+  const html = renderReport(withExtra(sideWith()), {});
+  assert.ok(!html.includes('זמן תגובה'));
+  assert.ok(!html.includes('undefined') && !html.includes('NaN') && !html.includes('null'));
+  const odd = [timed('x', 'y', {}), timed(-5, 1, 1), timed(NaN, Infinity, 1), timed(null, null, null)];
+  for (const extra of odd) assert.doesNotThrow(() => renderReport(withRuns([extra]), {}), JSON.stringify(extra));
+});

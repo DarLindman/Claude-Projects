@@ -34,6 +34,21 @@ test('the frozen V1 prompt and user message are byte-identical to the old ones',
   assert.equal(sha256(imageUserMessageV1), V1_USER_MESSAGE_SHA256);
 });
 
+// The frozen pre-portion prompt (the evaluation variant `prePortion`). Computed once
+// (2026-10-03) from `git show b67661f:food-logger/src/lib/prompts.js`: that module was
+// evaluated in node (the PORTION_ANCHORS values filled in) and the sha256 of the UTF-8 bytes
+// of its IMAGE_SYSTEM_PROMPT and IMAGE_USER_MESSAGE strings taken.
+const PRE_PORTION_PROMPT_SHA256 = 'e8b36b23f0f341fd12d213965a5fd28b5255397fec3ccd40a5110ab71b57d395';
+const PRE_PORTION_USER_MESSAGE_SHA256 = 'e4c67d9b197a932d10c6e92092658d32fdd6d8f33f44100b66f12634c7005b57';
+
+test('the frozen prePortion prompt and user message are byte-identical to the ones at b67661f', () => {
+  const frozen = require('../../scripts/eval/prompts/prePortion');
+  assert.deepEqual(Object.keys(frozen).sort(), ['IMAGE_SYSTEM_PROMPT', 'IMAGE_USER_MESSAGE']);
+  assert.equal(typeof frozen.IMAGE_SYSTEM_PROMPT, 'string');
+  assert.equal(sha256(frozen.IMAGE_SYSTEM_PROMPT), PRE_PORTION_PROMPT_SHA256);
+  assert.equal(sha256(frozen.IMAGE_USER_MESSAGE), PRE_PORTION_USER_MESSAGE_SHA256);
+});
+
 test('the runtime prompt is not the frozen V1 prompt', () => {
   assert.notEqual(IMAGE_SYSTEM_PROMPT, IMAGE_SYSTEM_PROMPT_V1);
   assert.notEqual(IMAGE_USER_MESSAGE, imageUserMessageV1);

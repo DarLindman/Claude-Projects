@@ -66,12 +66,28 @@ function earlierHtml(run) {
   return earlier.length ? line('קלוריות קודם', earlier.map(([label, c]) => `${esc(label)} ${ltr(String(c))}`).join(' &middot; ')) : '';
 }
 
-// The detail lines under the extra name: for an error record only the earlier calories.
+// Seconds with one decimal, from the milliseconds of a call.
+const seconds = (ms) => `${(ms / 1000).toFixed(1)} s`;
+const usable = (v) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null);
+
+// The latency, tokens and stop reason of the call behind a record; nothing for results
+// recorded before these fields existed.
+function callHtml(rec) {
+  const ms = usable(rec.ms);
+  if (ms === null) return '';
+  const parts = [seconds(ms)];
+  if (usable(rec.inputTokens) !== null) parts.push(`in ${rec.inputTokens}`);
+  if (usable(rec.outputTokens) !== null) parts.push(`out ${rec.outputTokens}`);
+  if (typeof rec.stopReason === 'string' && rec.stopReason) parts.push(rec.stopReason);
+  return line('זמן תגובה', ltr(parts.join(' · ')));
+}
+
+// The detail lines under the extra name: for an error record only the call and the earlier calories.
 function portionsHtml(rec, run) {
-  if (rec.error) return earlierHtml(run);
+  if (rec.error) return callHtml(rec) + earlierHtml(run);
   const out = [];
   // a reply the evaluation could not read has no numbers to show (old results lack the flag)
-  if (rec.parsed === false) return line('תשובה', esc('לא נקראה')) + earlierHtml(run);
+  if (rec.parsed === false) return line('תשובה', esc('לא נקראה')) + callHtml(rec) + earlierHtml(run);
   const items = Array.isArray(rec.items) ? rec.items.filter((it) => it && typeof it === 'object') : [];
   const grams = items.map((it) => num(it.weight_g)).filter((g) => g !== null);
   const total = [];
@@ -95,12 +111,20 @@ function portionsHtml(rec, run) {
       ? `${ltr(rules.map(([id, n]) => `${id} x${n}`).join(', '))} (${esc(`פריטים שתוקנו: ${num(sanity.adjusted) ?? 0}, שינוי קלוריות: ${num(sanity.calories_delta) ?? 0}`)})`
       : esc('לא הופעלו')));
   }
-  out.push(earlierHtml(run));
+  out.push(callHtml(rec), earlierHtml(run));
   return out.join('');
 }
 
-// The label of the extra column: the model id the results say it ran on.
-const extraLabel = (results) => `עכשיו על ${results?.variants?.extra?.label ?? results?.variants?.extra?.model ?? 'מודל נוסף'}`;
+// The label of the extra column: the model id the results say it ran on, with the prompt
+// variant and the effort when the results record them (plain text: callers escape it).
+function extraLabel(results) {
+  const extra = results?.variants?.extra;
+  const base = `עכשיו על ${extra?.label ?? extra?.model ?? 'מודל נוסף'}`;
+  const how = [];
+  if (extra?.prompt !== undefined && extra?.prompt !== null) how.push(`פרומפט ${extra.prompt}`);
+  if (extra?.effort !== undefined && extra?.effort !== null) how.push(`מאמץ ${extra.effort}`);
+  return how.length ? `${base} (${how.join(', ')})` : base;
+}
 
 function verdictDiv(rating, field, prefix) {
   if (!rating || typeof rating[field] !== 'boolean') return '';
@@ -121,6 +145,15 @@ function photoCard(photo, ratings, results, extra) {
 <table><thead><tr>${head}</tr></thead><tbody>${runs}</tbody></table>${verdict}</div></section>`;
 }
 
+// The latency and token averages of the extra variant (null: none measured).
+function statsLine(label, st) {
+  const tokens = [];
+  if (st.avgInputTokens !== null) tokens.push(`${esc('קלט')} ${ltr(String(st.avgInputTokens))}`);
+  if (st.avgOutputTokens !== null) tokens.push(`${esc('פלט')} ${ltr(String(st.avgOutputTokens))}`);
+  return `<p>${esc('זמן תגובה')}, ${label}: ${esc('ממוצע')} <strong>${ltr(seconds(st.avgMs))}</strong> &middot; ${esc('מקסימום')} <strong>${ltr(seconds(st.maxMs))}</strong>`
+    + `${tokens.length ? ` &middot; ${esc('טוקנים בממוצע')}: ${tokens.join(', ')}` : ''} (${st.calls} ${esc('קריאות')})</p>`;
+}
+
 const naturalLine = (label, n) => `<p>${label}: <strong>${n.percent}%</strong> (${n.natural} מתוך ${n.rated} תמונות מדורגות)</p>`;
 
 function renderReport(results, ratings) {
@@ -131,6 +164,7 @@ function renderReport(results, ratings) {
   const lines = [];
   if (s.natural) lines.push(naturalLine('שמות טבעיים (לפי הדירוג שלך)', s.natural));
   if (extra && s.naturalExtra) lines.push(naturalLine(`שמות טבעיים, ${esc(extraLabel(results))}`, s.naturalExtra));
+  if (extra && s.extraStats) lines.push(statsLine(esc(extraLabel(results)), s.extraStats));
   const natural = lines.length ? lines.join('\n') : '<p class="muted">אין דירוגים (אפשר להוסיף eval/ratings.json).</p>';
   const when = results.generatedAt ? ` &middot; ${esc(results.generatedAt)}` : '';
   const extraHead = extra ? `<th>${esc(extraLabel(results))}</th>` : '';

@@ -28,19 +28,37 @@ function captureGuardLog() {
   return { actions, stop: () => { console.warn = original; } };
 }
 
+// A token count of the response `usage`, or null (absent, a string, NaN...).
+const tokenOrNull = (v) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null);
+
 // Wraps the client to count the repair calls and to keep what the model wrote in the
 // image reply: the dish_name before any stripping or guard, the raw items and the
 // scale_reference (a retried reply replaces the earlier one). `guarded` is true for the
 // production pipeline (the new and the extra side) and false for the frozen old one.
+// It also measures the (last) image call: the wall-clock `ms` and the response `usage` and
+// stop reason (null when absent); a retry after an unreadable reply replaces the earlier one.
 function instrument(client, { guarded }) {
-  const probe = { repairCalls: 0, rawName: undefined, rawItems: undefined, scale: undefined, parsed: false };
+  const probe = { repairCalls: 0, rawName: undefined, rawItems: undefined, scale: undefined, parsed: false, call: undefined };
   const wrapped = {
     messages: {
       async create(args) {
         const isRepair = typeof args.system === 'string' && args.system.startsWith(REPAIR_PROMPT_PREFIX);
         if (isRepair) probe.repairCalls++;
-        const res = await client.messages.create(args);
+        const started = performance.now();
+        let res;
+        try {
+          res = await client.messages.create(args);
+        } catch (err) {
+          if (!isRepair) probe.call = { ms: Math.round(performance.now() - started), inputTokens: null, outputTokens: null, stopReason: null };
+          throw err;
+        }
         if (!isRepair) {
+          probe.call = {
+            ms: Math.round(performance.now() - started),
+            inputTokens: tokenOrNull(res?.usage?.input_tokens),
+            outputTokens: tokenOrNull(res?.usage?.output_tokens),
+            stopReason: typeof res?.stop_reason === 'string' ? res.stop_reason : null,
+          };
           const reply = guarded ? parseProductionReply(res) : parseLegacyReply(res);
           Object.assign(probe, { rawName: reply?.dishName, rawItems: reply?.items, scale: reply?.scale, parsed: reply !== null });
         }
@@ -106,9 +124,9 @@ async function runSide(client, analyze, photo, { guarded }) {
     const side = { name: out.foodName, raw: probe.rawName, calories: out.calories, parsed: probe.parsed };
     if (probe.parsed) Object.assign(side, { scale: probe.scale ?? '', ...portionsOf(probe.rawItems) });
     if (guarded) Object.assign(side, { action: log.actions[0] || 'ok', repairCalls: probe.repairCalls });
-    return side;
+    return Object.assign(side, probe.call);
   } catch (err) {
-    return { raw: probe.rawName, error: describe(err), repairCalls: probe.repairCalls };
+    return { raw: probe.rawName, error: describe(err), repairCalls: probe.repairCalls, ...probe.call };
   } finally {
     if (log) log.stop();
   }
@@ -117,7 +135,9 @@ async function runSide(client, analyze, photo, { guarded }) {
 // One run of one photo: what the user saw before (old) and gets now (new); with
 // `extraModel` also the new pipeline (same prompt and guard) on that model (extra).
 // With `onlyExtra` (and `extraModel`) only the extra variant runs: { extra } alone.
-async function evaluateRun(client, photo, { extraModel, onlyExtra = false } = {}) {
+// `prompts` ({ system, user }) and `effort` (low|medium|high|off; undefined is the
+// production default) apply to the extra variant only: the old and new sides stay as they are.
+async function evaluateRun(client, photo, { extraModel, onlyExtra = false, prompts, effort } = {}) {
   const result = {};
   if (!(onlyExtra && extraModel)) {
     result.old = await runSide(client, analyzeImageV1, photo, { guarded: false });
@@ -128,7 +148,13 @@ async function evaluateRun(client, photo, { extraModel, onlyExtra = false } = {}
     // extra variant is meant for) reject it with a 400 ("temperature is deprecated for
     // this model"), which would fail every call for a reason unrelated to naming. The
     // old and new variants (Haiku) keep temperature 0 exactly as production sends it.
-    const onModel = (c, args) => analyzeImage(c, { ...args, model: extraModel, temperature: null });
+    const onModel = (c, args) => analyzeImage(c, {
+      ...args,
+      model: extraModel,
+      temperature: null,
+      ...(effort === undefined ? {} : { effort }),
+      ...(prompts === undefined ? {} : { prompts }),
+    });
     result.extra = await runSide(client, onModel, photo, { guarded: true });
   }
   return result;
