@@ -3,11 +3,13 @@
 const { isDeepStrictEqual } = require('node:util');
 const { MODEL } = require('./anthropic');
 const { ensureHebrewDishName, cleanDishName } = require('./hebrewName');
+const {
+  IMAGE_SYSTEM_PROMPT, IMAGE_USER_MESSAGE, TEXT_SYSTEM_PROMPT, IMAGE_REPLY_TEMPLATE, TEXT_REPLY_TEMPLATE,
+} = require('./prompts');
 const { replyText, blockTypes, stopReasonOf, extractJson, isPlainObject } = require('./aiReply');
 
-// Thrown when the model's reply cannot be turned into nutrition items. Routes
-// map it to the "could not analyze the AI response" 500; any other error maps
-// to the endpoint-specific generic 500.
+// Thrown when the model's reply cannot be turned into nutrition items. Like any other AI
+// failure, the routes map it to 502 AI_UNAVAILABLE (the details only go to the log).
 // `kind` (what was wrong, e.g. 'JSON parse error') and `stopReason` are API-enum-like
 // values, safe to log; neither ever holds reply text.
 class AnalysisParseError extends Error {
@@ -17,102 +19,6 @@ class AnalysisParseError extends Error {
     this.stopReason = stopReason;
   }
 }
-
-const IMAGE_SYSTEM_PROMPT = `אתה מנתח תזונה מומחה. נתח תמונות אוכל לפי השיטה הבאה:
-
-שלב 1 — זיהוי: זהה כל מרכיב גלוי תוך שימוש בהקשר המלא. דוגמאות: בשר אדום ליד אצות/אבוקדו/סויה = טונה/סשימי ולא בקר; בשר בתוך בצק עלים = וולינגטון; עיגול כהה שטוח = פטייה ולא שניצל. לגבי דגים: אל תניח סלמון אלא אם הצבע ורוד-כתום בבירור — דג לבן = דג לבן/בקלה/פילה דג, דג מטוגן שלא ברור = פילה דג מטוגן.
-שלב 2 — נסתרים: שקול תמיד רכיבים לא גלויים — שמן טיגון, חמאה, ציפוי, רוטב, שמן זית.
-שלב 3 — כמויות: הערך weight_g לפי יחסים בתמונה (צלחת, כלים, ידיים כהשוואה).
-
-עוגני כמויות לאוכל נפוץ:
-- פרוסת לחם = 25-30 גרם
-- חזה עוף / שניצל = 150-200 גרם
-- המבורגר פטי = 120-150 גרם
-- אורז מבושל (מנה) = 150-200 גרם
-- תפוח אדמה בינוני = 150 גרם
-- ביצה = 55 גרם
-- כף שמן = 13 גרם (120 קלוריות)
-- חמאה כף = 14 גרם
-- גבינה פרוסה = 20-25 גרם
-
-הנחות:
-- מנת מסעדה: הכל גדול יותר ממה שנראה, שמן/חמאה נסתרים תמיד נכללים.
-- אל תעגל לעשרות/מאות — חשב מדויק (למשל 187 ולא 200).
-- שמות מרכיבים בעברית מדוברת ישראלית בלבד — אותיות עבריות בלבד.
-
-סדר העבודה בתשובה — קודם מזהים, אחר כך כותבים טיוטה של השם, בודקים אותה, ורק אז קובעים את השם הסופי:
-1. visual_description — קודם כול תאר באנגלית, במשפט קצר וניטרלי, מה רואים בתמונה: המרכיב העיקרי, אופן ההכנה והתוספות. זה שלב הזיהוי בלבד, עדיין בלי שם למנה. לפני שאתה מחליט מהו המרכיב העיקרי, התבונן במרקם, בצורת החיתוך, בצבע ובתוספות שלצדו.
-2. draft_name — טיוטה ראשונה של שם המנה בעברית, לפי כללי השמות שלהלן. אל תעתיק מילים מהתיאור האנגלי ואל תתרגם אותו מילה במילה: שאל את עצמך איך ישראלי היה קורא למנה הזאת.
-3. dish_name — השם הסופי. קרא שוב את הטיוטה ובדוק אותה מול כללי השמות, מילה אחר מילה. אם היא עומדת בכללים, כתוב אותה כפי שהיא; אם לא, תקן אותה.
-4. items — המרכיבים והערכים התזונתיים, לפי השיטה שלמעלה.
-
-כללי השמות:
-המשתמש קורא את השם ביומן האוכל שלו וצריך לזהות בו מיד את הארוחה שלו. לכן השם צריך להיות במילים שהוא עצמו היה אומר, ולא תרגום, תעתיק או מונח מקצועי.
-- השם שישראלי ממוצע היה אומר: כפי שהמנה כתובה בתפריט של מסעדה, כפי שהמוצר נקרא בסופר, או כפי שהיה מספר לחבר מה אכל.
-- רק מילים שכל ישראלי מכיר, בכתיב המקובל. לפני שאתה קובע את השם הסופי, קרא שוב כל מילה בשם ושאל את עצמך: האם זו מילה שישראלים באמת אומרים, והאם היא כתובה נכון? אם לא, החלף אותה במילה פשוטה ומוכרת.
-- המילה היומיומית עדיפה על תעתיק של מילה לועזית שאינה נהוגה, על מילה מיושנת ועל מילה נדירה או תנ"כית: מילים כאלה נשמעות מוזרות, והמשתמש לא מזהה בהן את האוכל שלו.
-- לעולם אל תמציא מילה, ואל תכתוב באותיות עבריות שם לועזי של מנה שישראלים לא אומרים בפועל. אם אינך יודע את המילה העברית היומיומית, תאר את האוכל בפשטות: המרכיב העיקרי ואיך הוא הוכן (מטוגן, צלוי, אפוי, מבושל או טרי).
-- מילה ממקור לועזי מותרת כשהיא המילה העברית המקובלת לאותו מאכל, כלומר זו שישראלים אומרים בפועל (כמו פסטה, פיצה, המבורגר).
-- אם למנה יש שם מוכר, השתמש בו במקום לפרט את המרכיבים שלה.
-- כשאי אפשר להבחין מה המאכל, למשל כששני מאכלים נראים דומים בתמונה, עדיף שם כללי ונכון על פני ניחוש מפורט ושגוי. אבל כשרואים בבירור מה זה, תן את השם המוכר והמדויק.
-- קצר ומדויק: המרכיב העיקרי, ואופן ההכנה רק כשהוא חשוב (מטוגן, צלוי, אפוי), עד חמש מילים בערך. בלי "בצלחת יש", בלי רשימה של כל המרכיבים ובלי מידת עשייה.
-- אותיות עבריות בלבד: בלי אותיות לטיניות, סיניות או של כל כתב אחר, בלי אמוג'י, ובלי לכתוב מילה זרה בכתב המקורי שלה.
-
-דוגמאות להמחשה בלבד. הן מסבירות את העיקרון ואינן רשימה לחיפוש; אותו היגיון חל על כל מאכל אחר, גם על מאכלים שלא מופיעים כאן:
-* פרוסת עוף בציפוי פירורי לחם, מטוגנת: "שניצל" — השם שכל ישראלי אומר, ולא תעתיק של שם לועזי שלא נהוג בעברית.
-* לחמנייה עם קציצת בשר טחון צלויה: "המבורגר" — מילה לועזית, אבל זו המילה המקובלת בעברית.
-* מרק סמיך של עדשים: "מרק עדשים", ולא מילה תנ"כית כמו "נזיד".
-* כדורי פלאפל בתוך פיתה עם סלט וטחינה: "פלאפל בפיתה" — השם המוכר, בלי לפרט כל מה שיש בפיתה.
-* חזה עוף צלוי ולידו אורז: "חזה עוף צלוי עם אורז" — המרכיב העיקרי, אופן ההכנה והתוספת.
-* פרוסת עוגה שלא רואים ממה היא עשויה: "עוגה" — שם כללי ונכון, ולא ניחוש של סוג מסוים.`;
-
-// The JSON templates the prompts show the model, in one place: the prompts are built from
-// them, and the reply parsing rejects a model's echo of them (a template has zero
-// nutrition and a placeholder name, so taking it for the answer would be a wrong 200).
-const TEMPLATE_ITEM = Object.freeze({ name: 'שם בעברית', weight_g: 0, calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
-const TEXT_REPLY_TEMPLATE = Object.freeze([TEMPLATE_ITEM]);
-const IMAGE_REPLY_TEMPLATE = Object.freeze({
-  visual_description: 'short neutral English description',
-  draft_name: 'טיוטה ראשונה של השם',
-  dish_name: 'השם הסופי של המנה',
-  items: TEXT_REPLY_TEMPLATE,
-});
-
-// The user message of the image request: the reply fields in the order the model
-// fills them (recognise, draft the name, re-read and fix it, then the nutrition items).
-const IMAGE_USER_MESSAGE = `זהה כל מרכיב בנפרד. השב עם JSON object בלבד, ללא markdown, והשדות בסדר הזה:
-${JSON.stringify(IMAGE_REPLY_TEMPLATE)}
-visual_description קודם (זיהוי), אחריו draft_name (טיוטה לפי כללי השמות), אחריו dish_name (קרא שוב את הטיוטה, בדוק כל מילה מול כללי השמות ותקן מה שצריך), ורק אז items.
-weight_g קודם — אז חשב קלוריות לפי weight_g בלבד.`;
-
-const TEXT_SYSTEM_PROMPT = `אתה מחשבון תזונה מדויק למשתמשים ישראלים.
-
-== כללי כמויות ==
-
-כמות מפורשת במספר — חשב בדיוק לפי מה שכתוב, ללא שינוי.
-  "100 גרם אורז" = 100 גרם בדיוק. "3 ביצים" = 3 ביצים בדיוק.
-
-צורת יחיד ללא מספר = בדיוק 1 יחידה (הנחיה מכוונת, אסור להתעלם):
-  "סרדין" = 1 סרדין בלבד.  "אנשובי" = 1 פילה (~5 גרם).  "ביצה" = ביצה 1.
-
-ללא כמות ולא מספר — השתמש בכמות הקבועה הבאה (אל תחרוג ממנה):
-  טונה במים = 85 גרם נטו מסוננת.
-  סרדינים (ריבוי) = 45 גרם (כ-3 סרדינים קטנים).
-  עוף/בשר = 100 גרם מבושל.
-  אורז/פסטה = 100 גרם מבושל.
-  לחם = 1 פרוסה = 25 גרם.
-  אגוז מלך (יחיד) = 1 חצי גרעין = 5 גרם. אגוזי מלך (ריבוי ללא מספר) = 20 גרם.
-  כף שמן = 13 מ"ל. כפית סוכר = 4 גרם.
-  קופסת קוטג' / גביע קוטג' = 250 גרם (גודל סטנדרטי ישראלי).
-  שקית פריכיות קטנה = 30 גרם. שקית פריכיות גדולה = 60 גרם.
-  גביע יוגורט = 150 גרם. גביע גבינה = 250 גרם.
-
-== כלל קריטי לשמירה על עקביות ==
-לכל פריט, קבע תחילה את weight_g (משקל בגרמים) ורק אז חשב את שאר הערכים.
-הערכים התזונתיים חייבים להיות עקביים לחלוטין עם weight_g שבחרת.
-
-== שמות ==
-בעברית תקנית בלבד — אפס אנגלית, אפס לטינית.`;
 
 // The per-model request rules of the image analysis, in one place. Haiku (an id starting
 // with claude-haiku) keeps its request exactly as it always was: temperature 0 and
@@ -144,19 +50,40 @@ function parseReply(message, kind, tag, accept) {
   return { value, fail: (what) => fail(what, text.length) };
 }
 
+// One model call with a numbers-only usage line (the owner reads it to measure the real
+// cost): the model id, input and output tokens ("?" when the reply has no usage), the
+// duration in ms and the stop_reason (the allowlisted enum rule of aiReply, "error" when the
+// call rejected). Never any reply text, name or identifier.
+const safeModelId = (m) => (/^[A-Za-z0-9._-]{1,64}$/.test(m) ? m : 'unknown');
+const tokens = (n) => (Number.isFinite(n) ? String(n) : '?');
+async function callModel(anthropic, tag, label, request) {
+  const start = Date.now();
+  const line = (message, stop) => console.info(
+    `[${tag}] ${label} model=${safeModelId(request.model)} in=${tokens(message?.usage?.input_tokens)} out=${tokens(message?.usage?.output_tokens)} ms=${Date.now() - start} stop=${stop}`);
+  let message;
+  try {
+    message = await anthropic.messages.create(request);
+  } catch (err) {
+    line(null, 'error');
+    throw err;
+  }
+  line(message, stopReasonOf(message));
+  return message;
+}
+
 // Runs one AI call plus the parsing of its reply (`attempt`) and, when the reply cannot be
 // turned into an answer (an AnalysisParseError: unparseable JSON, no JSON, no text block, no
 // acceptable candidate, no items), runs it once more: such a failure is intermittent (about
 // 1 in 30 image replies) and a second call usually succeeds. Never retried: an API error
-// (the SDK already retries transport errors) and a reply cut by max_tokens (it would only
-// repeat). At most one retry, so two calls per request; a second failure propagates as is.
+// (the SDK already retries transport errors), a reply cut by max_tokens and a refusal (both
+// would only repeat). At most one retry, so two calls per request; a second failure propagates as is.
 // The limiters count requests, not calls, so a retry doubles the cost of that one request.
 // The log line carries only the failure kind, never reply text.
 async function withParseRetry(tag, attempt) {
   try {
     return await attempt();
   } catch (err) {
-    if (!(err instanceof AnalysisParseError) || err.stopReason === 'max_tokens') throw err;
+    if (!(err instanceof AnalysisParseError) || err.stopReason === 'max_tokens' || err.stopReason === 'refusal') throw err;
     console.warn(`[${tag}] unparseable reply, retrying once (${err.kind})`);
     return attempt();
   }
@@ -165,8 +92,8 @@ async function withParseRetry(tag, attempt) {
 // What counts as the answer among the JSON candidates of a reply (aiReply.extractJson);
 // anything else is skipped, so prose such as {"a":1}, a leading [] or an echoed template
 // before the real answer does not hide it, and a reply that is only those is a 502.
-// The image answer: a non-empty items array, and neither the template's name nor its items.
-const isImageAnswer = (o) => Array.isArray(o.items) && o.items.length > 0
+// The image answer: a non-empty items array of objects, and neither the template's name nor its items.
+const isImageAnswer = (o) => Array.isArray(o.items) && o.items.length > 0 && o.items.every(isPlainObject)
   && o.dish_name !== IMAGE_REPLY_TEMPLATE.dish_name
   && !isDeepStrictEqual(o.items, IMAGE_REPLY_TEMPLATE.items);
 // The text answer: a non-empty array of objects (so a "[1]" in prose or in an earlier field
@@ -194,7 +121,7 @@ async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL, t
   // The reply describes the user's meal (visual_description, draft_name), so it is never
   // logged (see parseReply).
   const parsed = await withParseRetry('analyze', async () => {
-    const message = await anthropic.messages.create({
+    const message = await callModel(anthropic, 'analyze', 'image', {
       model,
       max_tokens: maxTokensFor(model),
       ...(temperature === null ? {} : { temperature }),
@@ -228,7 +155,7 @@ async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL, t
 // ─── Analyze food text ────────────────────────────────────────────────────────
 async function analyzeText(anthropic, text) {
   const items = await withParseRetry('analyze-text', async () => {
-    const message = await anthropic.messages.create({
+    const message = await callModel(anthropic, 'analyze-text', 'text', {
       model: MODEL,
       max_tokens: 1200,
       temperature: 0,

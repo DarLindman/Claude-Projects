@@ -22,6 +22,7 @@ let ctx;
 let client;
 let warnLog;
 let errorLog;
+let infoLog;
 let original;
 before(async () => {
   ctx = await buildTestApp({ limits: { analyzePerHour: 1000 } });
@@ -33,8 +34,10 @@ beforeEach(() => {
   mock.restoreAll();
   warnLog = mock.method(console, 'warn', () => {});
   errorLog = mock.method(console, 'error', () => {});
+  infoLog = mock.method(console, 'info', () => {}); // the usage lines
   ctx.anthropic.messages.create = original;
   ctx.anthropic.calls.length = 0;
+  ctx.anthropic.usage = undefined;
 });
 
 // The model answers with these steps in order: a string is the text of a reply (with an
@@ -51,7 +54,7 @@ function script(steps) {
 
 const analyze = () => client.post('/api/analyze', { imageBase64: JPEG_BASE64 });
 const analyzeText = () => client.post('/api/analyze-text', { text: 'סלט ולחם' });
-const allLogs = () => JSON.stringify([...errorLog.mock.calls, ...warnLog.mock.calls].map((c) => c.arguments.map(String)));
+const allLogs = () => JSON.stringify([...errorLog.mock.calls, ...warnLog.mock.calls, ...infoLog.mock.calls].map((c) => c.arguments.map(String)));
 const lines = (log) => log.mock.calls.map((c) => c.arguments.map(String).join(' '));
 
 const PATHS = [
@@ -122,6 +125,16 @@ for (const [name, call, good, bad, totals, foodName] of PATHS) {
     assert.ok(![...lines(warnLog), ...lines(errorLog)].some((l) => /retrying/.test(l)));
   });
 
+  test(`${name}: a refusal is not retried (1 call) and is the 502`, async () => {
+    script([{ text: `I cannot help with that ${MARKER}`, stopReason: 'refusal' }, good]);
+    const res = await call();
+    assert.equal(res.status, 502);
+    assert.deepEqual(res.body, { error: { code: 'AI_UNAVAILABLE' } });
+    assert.equal(ctx.anthropic.calls.length, 1);
+    assert.ok(![...lines(warnLog), ...lines(errorLog)].some((l) => /retrying/.test(l)));
+    assert.ok(!allLogs().includes(MARKER));
+  });
+
   test(`${name}: a valid first reply is exactly 1 call and logs no retry`, async () => {
     script([good, bad]);
     const res = await call();
@@ -147,4 +160,69 @@ test('image: a valid reply on the retry still goes through the name guard (repai
   assert.equal(res.status, 200);
   assert.equal(res.body.foodName, 'עוף עם אורז');
   assert.equal(ctx.anthropic.calls.length, 3); // bad, valid (retry), repair
+});
+
+// ─── items must be objects (image) ───────────────────────────────────────────
+for (const [label, items] of [['null', [null]], ['a number', [1]], ['a string', ['x']]]) {
+  const badItems = JSON.stringify({ visual_description: MARKER, draft_name: 'עוף', dish_name: 'עוף עם אורז', items });
+  test(`image: items [${label}] then a valid reply is a 200 with 2 calls`, async () => {
+    script([badItems, goodImage]);
+    const res = await analyze();
+    assert.equal(res.status, 200, res.text);
+    assert.deepEqual(res.body, { foodName: 'עוף עם אורז', ...IMAGE_TOTALS });
+    assert.equal(ctx.anthropic.calls.length, 2);
+  });
+  test(`image: items [${label}] twice is the 502 after 2 calls, not a 500`, async () => {
+    script([badItems, badItems]);
+    const res = await analyze();
+    assert.equal(res.status, 502);
+    assert.deepEqual(res.body, { error: { code: 'AI_UNAVAILABLE' } });
+    assert.equal(ctx.anthropic.calls.length, 2);
+    assert.ok(!allLogs().includes(MARKER));
+  });
+}
+
+// ─── the numbers-only usage line ─────────────────────────────────────────────
+const usageLines = () => lines(infoLog).filter((l) => / model=/.test(l));
+
+test('image: one usage line per call with the usage numbers, the model and stop_reason, no reply text', async () => {
+  ctx.anthropic.usage = { input_tokens: 1234, output_tokens: 567 };
+  ctx.anthropic.imageReply = goodImage.replace('grilled chicken', MARKER);
+  const res = await analyze();
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body, { foodName: 'עוף עם אורז', ...IMAGE_TOTALS });
+  const u = usageLines();
+  assert.equal(u.length, 1);
+  assert.match(u[0], /^\[analyze\] image model=claude-sonnet-5-5 in=1234 out=567 ms=\d+ stop=end_turn$/);
+  assert.ok(!allLogs().includes(MARKER));
+  ctx.anthropic.imageReply = undefined;
+});
+
+test('text: the usage line names the text model; a missing usage prints ?', async () => {
+  const res = await analyzeText();
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body, { foodName: 'סלט ולחם', ...TEXT_TOTALS });
+  const u = usageLines();
+  assert.equal(u.length, 1);
+  assert.match(u[0], /^\[analyze-text\] text model=claude-haiku-4-5-20251001 in=\? out=\? ms=\d+ stop=(end_turn|unknown)$/); // the fake's text reply has no stop_reason
+});
+
+test('a retried request logs a usage line per call; a rejected call logs stop=error', async () => {
+  script([badImage, goodImage]);
+  assert.equal((await analyze()).status, 200);
+  assert.equal(usageLines().length, 2);
+  infoLog.mock.resetCalls();
+  script([new Error('boom')]);
+  assert.equal((await analyze()).status, 502);
+  const u = usageLines();
+  assert.equal(u.length, 1);
+  assert.match(u[0], /in=\? out=\? ms=\d+ stop=error$/);
+  assert.ok(!u[0].includes('boom'));
+});
+
+test('the usage line leaves the request and the returned object unchanged', async () => {
+  ctx.anthropic.usage = { input_tokens: 1, output_tokens: 2 };
+  const res = await analyze();
+  assert.deepEqual(Object.keys(ctx.anthropic.calls[0]), ['model', 'max_tokens', 'system', 'messages']);
+  assert.deepEqual(Object.keys(res.body), ['foodName', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'fiber_g']);
 });

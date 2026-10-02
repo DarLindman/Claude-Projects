@@ -8,7 +8,7 @@
 // Sources: public/index.html (text nodes and attribute values), public/manifest.json,
 // public/js/** and src/** (string and template literals; markup inside a template is read
 // like HTML). Code comments and regular expressions are skipped. The AI prompts in
-// src/lib/analysis.js are not UI text and are only listed, in their own section.
+// src/lib/prompts.js are not UI text and are only listed, in their own section.
 // Accounting: for each file the lines that contain Hebrew (a plain text match, like
 // `grep`) are compared with what ended up in the table; the run fails if any is unaccounted.
 //
@@ -31,7 +31,7 @@ const ROOT = path.join(__dirname, '..');
 const OUT = path.join(ROOT, '..', 'docs', 'hebrew-copy-audit.md');
 // The reviewer's proposals, keyed by the exact current text (see mergeProposals).
 const PROPOSALS = path.join(ROOT, '..', 'docs', 'hebrew-copy-proposals.json');
-const PROMPT_FILES = new Set(['src/lib/analysis.js']);
+const PROMPT_FILES = new Set(['src/lib/prompts.js']);
 // Functions that are exported but never called by the app: their text is never shown.
 const NOT_SHOWN = [
   { file: 'public/js/screens/dashboard.js', fn: 'renderDashLogPreview' },
