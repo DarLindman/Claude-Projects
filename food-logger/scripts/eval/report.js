@@ -37,7 +37,7 @@ th, td { padding:6px 10px; text-align:start; border-bottom:1px solid var(--line)
 .flag.foreign, .flag.fallback, .flag.empty { color:var(--bad); }
 .err { color:var(--bad); direction:ltr; } .raw { color:var(--muted); font-size:.8rem; direction:ltr; unicode-bidi:plaintext; }
 .detail { margin-top:4px; font-size:.85rem; color:var(--muted); } .detail strong { color:var(--ink); }
-.num { direction:ltr; unicode-bidi:isolate; }
+.num { direction:ltr; unicode-bidi:isolate; } .err .detail { direction:rtl; }
 .verdict { margin-top:8px; font-size:.9rem; } .verdict.yes { color:var(--good); } .verdict.no { color:var(--bad); }
 `;
 
@@ -45,7 +45,7 @@ const flagSpans = (flags) => flags.map((f) => `<span class="flag ${esc(f)}">${es
 
 function nameCell(rec, side, detail = '') {
   if (!rec) return '<td class="err">-</td>';
-  if (rec.error) return `<td class="err">${esc(rec.error)}</td>`;
+  if (rec.error) return `<td class="err">${esc(rec.error)}${detail}</td>`;
   const flags = flagsFor(rec.name, rec.action);
   if (side === 'old' && wasStripped(rec)) flags.push('stripped');
   const raw = rec.raw !== undefined && rec.raw !== rec.name ? `<div class="raw">${esc(rec.raw)}</div>` : '';
@@ -59,12 +59,28 @@ const shown = (v) => (num(v) === null ? '?' : String(num(v)));
 const line = (label, value) => `<div class="detail">${label}: ${value}</div>`;
 const ltr = (text) => `<span class="num">${esc(text)}</span>`;
 
+// The calories this photo got before: the stored old and new sides and the replaced extra.
+function earlierHtml(run) {
+  const earlier = [['ישן', run?.old?.calories], ['חדש', run?.new?.calories], ['מודל קודם', run?.previousExtra?.calories]]
+    .filter(([, c]) => c !== undefined && c !== null);
+  return earlier.length ? line('קלוריות קודם', earlier.map(([label, c]) => `${esc(label)} ${ltr(String(c))}`).join(' &middot; ')) : '';
+}
+
+// The detail lines under the extra name: for an error record only the earlier calories.
 function portionsHtml(rec, run) {
+  if (rec.error) return earlierHtml(run);
   const out = [];
+  // a reply the evaluation could not read has no numbers to show (old results lack the flag)
+  if (rec.parsed === false) return line('תשובה', esc('לא נקראה')) + earlierHtml(run);
   const items = Array.isArray(rec.items) ? rec.items.filter((it) => it && typeof it === 'object') : [];
   const grams = items.map((it) => num(it.weight_g)).filter((g) => g !== null);
   const total = [];
-  if (grams.length) total.push(`${esc('משקל כולל')}: ${ltr(`${Math.round(grams.reduce((a, b) => a + b, 0) * 10) / 10} g`)}`);
+  if (items.length) {
+    // a missing weight makes the sum a lower bound: say so instead of a clean, too low total
+    const sum = Math.round(grams.reduce((a, b) => a + b, 0) * 10) / 10;
+    const partial = grams.length < items.length;
+    total.push(`${esc('משקל כולל')}: ${ltr(grams.length ? `${sum}${partial ? '+?' : ''} g` : '? g')}${partial ? ` ${esc('(חסר משקל לחלק מהפריטים)')}` : ''}`);
+  }
   if (num(rec.calories) !== null) total.push(`${esc('קלוריות')}: ${ltr(`${rec.calories} kcal`)}`);
   if (total.length) out.push(`<div class="detail"><strong>${total.join(' &middot; ')}</strong></div>`);
   if (items.length) {
@@ -79,10 +95,7 @@ function portionsHtml(rec, run) {
       ? `${ltr(rules.map(([id, n]) => `${id} x${n}`).join(', '))} (${esc(`פריטים שתוקנו: ${num(sanity.adjusted) ?? 0}, שינוי קלוריות: ${num(sanity.calories_delta) ?? 0}`)})`
       : esc('לא הופעלו')));
   }
-  // the calories this photo got before: the stored old and new sides and the replaced extra
-  const earlier = [['ישן', run?.old?.calories], ['חדש', run?.new?.calories], ['מודל קודם', run?.previousExtra?.calories]]
-    .filter(([, c]) => c !== undefined && c !== null);
-  if (earlier.length) out.push(line('קלוריות קודם', earlier.map(([label, c]) => `${esc(label)} ${ltr(String(c))}`).join(' &middot; ')));
+  out.push(earlierHtml(run));
   return out.join('');
 }
 
@@ -99,7 +112,7 @@ function verdictDiv(rating, field, prefix) {
 
 function photoCard(photo, ratings, results, extra) {
   const runs = (photo.runs || []).map((r, i) =>
-    `<tr><td>${i + 1}</td>${nameCell(r.old, 'old')}${nameCell(r.new, 'new')}${extra ? nameCell(r.extra, 'extra', r.extra && !r.extra.error ? portionsHtml(r.extra, r) : '') : ''}</tr>`).join('');
+    `<tr><td>${i + 1}</td>${nameCell(r.old, 'old')}${nameCell(r.new, 'new')}${extra ? nameCell(r.extra, 'extra', r.extra ? portionsHtml(r.extra, r) : '') : ''}</tr>`).join('');
   const rating = ratings?.[photo.file];
   const verdict = verdictDiv(rating, 'natural', extra ? 'חדש: ' : '') + (extra ? verdictDiv(rating, 'extra', `${esc(extraLabel(results))}: `) : '');
   const img = photo.thumb ? `<img src="${esc(photo.thumb)}" alt="${esc(photo.file)}" loading="lazy">` : '';

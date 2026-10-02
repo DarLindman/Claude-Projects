@@ -5,8 +5,9 @@
 // one on another model. Errors are
 // recorded, never thrown, so one bad call does not lose a whole evaluation.
 
-const { analyzeImage } = require('../../src/lib/analysis');
+const { analyzeImage, isImageAnswer } = require('../../src/lib/analysis');
 const { reconcileItems } = require('../../src/lib/nutrition');
+const { replyText, extractJson } = require('../../src/lib/aiReply');
 const { REPAIR_PROMPT_PREFIX } = require('../../src/lib/hebrewName');
 const { analyzeImageV1 } = require('./imagePromptV1');
 
@@ -28,10 +29,11 @@ function captureGuardLog() {
 }
 
 // Wraps the client to count the repair calls and to keep what the model wrote in the
-// image reply, parsed once from its first text block: the dish_name before any stripping
-// or guard, the raw items and the scale_reference (a retried reply replaces the earlier one).
-function instrument(client) {
-  const probe = { repairCalls: 0, rawName: undefined, rawItems: undefined, scale: undefined };
+// image reply: the dish_name before any stripping or guard, the raw items and the
+// scale_reference (a retried reply replaces the earlier one). `guarded` is true for the
+// production pipeline (the new and the extra side) and false for the frozen old one.
+function instrument(client, { guarded }) {
+  const probe = { repairCalls: 0, rawName: undefined, rawItems: undefined, scale: undefined, parsed: false };
   const wrapped = {
     messages: {
       async create(args) {
@@ -39,8 +41,8 @@ function instrument(client) {
         if (isRepair) probe.repairCalls++;
         const res = await client.messages.create(args);
         if (!isRepair) {
-          const reply = parseRawReply(firstText(res));
-          Object.assign(probe, { rawName: reply.dishName, rawItems: reply.items, scale: reply.scale });
+          const reply = guarded ? parseProductionReply(res) : parseLegacyReply(res);
+          Object.assign(probe, { rawName: reply?.dishName, rawItems: reply?.items, scale: reply?.scale, parsed: reply !== null });
         }
         return res;
       },
@@ -49,21 +51,33 @@ function instrument(client) {
   return { client: wrapped, probe };
 }
 
-const firstText = (res) => (Array.isArray(res?.content) ? res.content.find((b) => b && b.type === 'text')?.text : undefined);
+const partsOf = (o) => ({
+  dishName: typeof o.dish_name === 'string' ? o.dish_name : undefined,
+  items: o.items,
+  scale: typeof o.scale_reference === 'string' ? o.scale_reference : undefined,
+});
 
-// What the raw reply holds, as far as it parses: never throws, absent parts are undefined.
-function parseRawReply(text) {
+// The new and the extra side: exactly what analyzeImage accepts as the answer (the same
+// text blocks, the same JSON search and the same accept rule), so the recording is of the
+// object production used. null when production would have found no answer in the reply.
+function parseProductionReply(res) {
+  const text = replyText(res);
+  if (text === null) return null;
+  const { value } = extractJson(text, 'object', isImageAnswer);
+  return value ? partsOf(value) : null;
+}
+
+// The old side: analyzeImageV1 keeps its own legacy parse (the greedy {...} span of the
+// first content block, a non-empty items array), so the recording follows that one and not
+// production's. The V1 reply has no scale_reference or volume_ml; those stay absent.
+function parseLegacyReply(res) {
   try {
-    const match = String(text).match(/\{[\s\S]*\}/);
+    const match = String(res?.content?.[0]?.text).trim().match(/\{[\s\S]*\}/);
     const parsed = match ? JSON.parse(match[0]) : undefined;
-    if (!parsed || typeof parsed !== 'object') return {};
-    return {
-      dishName: typeof parsed.dish_name === 'string' ? parsed.dish_name : undefined,
-      items: Array.isArray(parsed.items) ? parsed.items : undefined,
-      scale: typeof parsed.scale_reference === 'string' ? parsed.scale_reference : undefined,
-    };
+    if (!parsed || !Array.isArray(parsed.items) || parsed.items.length === 0) return null;
+    return partsOf(parsed);
   } catch {
-    return {};
+    return null;
   }
 }
 
@@ -83,12 +97,14 @@ function portionsOf(rawItems) {
 const describe = (err) => `${err?.name || 'Error'}: ${String(err?.message ?? err).slice(0, 200)}`;
 
 async function runSide(client, analyze, photo, { guarded }) {
-  const { client: wrapped, probe } = instrument(client);
+  const { client: wrapped, probe } = instrument(client, { guarded });
   const log = guarded ? captureGuardLog() : null;
   const args = { imageBase64: photo.bytes.toString('base64'), mimeType: photo.mimeType };
   try {
     const out = await analyze(wrapped, args);
-    const side = { name: out.foodName, raw: probe.rawName, calories: out.calories, scale: probe.scale ?? '', ...portionsOf(probe.rawItems) };
+    // parsed: false when no answer could be read from the raw reply (scale, items and sanity are then absent)
+    const side = { name: out.foodName, raw: probe.rawName, calories: out.calories, parsed: probe.parsed };
+    if (probe.parsed) Object.assign(side, { scale: probe.scale ?? '', ...portionsOf(probe.rawItems) });
     if (guarded) Object.assign(side, { action: log.actions[0] || 'ok', repairCalls: probe.repairCalls });
     return side;
   } catch (err) {

@@ -13,6 +13,7 @@ const { run, parseArgs, ESTIMATED_COST_PER_CALL_USD, COST_PER_CALL_EXTRA_USD } =
 const { analyzeImage } = require('../../src/lib/analysis');
 const { MODEL } = require('../../src/lib/anthropic');
 const { REPAIR_PROMPT_PREFIX } = require('../../src/lib/hebrewName');
+const { IMAGE_REPLY_TEMPLATE } = require('../../src/lib/prompts');
 
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01]);
 const KEY = { ANTHROPIC_API_KEY: 'sk-test-not-real' };
@@ -370,4 +371,68 @@ test('renderReport copes with stored results that lack the new fields and with p
   }
   assert.doesNotThrow(() => renderReport(withExtra(sideWith(), { old: undefined, new: undefined, previousExtra: {} }), {}));
   assert.doesNotThrow(() => renderReport(THREE, {}));
+});
+
+// ─── the recording matches what production parsed ─────────────────────────────
+const REAL_ANSWER = {
+  visual_description: 'a plate',
+  scale_reference: 'a fork, 19 cm',
+  draft_name: 'עוף',
+  dish_name: 'עוף בגריל',
+  items: [{ name: 'עוף', volume_ml: 300, weight_g: 280, calories: 460, protein_g: 40, carbs_g: 0, fat_g: 31, fiber_g: 0 }],
+};
+const REAL_ITEMS = [{ weight_g: 280, volume_ml: 300, calories: 460 }];
+
+test('a reply with prose, a stray {x} and the JSON: new and extra record the real answer (old, with its legacy parse, fails)', async () => {
+  const ws = workspace(['a.jpg']);
+  const fake = fakeAnthropic();
+  fake.imageReply = `Here {x} is my answer: ${JSON.stringify(REAL_ANSWER)}`;
+  const { result } = await runWith(ws, { yes: true, runs: 1, alsoModel: EXTRA }, fake);
+  const r = result.results.photos[0].runs[0];
+  for (const side of ['new', 'extra']) {
+    assert.equal(r[side].parsed, true, side);
+    assert.equal(r[side].raw, 'עוף בגריל', side);
+    assert.equal(r[side].scale, 'a fork, 19 cm', side);
+    assert.deepEqual(r[side].items, REAL_ITEMS, side);
+  }
+  assert.match(r.old.error, /invalid JSON/, 'the frozen V1 parse cannot read it, as before');
+});
+
+test('an echoed template before the real answer is skipped: the recording is of the real answer', async () => {
+  const ws = workspace(['a.jpg']);
+  const fake = fakeAnthropic();
+  fake.imageReply = `${JSON.stringify(IMAGE_REPLY_TEMPLATE)}\n${JSON.stringify(REAL_ANSWER)}`;
+  const { result } = await runWith(ws, { yes: true, runs: 1, alsoModel: EXTRA }, fake);
+  const r = result.results.photos[0].runs[0];
+  for (const side of ['new', 'extra']) {
+    assert.equal(r[side].name, 'עוף בגריל', side);
+    assert.equal(r[side].raw, 'עוף בגריל', side);
+    assert.equal(r[side].scale, 'a fork, 19 cm', side);
+    assert.deepEqual(r[side].items, REAL_ITEMS, side);
+    assert.equal(r[side].parsed, true, side);
+  }
+});
+
+test('the text blocks of the reply are read like production: joined consecutive blocks', async () => {
+  const ws = workspace(['a.jpg']);
+  const fake = fakeAnthropic();
+  const json = JSON.stringify(REAL_ANSWER);
+  fake.imageContent = [{ type: 'text', text: json.slice(0, 40) }, { type: 'text', text: json.slice(40) }];
+  const { result } = await runWith(ws, { yes: true, runs: 1, alsoModel: EXTRA }, fake);
+  assert.deepEqual(result.results.photos[0].runs[0].extra.items, REAL_ITEMS);
+});
+
+test('the report marks a reply that could not be read, and shows a partial gram total with a note', () => {
+  const unread = renderReport(withExtra({ name: 'עוף', raw: 'עוף', action: 'ok', calories: 100, parsed: false }), {});
+  assert.ok(unread.includes('לא נקראה'), 'a visible marker');
+  const flagless = renderReport(withExtra(sideWith({ parsed: undefined })), {});
+  assert.ok(!flagless.includes('לא נקראה'), 'old results without the flag are not marked');
+  const partial = renderReport(withExtra(sideWith({ items: [{ weight_g: 150, volume_ml: 170, calories: 250 }, { weight_g: null, volume_ml: null, calories: 200 }] })), {});
+  assert.ok(partial.includes('150+? g') && partial.includes('חסר משקל'), 'a lower-bound total, flagged');
+  assert.ok(!partial.includes('150 g</span> &middot;'), 'not shown as a clean total');
+});
+
+test('the report shows the earlier calories also when the new extra is an error record', () => {
+  const html = renderReport(withExtra({ error: 'boom-extra' }, { previousExtra: { name: 'עוף', calories: 391 } }), {});
+  assert.ok(html.includes('boom-extra') && html.includes('391') && html.includes('380'));
 });

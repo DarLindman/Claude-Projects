@@ -200,6 +200,7 @@ module.exports = {
   AnalysisParseError,
   analyzeImage,
   analyzeText,
+  isImageAnswer,
   temperatureFor,
   maxTokensFor,
 };

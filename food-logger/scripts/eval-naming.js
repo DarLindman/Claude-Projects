@@ -208,7 +208,9 @@ async function run(options = {}, deps = {}) {
         d.log(`[${i + 1}/${photos.length}] ${photo.file}: run ${n}/${runs} (extra only)`);
         const { extra } = await evaluateRun(client, photo, { extraModel: alsoModel, onlyExtra: true });
         results.apiCalls = (Number(results.apiCalls) || 0) + 1 + (extra.repairCalls || 0);
-        // the extra record being replaced survives as previousExtra (name and calories only)
+        // the extra record being replaced survives as previousExtra (name and calories only);
+        // when it was an error record none is made, so a previousExtra inherited from an even
+        // earlier run (through the spread below) may stay
         const before = storedPhoto.runs[n - 1]?.extra;
         const previousExtra = before && !before.error ? { name: before.name, calories: before.calories } : undefined;
         entry.runs.push({ ...storedPhoto.runs[n - 1], extra, ...(previousExtra ? { previousExtra } : {}) });
