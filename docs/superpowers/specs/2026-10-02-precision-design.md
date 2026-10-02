@@ -28,7 +28,7 @@ Done when **all** hold, each verified by running it:
 2. A meal logged at 23:30 appears in the diary of that same day, edit-and-save never moves a meal to another day, and the streak and the weekly/monthly/yearly totals count it on that day.
 3. The result of every date feature depends only on the stored values and on the `today` the browser sends, never on the time zone of the server or of the database server.
 4. For any AI reply, the nutrition numbers that reach the user satisfy the rules of section 4 (verified by tests with fake replies that violate each rule), and the analysis never fails because of them.
-5. For any AI reply, a weight that contradicts the item's own estimated volume (section 5) is corrected (tests with fake replies); the image prompt asks for the scale reference, the volume and the weight in that order, with no food dictionary added.
+5. ~~For any AI reply, a weight that contradicts the item's own estimated volume (section 5) is corrected (tests with fake replies); the image prompt asks for the scale reference, the volume and the weight in that order, with no food dictionary added.~~ Superseded 2026-10-03 (section 5): the image prompt asks for a scale reference grounded in objects visible in the photo, then the weight, with no volume and no food dictionary added; there is no density rule.
 6. Each correction is logged as numbers only (no meal text), so the owner can see how often it happens.
 7. All existing suites pass, `npm audit --omit=dev` is clean, and the look of the app is unchanged.
 
@@ -77,7 +77,7 @@ New `src/lib/nutrition.js` with a pure function `reconcileItems(items)` returnin
 
 ### 4.2 Rules (per item)
 
-Execution order: 1, 2, then the density rule 6 of section 5.2 (a corrected weight then feeds the nutrition rules), then 3, 4, 5.
+Execution order: 1, 2, 3, 4, 5. (A density rule 6, weight against a per-item `volume_ml`, section 5.2, ran after rule 2 until 2026-10-03; it was removed with the volume method, see section 5 and the plan's 2026-10-03 addendum. Five rules remain.)
 
 1. A non-finite, missing or negative number becomes 0.
 2. **Weight:** `weight_g` above 2000 is capped at 2000 (nobody eats more in one item; a 1.5 litre drink fits); a missing or 0 weight stays 0 (the next rules then skip the weight-based checks).
@@ -101,7 +101,9 @@ The anchors both prompts share (bread, egg, tablespoon of oil, butter, cheese sl
 
 Image analysis only (the text analysis already has explicit quantities and defaults).
 
-### 5.1 Method in the prompt (general, no per-dish rules)
+**Final design (2026-10-03, owner decision after three authorised real runs; see the plan's 2026-10-03 addendum):** the runtime image prompt is the evaluated scale-grounded variant `scripts/eval/prompts/portionV2.js`. Step 3 tells the model to calibrate the size against objects of roughly standard size visible in the frame (cutlery, a cup, a can, a card, a hand), to derive the plate or bowl diameter from them instead of assuming 26 cm (about 24 cm only when nothing is there to compare against), and to write the reference objects and the plate diameter in the model-only `scale_reference`; the weight then follows from the apparent size and the usual density of the kind of food, with no upward bias, and the restaurant line no longer inflates sizes. There is no per-item `volume_ml`, and the density rule of 5.2 was removed from `nutrition.js` (nothing produces a volume any more). The image request runs with `IMAGE_EFFORT` low by default (about 5 s per photo). The owner judged the calories on the 30 photos fairly accurate, sometimes slightly low. Sections 5.1 and 5.2 below are kept as the record of the first attempt and are **superseded by the 2026-10-03 addendum**: that volume method raised calories by about 19%, tripled the output and doubled the time, and the model assumed a 26 cm plate in 26 of 30 photos.
+
+### 5.1 Method in the prompt (general, no per-dish rules) — superseded 2026-10-03
 
 `IMAGE_SYSTEM_PROMPT` replaces the one-line "step 3 — quantities" with a short procedure the model follows in order:
 1. **Scale:** find a reference of known size in the photo (a standard dinner plate is about 26 cm, a fork about 19 cm, a hand, a cup, a bottle, a slice of bread, a packaged product) and state it.
@@ -111,13 +113,13 @@ Image analysis only (the text analysis already has explicit quantities and defau
 
 The reply gets two **model-only** fields (never returned, stored or logged, like `visual_description`): a top-level `scale_reference` (short English phrase) and, in each item, `volume_ml` (number). The order the model writes them stays: description, scale, draft name, final name, then the items with volume before weight before calories. Expected extra output is about 100 tokens per analysis (roughly +0.002 USD at Sonnet prices); `max_tokens` already has room.
 
-### 5.2 Server check (rule 6 of `reconcileItems`)
+### 5.2 Server check (rule 6 of `reconcileItems`) — superseded 2026-10-03, removed
 
 For an item with `volume_ml > 0` and `weight_g > 0`: the density `weight_g / volume_ml` must lie within **0.02 to 1.6 g/ml** (popcorn, chips, loose greens and foam at the bottom, dense fat, honey and nut butter at the top). Outside it, `weight_g` is moved to the nearest bound and the item's calories and macros are scaled by the same factor, so the numbers stay consistent. A density outside one tenth of the lower bound to ten times the upper bound (0.002 to 16 g/ml) is a unit slip (litres written as ml and the like), not a wrong estimate: the item is left unchanged and the rule is not counted. `volume_ml` is read like the other numbers (`"170"` works). The bounds and the factor 10 are named constants. The check applies the model's own reasoning to itself; it cannot tell which of the two numbers was wrong, which is why the one real run counts how often it fires before the bounds are trusted.
 
 ### 5.3 Evaluation tool
 
-`scripts/eval-naming.js` records, for each reply, the items' `weight_g`, `volume_ml` and calories and the sanity report, and `report.html` shows the grams and total calories per photo next to the calories of the earlier runs (`eval/results-*.json`, calories only). The authorized single run (section 1) is the only real use.
+`scripts/eval-naming.js` records, for each reply, the items' `weight_g`, `volume_ml` (null when absent, as it is with the final prompt) and calories and the sanity report, and `report.html` shows the grams and total calories per photo next to the calories of the earlier runs (`eval/results-*.json`, calories only). The authorized single run (section 1) is the only real use.
 
 ## 6. Out of scope
 

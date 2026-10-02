@@ -1,7 +1,13 @@
 'use strict';
 
-// EXPERIMENTAL prompt variant for the evaluation tool only (scripts/, never loaded by src/).
+// FROZEN prompt variant for the evaluation tool (scripts/, never loaded by src/).
 // Select it with: --prompt portionV2
+//
+// The owner approved it on 2026-10-03 after the real runs, and src/lib/prompts.js now renders
+// exactly these two strings as the runtime image prompt. Do not edit:
+// test/api/analysis-prompt.test.js checks their SHA-256 (taken at commit 4826029) and that the
+// runtime strings equal them. A future prompt change updates src/lib/prompts.js, this file
+// and those hashes together, on purpose (or adds a new variant file to compare against).
 //
 // prePortion (the frozen pre-portion prompt) with ONLY the portion estimation changed:
 // - step 3 is replaced by SCALE_METHOD: calibrate the size from objects of roughly standard

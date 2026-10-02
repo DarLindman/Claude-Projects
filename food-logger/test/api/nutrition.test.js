@@ -2,7 +2,7 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { reconcileItems, LIMITS } = require('../../src/lib/nutrition');
+const { reconcileItems, LIMITS, RULES } = require('../../src/lib/nutrition');
 
 const FIELDS = ['weight_g', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'fiber_g'];
 
@@ -18,10 +18,12 @@ test('constants are the agreed values', () => {
     CALORIE_TOLERANCE_REL: 0.2,
     ALCOHOL_KCAL_PER_G: 2.4,
     MAX_KCAL_PER_G: 9,
-    MIN_DENSITY: 0.02,
-    MAX_DENSITY: 1.6,
-    UNIT_SLIP_FACTOR: 10,
   });
+});
+
+test('the rule ids are the five rules, in execution order', () => {
+  assert.deepEqual(Object.values(RULES), ['invalid', 'weight', 'macro_weight', 'calories_macros', 'kcal_density']);
+  assert.ok(!Object.values(RULES).includes('density'));
 });
 
 test('invalid: a present-but-bad value becomes 0 and is counted; "150" is accepted', () => {
@@ -50,81 +52,14 @@ test('weight: 2000 stays, 2001 is capped to 2000', () => {
   assert.equal(cap.report.adjusted, 1);
 });
 
-test('density: exactly 0.02 and 1.6 g/ml stay', () => {
-  for (const [w, v] of [[20, 1000], [160, 100]]) {
-    const { items, report } = one({ weight_g: w, volume_ml: v, calories: 100, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
-    assert.equal(items[0].weight_g, w);
-    assert.equal(items[0].calories, 100);
-    assert.equal(report.rules.density, undefined);
-  }
-});
-
-test('density: 0.019 is raised to 0.02 and calories scale with the weight', () => {
-  // 19 g in 1000 ml -> weight 20 (factor 20/19)
-  const { items, report } = one({ name: 'chips', weight_g: 19, volume_ml: 1000, calories: 95, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
-  assert.equal(items[0].weight_g, 20);
-  assert.equal(items[0].calories, 100);
-  assert.equal(items[0].volume_ml, 1000);
-  assert.equal(items[0].name, 'chips');
-  assert.equal(report.rules.density, 1);
-});
-
-test('density: macros scale with the weight too', () => {
-  // 19 g in 1000 ml -> weight 20; carbs 9.5 g -> 10 g
-  const { items } = one({ weight_g: 19, volume_ml: 1000, calories: 38, protein_g: 0, carbs_g: 9.5, fat_g: 0, fiber_g: 0 });
-  assert.equal(items[0].carbs_g, 10);
-  assert.equal(items[0].calories, 40);
-});
-
-test('density: 1.61 is lowered to 1.6 and calories/macros scale down', () => {
-  // 161 g in 100 ml -> weight 160 (factor 160/161)
-  const { items, report } = one({ weight_g: 161, volume_ml: 100, calories: 322, protein_g: 0, carbs_g: 80.5, fat_g: 0, fiber_g: 0 });
-  assert.equal(items[0].weight_g, 160);
-  assert.equal(items[0].calories, 320);
-  assert.equal(items[0].carbs_g, 80);
-  assert.equal(report.rules.density, 1);
-  assert.equal(report.calories_delta, -2);
-});
-
-test('density: a unit slip (outside 0.002 to 16 g/ml) is left alone and not counted', () => {
-  // the inclusive ends still act: 0.002 g/ml (2 g in 1000 ml) and 16 g/ml (160 g in 10 ml)
-  const low = one({ weight_g: 2, volume_ml: 1000, calories: 10, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
-  assert.equal(low.items[0].weight_g, 20);
-  assert.equal(low.items[0].calories, 100);
-  assert.equal(low.report.rules.density, 1);
-  const high = one({ weight_g: 160, volume_ml: 10, calories: 100, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
-  assert.equal(high.items[0].weight_g, 16);
-  assert.equal(high.report.rules.density, 1);
-
-  // just beyond either end: untouched, rule not counted
-  for (const [w, v] of [[1.9, 1000], [161, 10], [500, 2], [1, 5000]]) {
-    const item = { weight_g: w, volume_ml: v, calories: 1, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 };
-    const { items, report } = one(item);
-    assert.deepEqual(items[0], item, w + ' g in ' + v + ' ml');
-    assert.equal(report.rules.density, undefined);
-    assert.equal(report.adjusted, 0);
-  }
-});
-
-test('density: volume_ml is read like the other numbers ("170" works)', () => {
-  // 340 g in "170" ml = 2 g/ml -> weight 272 (factor 0.8)
-  const { items, report } = one({ weight_g: 340, volume_ml: '170', calories: 100, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
-  assert.equal(items[0].weight_g, 272);
-  assert.equal(items[0].calories, 80);
-  assert.equal(items[0].volume_ml, '170', 'the given value is kept as it was');
-  assert.equal(report.rules.density, 1);
-});
-
-test('density: skipped without a usable volume or weight', () => {
-  // weight 5000 would be a density far above 1.6 for the tiny volumes, so only a skipped rule leaves 2000
-  for (const volume_ml of [undefined, 0, -5, '', 'abc', '250 ml', NaN, Infinity, null, true, []]) {
-    const { items, report } = one(ok({ volume_ml, weight_g: 5000 }));
-    assert.equal(items[0].weight_g, 2000, String(volume_ml)); // only the weight cap acted
-    assert.equal(report.rules.density, undefined, String(volume_ml));
-  }
-  const { items, report } = one({ weight_g: 0, volume_ml: 100, calories: 50 });
-  assert.equal(items[0].weight_g, 0);
-  assert.equal(report.rules.density, undefined);
+// The density rule (weight against volume_ml) was removed with the volume method (owner
+// decision 2026-10-03: the scale-grounded prompt asks for no volume). A volume_ml a model
+// still writes is an unknown key: kept on the copy and never acted on.
+test('a volume_ml that contradicts the weight is ignored', () => {
+  const item = ok({ volume_ml: 10, weight_g: 150 }); // 15 g/ml: the old density rule would have acted
+  const { items, report } = one(item);
+  assert.deepEqual(items[0], item);
+  assert.deepEqual(report, { adjusted: 0, calories_delta: 0, rules: {} });
 });
 
 test('macro_weight: a sum of exactly 1.02x the weight stays, above is scaled to the weight', () => {

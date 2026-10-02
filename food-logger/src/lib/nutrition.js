@@ -1,6 +1,6 @@
 'use strict';
 
-// Sanity rules for the numbers of an AI nutrition estimate (spec sections 4 and 5.2).
+// Sanity rules for the numbers of an AI nutrition estimate (spec section 4).
 // Pure and dependency-free: it never throws, never drops or reorders items and never
 // mutates its input. It only makes the numbers consistent; it logs nothing.
 
@@ -13,17 +13,11 @@ const LIMITS = Object.freeze({
   // about 35-40 % ABV, the physical ceiling for a drink; it widens only the upper tolerance.
   ALCOHOL_KCAL_PER_G: 2.4,
   MAX_KCAL_PER_G: 9, // pure fat is the physical limit
-  MIN_DENSITY: 0.02, // g/ml; popcorn, chips, loose greens and foam
-  MAX_DENSITY: 1.6, // g/ml; dense fat, honey, nut butter
-  // A density outside [MIN_DENSITY / 10, MAX_DENSITY * 10] is a unit slip (litres written as ml,
-  // and the like), not a wrong estimate: the density rule leaves such an item alone.
-  UNIT_SLIP_FACTOR: 10,
 });
 
 const RULES = Object.freeze({
   INVALID: 'invalid',
   WEIGHT: 'weight',
-  DENSITY: 'density',
   MACRO_WEIGHT: 'macro_weight',
   CALORIES_MACROS: 'calories_macros',
   KCAL_DENSITY: 'kcal_density',
@@ -81,23 +75,7 @@ function reconcileOne(raw, hit) {
     if (item.weight_g > LIMITS.MAX_ITEM_WEIGHT_G) item.weight_g = LIMITS.MAX_ITEM_WEIGHT_G;
   });
 
-  // 3. density (spec 5.2): weight and volume must agree; move the weight to the nearest bound
-  // and scale the nutrition by the same factor.
-  run(RULES.DENSITY, () => {
-    const volume = toFinite(item.volume_ml);
-    if (volume === null || volume <= 0 || item.weight_g <= 0) return;
-    const density = item.weight_g / volume;
-    if (density >= LIMITS.MIN_DENSITY && density <= LIMITS.MAX_DENSITY) return;
-    if (density < LIMITS.MIN_DENSITY / LIMITS.UNIT_SLIP_FACTOR || density > LIMITS.MAX_DENSITY * LIMITS.UNIT_SLIP_FACTOR) return;
-    const oldWeight = item.weight_g;
-    const newWeight = round1(volume * (density < LIMITS.MIN_DENSITY ? LIMITS.MIN_DENSITY : LIMITS.MAX_DENSITY));
-    const factor = newWeight / oldWeight;
-    item.weight_g = newWeight;
-    item.calories = Math.round(item.calories * factor);
-    for (const f of MACRO_FIELDS) item[f] = round1(item[f] * factor);
-  });
-
-  // 4. macros fit the weight (the weight is trusted first).
+  // 3. macros fit the weight (the weight is trusted first).
   run(RULES.MACRO_WEIGHT, () => {
     if (item.weight_g <= 0) return;
     const sum = MACRO_FIELDS.reduce((s, f) => s + item[f], 0);
@@ -107,7 +85,7 @@ function reconcileOne(raw, hit) {
     }
   });
 
-  // 5. calories match the macros (skipped when the macros are all 0: a drink can have calories only).
+  // 4. calories match the macros (skipped when the macros are all 0: a drink can have calories only).
   // The upper side also allows ALCOHOL_KCAL_PER_G per gram of weight (wine and beer carry calories
   // no macro field holds); with weight 0 that allowance is 0.
   run(RULES.CALORIES_MACROS, () => {
@@ -120,7 +98,7 @@ function reconcileOne(raw, hit) {
     }
   });
 
-  // 6. calories per gram cannot exceed the physical limit.
+  // 5. calories per gram cannot exceed the physical limit.
   run(RULES.KCAL_DENSITY, () => {
     if (item.weight_g > 0 && item.calories > LIMITS.MAX_KCAL_PER_G * item.weight_g) {
       item.calories = Math.round(LIMITS.MAX_KCAL_PER_G * item.weight_g);

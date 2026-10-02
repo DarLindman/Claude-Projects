@@ -17,23 +17,29 @@ const PORTION_ANCHORS = Object.freeze({
 });
 const anchorG = (v) => (Array.isArray(v) ? `${v[0]}-${v[1]}` : String(v));
 
-// Step 3 of the image prompt (spec 5.1): how to estimate a portion, by a general method for
-// any food and never per dish. Scale from a reference of known size, then each item's size
-// and volume, then the weight from the volume by the density of the physical kind of food,
-// then the calories from the weight. scale_reference and volume_ml are model-only fields
-// (like visual_description): never returned, stored or logged; nutrition.js only checks
-// that weight_g and volume_ml agree (the density rule).
-const PORTION_METHOD = `שלב 3 — כמויות, בסדר הזה:
-א. קנה מידה: מצא בתמונה פריט בגודל ידוע, למשל צלחת אוכל רגילה (קוטר של כ־26 ס״מ), מזלג (כ־19 ס״מ), כף יד, כוס, בקבוק, פרוסת לחם או מוצר ארוז. כתוב אותו בשדה scale_reference, בביטוי קצר באנגלית.
-ב. נפח: לכל מרכיב הערך את מידותיו בס״מ, כולל הגובה (ערימה, עומק הקערה), ומהן את נפחו במ״ל. כתוב אותו בשדה volume_ml.
-ג. משקל: המר את הנפח לגרמים לפי הצפיפות הכללית של סוג המזון, בגרם למ״ל: מוצק דחוס כ־1, דגנים מבושלים ומחית כ־0.8, ירקות קצוצים כ־0.6, עלים ירוקים כ־0.2, נוזלים כ־1, שמנים כ־0.9, מאפים כ־0.3-0.5. כתוב את התוצאה בשדה weight_g, ורק לפיו חשב את הקלוריות ואת שאר הערכים.
-ד. אם אין בתמונה פריט להשוואה, כתוב none בשדה scale_reference, הנח את גודל המנה המקובל לסוג כזה של מאכל והערך לפיו את volume_ml, והיעזר בעוגנים ובהנחות שלהלן.`;
+// Step 3 of the image prompt: the scale-grounded portion method (owner decision 2026-10-03,
+// after three real runs; it replaced a volume-and-density method that raised calories and
+// tripled the output). The model calibrates the size against objects of roughly standard size
+// visible in the frame (cutlery, a glass, a can, a card, a hand), derives the plate or bowl
+// diameter from them instead of assuming one, writes that in the model-only field
+// scale_reference (never returned, stored or logged, like visual_description), then estimates
+// each item's weight from its apparent size and the usual density of the kind of food, with no
+// upward bias. No per-item volume, no per-dish rules, no food dictionary.
+// The rendered prompt is byte-identical to scripts/eval/prompts/portionV2.js (the evaluated
+// variant); a test pins both, so a prompt change updates the two on purpose.
+const SCALE_METHOD = `שלב 3 — כמויות לפי קנה מידה מהתמונה:
+א. קנה מידה: חפש בתמונה חפצים שגודלם קבוע פחות או יותר, והשווה אליהם: מזלג באורך כ־19-20 ס״מ, סכין שולחן באורך כ־22 ס״מ, כף אוכל באורך כ־18-19 ס״מ, כפית באורך כ־14 ס״מ, כוס או ספל ברוחב כ־7-8 ס״מ, פחית 330 מ״ל ברוחב כ־6.6 ס״מ, כרטיס אשראי באורך 8.6 ס״מ, כף יד בוגרת ברוחב כ־8-9 ס״מ. צלחת אינה תמיד בקוטר 26 ס״מ: צלחות ביתיות הן בדרך כלל בקוטר 20-28 ס״מ, וקערה או צלחת קינוח קטנות יותר. הסק את קוטר הצלחת או הקערה מהחפצים שלידה; רק כשאין בתמונה שום חפץ להשוואה, הנח צלחת ביתית בקוטר של כ־24 ס״מ. כתוב בשדה scale_reference, בביטוי קצר באנגלית, באיזה חפץ השתמשת להשוואה ומה קוטר הצלחת או הקערה שיצא לך.
+ב. משקל: הערך את weight_g של כל מרכיב לפי גודלו ביחס לקנה המידה הזה (השטח שהוא תופס והעובי או הגובה שלו) ולפי הצפיפות הרגילה של סוג המזון (באותו נפח, מזון דחוס שוקל יותר ממזון אוורירי), ולא לפי גודל מנה שהנחת מראש. אל תנפח: בצלחת ביתית רגילה יש בדרך כלל מנה רגילה אחת, לא שתיים. סמוך על קנה המידה שמדדת, ולא על נטייה להגדיל או להקטין.`;
+
+// The restaurant assumption applies only when the serving clearly looks like a restaurant, and
+// then adds the hidden oil/butter only (it no longer inflates sizes).
+const RESTAURANT_LINE = '- מנת מסעדה: רק כשההגשה נראית בבירור כמו במסעדה (הכלים, עיצוב המנה בצלחת), שמן/חמאה נסתרים תמיד נכללים.';
 
 const IMAGE_SYSTEM_PROMPT = `אתה מנתח תזונה מומחה. נתח תמונות אוכל לפי השיטה הבאה:
 
 שלב 1 — זיהוי: זהה כל מרכיב גלוי תוך שימוש בהקשר המלא של הצלחת: המרקם, הצבע, צורת החיתוך והתוספות.
 שלב 2 — נסתרים: שקול תמיד רכיבים לא גלויים — שמן טיגון, חמאה, ציפוי, רוטב, שמן זית.
-${PORTION_METHOD}
+${SCALE_METHOD}
 
 עוגני כמויות לאוכל נפוץ:
 - פרוסת לחם = ${anchorG(PORTION_ANCHORS.breadSliceG)} גרם
@@ -47,7 +53,7 @@ ${PORTION_METHOD}
 - גבינה פרוסה = ${anchorG(PORTION_ANCHORS.cheeseSliceG)} גרם
 
 הנחות:
-- מנת מסעדה: הכל גדול יותר ממה שנראה, שמן/חמאה נסתרים תמיד נכללים.
+${RESTAURANT_LINE}
 - אל תעגל לעשרות/מאות — חשב מדויק (למשל 187 ולא 200).
 - שמות מרכיבים בעברית מדוברת ישראלית בלבד — אותיות עבריות בלבד.
 
@@ -82,24 +88,23 @@ ${PORTION_METHOD}
 // nutrition and a placeholder name, so taking it for the answer would be a wrong 200).
 const TEMPLATE_ITEM = Object.freeze({ name: 'שם בעברית', weight_g: 0, calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
 const TEXT_REPLY_TEMPLATE = Object.freeze([TEMPLATE_ITEM]);
-// An image item also carries volume_ml (model-only), written before weight_g: the weight is
-// derived from the volume (PORTION_METHOD). The text items stay without it.
-const IMAGE_TEMPLATE_ITEM = Object.freeze({ name: 'שם בעברית', volume_ml: 0, weight_g: 0, calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
+// The image reply adds the model-only scale_reference after visual_description; its items use
+// the same item template as the text reply.
 const IMAGE_REPLY_TEMPLATE = Object.freeze({
   visual_description: 'short neutral English description',
-  scale_reference: 'reference object and its size',
+  scale_reference: 'reference objects and the plate diameter',
   draft_name: 'טיוטה ראשונה של השם',
   dish_name: 'השם הסופי של המנה',
-  items: Object.freeze([IMAGE_TEMPLATE_ITEM]),
+  items: TEXT_REPLY_TEMPLATE,
 });
 
 // The user message of the image request: the reply fields in the order the model
 // fills them (recognise, find the scale, draft the name, re-read and fix it, then the
-// nutrition items, each with its volume before its weight).
+// nutrition items, the weight before the calories).
 const IMAGE_USER_MESSAGE = `זהה כל מרכיב בנפרד. השב עם JSON object בלבד, ללא markdown, והשדות בסדר הזה:
 ${JSON.stringify(IMAGE_REPLY_TEMPLATE)}
-visual_description קודם (זיהוי), אחריו scale_reference (קנה המידה), אחריו draft_name (טיוטה לפי כללי השמות), אחריו dish_name (קרא שוב את הטיוטה, בדוק כל מילה מול כללי השמות ותקן מה שצריך), ורק אז items.
-בכל פריט volume_ml קודם, אחריו weight_g לפי הנפח, ורק אז חשב קלוריות לפי weight_g בלבד.`;
+visual_description קודם (זיהוי), אחריו scale_reference (קנה המידה וקוטר הצלחת), אחריו draft_name (טיוטה לפי כללי השמות), אחריו dish_name (קרא שוב את הטיוטה, בדוק כל מילה מול כללי השמות ותקן מה שצריך), ורק אז items.
+weight_g קודם — אז חשב קלוריות לפי weight_g בלבד.`;
 
 const TEXT_SYSTEM_PROMPT = `אתה מחשבון תזונה מדויק למשתמשים ישראלים.
 
@@ -132,7 +137,7 @@ const TEXT_SYSTEM_PROMPT = `אתה מחשבון תזונה מדויק למשתמ
 
 module.exports = {
   PORTION_ANCHORS,
-  PORTION_METHOD,
+  SCALE_METHOD,
   IMAGE_SYSTEM_PROMPT,
   IMAGE_USER_MESSAGE,
   TEXT_SYSTEM_PROMPT,

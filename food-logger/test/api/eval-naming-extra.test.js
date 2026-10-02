@@ -273,10 +273,11 @@ test('every recorded side keeps the scale, the items with weight, volume and cal
   const { result } = await runWith(ws, { yes: true, runs: 1, alsoModel: EXTRA });
   const r = result.results.photos[0].runs[0];
   for (const side of ['old', 'new', 'extra']) {
-    assert.equal(r[side].scale, 'dinner plate about 26 cm', side);
+    assert.equal(r[side].scale, 'fork about 19 cm; plate about 26 cm', side);
+    // the scale-grounded prompt asks for no volume: an absent volume_ml is recorded as null
     assert.deepEqual(r[side].items, [
-      { weight_g: 150, volume_ml: 170, calories: 250 },
-      { weight_g: 150, volume_ml: 190, calories: 200 },
+      { weight_g: 150, volume_ml: null, calories: 250 },
+      { weight_g: 150, volume_ml: null, calories: 200 },
     ], side);
     assert.deepEqual(r[side].sanity, { adjusted: 0, calories_delta: 0, rules: {} }, side);
   }

@@ -23,12 +23,13 @@ class AnalysisParseError extends Error {
 
 // The per-model request rules of the image analysis, in one place. Haiku (an id starting
 // with claude-haiku) keeps its request exactly as it always was: temperature 0 and
-// max_tokens 1500 (the items plus room for visual_description, scale_reference, draft_name
-// and each item's volume_ml). Every other
+// max_tokens 1500 (the items plus room for visual_description, scale_reference and
+// draft_name). Every other
 // model gets no temperature (null omits the field; newer models reject it with a 400,
-// "temperature is deprecated for this model") and max_tokens 6000: Sonnet may write a
-// thinking block first and its tokens count against max_tokens, which cut the JSON answer
-// off at 1500. It is only a cap; what is billed is what the model writes.
+// "temperature is deprecated for this model") and max_tokens 6000: Sonnet can spend thinking
+// tokens before its answer (many without the low-latency fields, IMAGE_EFFORT=off; far fewer
+// at the default effort low, see requestOptionsFor) and they count against max_tokens, which
+// once cut the JSON answer off at 1500. It is only a cap; what is billed is what the model writes.
 const isHaiku = (model) => model.startsWith('claude-haiku');
 const temperatureFor = (model) => (isHaiku(model) ? 0 : null);
 const maxTokensFor = (model) => (isHaiku(model) ? 1500 : 6000);
@@ -182,8 +183,7 @@ async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL, t
   const items = parsed.items;
   // visual_description, scale_reference and draft_name are only the model's recognition,
   // scale and first attempt: they are never read here, so they are not returned, stored or
-  // logged. Each item's volume_ml is read only by the density rule of checkItems and is
-  // never returned, stored or logged either. Item names are
+  // logged. Item names are
   // cleaned defensively but not returned; dish_name (the checked final name) goes through
   // the guard as is (missing or of any type it becomes the default name).
   items.forEach(item => { item.name = cleanDishName(item.name); });
