@@ -33,6 +33,22 @@ const isHaiku = (model) => model.startsWith('claude-haiku');
 const temperatureFor = (model) => (isHaiku(model) ? 0 : null);
 const maxTokensFor = (model) => (isHaiku(model) ? 1500 : 6000);
 
+// Low-latency options of the Sonnet 5 image request. Sonnet 5.5 spends many hidden thinking
+// tokens before answering (about 8-17 s per photo); `thinking: { type: 'between_tools' }`
+// with `output_config: { effort }` (low, medium or high; GA, no beta header) cuts that.
+// Only an id starting with claude-sonnet-5 gets them: Haiku, Opus and Fable reject these
+// fields with a 400, so every other model gets {}. `effort` undefined means the default
+// (low); null or 'off' sends nothing (the rollback, IMAGE_EFFORT=off). Never combined with
+// `thinking: disabled` or `budget_tokens` (rejected by these models).
+const EFFORTS = ['low', 'medium', 'high'];
+function requestOptionsFor(model, effort) {
+  if (typeof model !== 'string' || !model.startsWith('claude-sonnet-5')) return {};
+  if (effort === null || effort === 'off') return {};
+  const level = effort === undefined ? 'low' : effort;
+  if (!EFFORTS.includes(level)) throw new TypeError(`effort must be one of ${EFFORTS.join('|')}, off or null`);
+  return { thinking: { type: 'between_tools' }, output_config: { effort: level } };
+}
+
 // The JSON of a reply, or an AnalysisParseError. The reply describes the user's meal, so it
 // is never logged or put in the error: a failure logs (under `tag`) only its kind, the
 // reply length, the block types and stop_reason (so a reply cut by max_tokens or one
@@ -126,12 +142,19 @@ function checkItems(tag, items) {
 // `model` is the configured image model (config.imageModel) in production; without it the
 // request goes to MODEL. `temperature` defaults to temperatureFor(model); an explicit value
 // wins (the evaluation tool): null omits the field, a number from 0 to 1 is sent.
-async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL, temperature }) {
+// `effort` (config.imageEffort in production) goes through requestOptionsFor(model, effort):
+// undefined is the default (low), null omits the Sonnet 5 low-latency fields.
+// `prompts` ({ system, user }) replaces IMAGE_SYSTEM_PROMPT and IMAGE_USER_MESSAGE; it is for
+// the evaluation tool only and production never passes it.
+async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL, temperature, effort, prompts }) {
   if (typeof model !== 'string' || !model.trim()) throw new TypeError('model must be a non-empty string');
   if (temperature === undefined) temperature = temperatureFor(model);
   if (temperature !== null && !(typeof temperature === 'number' && Number.isFinite(temperature) && temperature >= 0 && temperature <= 1)) {
     throw new TypeError('temperature must be null or a finite number from 0 to 1');
   }
+  const systemPrompt = prompts?.system ?? IMAGE_SYSTEM_PROMPT;
+  const userMessage = prompts?.user ?? IMAGE_USER_MESSAGE;
+  const options = requestOptionsFor(model, effort);
   // The reply describes the user's meal (visual_description, scale_reference, draft_name),
   // so it is never logged (see parseReply).
   const parsed = await withParseRetry('analyze', async () => {
@@ -139,7 +162,8 @@ async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL, t
       model,
       max_tokens: maxTokensFor(model),
       ...(temperature === null ? {} : { temperature }),
-      system: IMAGE_SYSTEM_PROMPT,
+      ...options,
+      system: systemPrompt,
       messages: [{
         role: 'user',
         content: [
@@ -147,7 +171,7 @@ async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL, t
             type: 'image',
             source: { type: 'base64', media_type: mimeType, data: imageBase64 }
           },
-          { type: 'text', text: IMAGE_USER_MESSAGE }
+          { type: 'text', text: userMessage }
         ]
       }]
     });
@@ -203,4 +227,5 @@ module.exports = {
   isImageAnswer,
   temperatureFor,
   maxTokensFor,
+  requestOptionsFor,
 };

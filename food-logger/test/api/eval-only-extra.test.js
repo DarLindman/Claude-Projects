@@ -59,7 +59,8 @@ test('analyzeImage with temperature null leaves the temperature field out of the
   await analyzeImage(fake, { ...ARGS, model: EXTRA, temperature: null });
   const call = fake.calls.find((c) => !isRepairCall(c));
   assert.equal('temperature' in call, false);
-  assert.deepEqual(Object.keys(call), ['model', 'max_tokens', 'system', 'messages']);
+  // EXTRA is a Sonnet 5 id, so it also carries the low-latency fields (requestOptionsFor)
+  assert.deepEqual(Object.keys(call), ['model', 'max_tokens', 'thinking', 'output_config', 'system', 'messages']);
   assert.equal(call.model, EXTRA);
 });
 

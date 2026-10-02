@@ -4,6 +4,8 @@ const NODE_ENVS = ['development', 'test', 'production'];
 const DEFAULT_ORIGIN = 'http://localhost:3000';
 const MIN_JWT_SECRET_LENGTH = 32;
 const DEFAULT_IMAGE_MODEL = 'claude-sonnet-5-5';
+const DEFAULT_IMAGE_EFFORT = 'low';
+const IMAGE_EFFORTS = ['low', 'medium', 'high', 'off'];
 const MODEL_ID = /^claude-[A-Za-z0-9._-]+$/;
 
 // Treat unset and empty/whitespace-only values the same way.
@@ -110,6 +112,19 @@ function loadConfig(env = process.env) {
     }
   }
 
+  // The effort of the Sonnet 5 image request (see requestOptionsFor in analysis.js); `off`
+  // sends no thinking/output_config fields. Like IMAGE_MODEL, a set-but-blank value is an
+  // error, not the default, and the value is not echoed.
+  let imageEffort = DEFAULT_IMAGE_EFFORT;
+  if (env.IMAGE_EFFORT !== undefined && env.IMAGE_EFFORT !== null) {
+    const e = String(env.IMAGE_EFFORT).trim();
+    if (IMAGE_EFFORTS.includes(e)) {
+      imageEffort = e;
+    } else {
+      errors.push(`IMAGE_EFFORT must be one of ${IMAGE_EFFORTS.join('|')} (default ${DEFAULT_IMAGE_EFFORT}; a set but blank value is an error: delete the variable to use the default)`);
+    }
+  }
+
   if (errors.length) {
     throw new Error(`Invalid configuration:\n- ${errors.join('\n- ')}`);
   }
@@ -124,6 +139,7 @@ function loadConfig(env = process.env) {
     trustProxy,
     databaseCa,
     imageModel,
+    imageEffort,
     isProd,
   });
 }
