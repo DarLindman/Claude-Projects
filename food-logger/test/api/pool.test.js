@@ -174,3 +174,50 @@ test('no process warning is emitted while a pinned pool runs its first query', a
   }
   assert.deepEqual(warnings.map((w) => w.message), []);
 });
+
+test('a socket error during the SET round trip fails the query and does not crash the process', async () => {
+  // pg-pool attaches its idle error listener only after connect() completes, so without
+  // the temporary listener in UtcClient this error would be an unhandled 'error' event.
+  class ResetDuringSet extends UtcClient {
+    query(text, ...rest) {
+      if (typeof text === 'string' && text.startsWith('SET TIME ZONE')) {
+        this.connection.stream.destroy(new Error('ECONNRESET'));
+      }
+      return super.query(text, ...rest);
+    }
+  }
+  const uncaught = [];
+  const onUncaught = (e) => uncaught.push(e);
+  process.on('uncaughtException', onUncaught);
+  const pool = new Pool({ connectionString: await ensureTestDb(), Client: ResetDuringSet });
+  try {
+    await assert.rejects(pool.query('SELECT 1'));
+    await new Promise((resolve) => setTimeout(resolve, 50)); // let any stray 'error' event surface
+  } finally {
+    process.off('uncaughtException', onUncaught);
+    await pool.end();
+  }
+  assert.deepEqual(uncaught.map((e) => e.message), []);
+});
+
+test('the promise form of UtcClient.connect survives a socket error during the SET too', async () => {
+  class ResetDuringSet extends UtcClient {
+    query(text, ...rest) {
+      if (typeof text === 'string' && text.startsWith('SET TIME ZONE')) {
+        this.connection.stream.destroy(new Error('ECONNRESET'));
+      }
+      return super.query(text, ...rest);
+    }
+  }
+  const uncaught = [];
+  const onUncaught = (e) => uncaught.push(e);
+  process.on('uncaughtException', onUncaught);
+  try {
+    const client = new ResetDuringSet({ connectionString: await ensureTestDb() });
+    await assert.rejects(client.connect());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  } finally {
+    process.off('uncaughtException', onUncaught);
+  }
+  assert.deepEqual(uncaught.map((e) => e.message), []);
+});
