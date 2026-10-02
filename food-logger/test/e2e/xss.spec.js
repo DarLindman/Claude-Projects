@@ -5,7 +5,7 @@
 // injected would also show up as a CSP violation through attachGuards.
 
 const { test, expect } = require('@playwright/test');
-const { attachGuards, expectNoGuardEvents, SAVE_TO_DIARY } = require('./helpers');
+const { attachGuards, expectNoGuardEvents, SAVE_TO_DIARY, localNow } = require('./helpers');
 
 const PASSWORD = 'xss-pass-1234';
 const CSRF = { Origin: 'http://localhost:3100', 'X-FL-Client': '1' };
@@ -41,15 +41,20 @@ for (const [i, payload] of PAYLOADS.entries()) {
     // The account name, the food name and the notes are all hostile.
     const reg = await post(page, '/auth/register', { username: payload, password: PASSWORD });
     expect(reg.status(), await reg.text()).toBe(200);
+    // Seed like the real app: the date comes from the browser's (local) clock, never from the
+    // server's UTC fallback. Fixed times on the local day so they never cross midnight.
+    const { date } = localNow();
     const food = await post(page, '/api/food', {
       meal_type: 'lunch', food_name: payload, calories: 300, protein_g: 10, carbs_g: 20, fat_g: 5, fiber_g: 2, notes: other,
+      logged_at: `${date}T09:00:00`,
     });
     expect(food.status(), await food.text()).toBe(200);
     const second = await post(page, '/api/food', {
       meal_type: 'dinner', food_name: other, calories: 100, protein_g: 1, carbs_g: 2, fat_g: 3, fiber_g: 4, notes: payload,
+      logged_at: `${date}T13:00:00`,
     });
     expect(second.status()).toBe(200);
-    expect((await post(page, '/api/weight', { weight_kg: 71.5 })).status()).toBe(200);
+    expect((await post(page, '/api/weight', { weight_kg: 71.5, logged_at: date })).status()).toBe(200);
 
     // ── dashboard: the username is shown (pet name + pet message) ────────
     await page.goto('/');

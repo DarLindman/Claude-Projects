@@ -49,4 +49,16 @@ const SIGNED_OUT_ME = /^console\.error: Failed to load resource: the server resp
 // slow machine, so every wait for "saved entry appears in the diary" uses this one.
 const SAVE_TO_DIARY = { timeout: 10_000 };
 
-module.exports = { attachGuards, expectNoGuardEvents, SIGNED_OUT_ME, SAVE_TO_DIARY };
+// The browser-style wall-clock "now": local date `YYYY-MM-DD` and local timestamp
+// `YYYY-MM-DDTHH:mm:00`, from the Node process's LOCAL clock (the same clock the Chromium
+// instance uses). Built with local getters, never toISOString (UTC): the real app always sends
+// these from the browser clock, so a test that seeds through the API must do the same, or at
+// night (local day != UTC day) the entries land on the wrong day.
+function localNow() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  const date = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  return { date, timestamp: `${date}T${p(d.getHours())}:${p(d.getMinutes())}:00` };
+}
+
+module.exports = { attachGuards, expectNoGuardEvents, SIGNED_OUT_ME, SAVE_TO_DIARY, localNow };
