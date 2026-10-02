@@ -5,6 +5,7 @@
 
 const path = require('node:path');
 const { Pool } = require('pg');
+const { pinUtcSession } = require('../../src/db/pool');
 
 require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env'), quiet: true });
 
@@ -41,11 +42,11 @@ async function createTestPool() {
   } finally {
     await adminPool.end();
   }
-  return new Pool({ connectionString: url.toString() });
+  return pinUtcSession(new Pool({ connectionString: url.toString() }));
 }
 
 async function resetDb(pool) {
   await pool.query('TRUNCATE users, food_logs, weight_logs, user_profiles RESTART IDENTITY CASCADE');
 }
 
-module.exports = { createTestPool, resetDb };
+module.exports = { createTestPool, resetDb, resolveTestUrl };

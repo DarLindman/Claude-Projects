@@ -24,12 +24,24 @@ function stripSslParams(connectionString) {
   return connectionString.slice(0, q) + (kept.length ? `?${kept.join('&')}` : '');
 }
 
+// Every connection runs in UTC, so ::date and timestamptz casts never depend on
+// the database server's (or PGOPTIONS') time zone. pg queues queries per client,
+// so this SET always runs before the first query handed out on a new connection.
+function pinUtcSession(pool) {
+  pool.on('connect', (client) => {
+    client.query("SET TIME ZONE 'UTC'").catch((err) => {
+      console.error('failed to set the database session time zone to UTC:', err.message);
+    });
+  });
+  return pool;
+}
+
 function createPool(config) {
   const ssl = sslConfig(config);
   if (config.isProd && !config.databaseCa) {
     console.warn('DATABASE_CA is not set: database TLS certificate verification is OFF');
   }
-  return new Pool({ connectionString: stripSslParams(config.databaseUrl), ssl });
+  return pinUtcSession(new Pool({ connectionString: stripSslParams(config.databaseUrl), ssl }));
 }
 
-module.exports = { createPool, sslConfig, stripSslParams };
+module.exports = { createPool, sslConfig, stripSslParams, pinUtcSession };
