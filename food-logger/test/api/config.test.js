@@ -19,6 +19,7 @@ test('valid development env loads with defaults', () => {
   assert.equal(c.jwtSecret, base.JWT_SECRET);
   assert.equal(c.anthropicApiKey, 'sk-ant-test');
   assert.equal(c.databaseCa, undefined);
+  assert.equal(c.imageModel, 'claude-sonnet-5-5');
 });
 
 test('JWT_SECRET of 31 chars throws and names JWT_SECRET', () => {
@@ -147,6 +148,42 @@ test('.env.example placeholder JWT_SECRET is rejected, so it cannot be deployed 
   const line = text.split(/\r?\n/).find((l) => l.startsWith('JWT_SECRET='));
   assert.ok(line, 'JWT_SECRET line present');
   assert.throws(() => loadConfig({ ...base, JWT_SECRET: line.slice('JWT_SECRET='.length) }), /JWT_SECRET/);
+});
+
+// ─── IMAGE_MODEL ─────────────────────────────────────────────────────────────
+test('IMAGE_MODEL defaults to claude-sonnet-5-5, in development and production', () => {
+  assert.equal(loadConfig({ ...base }).imageModel, 'claude-sonnet-5-5');
+  assert.equal(loadConfig({ ...base, NODE_ENV: 'production', ORIGIN: 'https://a.example' }).imageModel, 'claude-sonnet-5-5');
+});
+
+test('IMAGE_MODEL overrides the default and is trimmed', () => {
+  assert.equal(loadConfig({ ...base, IMAGE_MODEL: 'claude-haiku-4-5-20251001' }).imageModel, 'claude-haiku-4-5-20251001');
+  assert.equal(loadConfig({ ...base, IMAGE_MODEL: '  claude-haiku-4-5-20251001\n' }).imageModel, 'claude-haiku-4-5-20251001');
+  assert.equal(loadConfig({ ...base, IMAGE_MODEL: 'claude-sonnet-4.5_x' }).imageModel, 'claude-sonnet-4.5_x');
+});
+
+test('an invalid IMAGE_MODEL is a startup error naming IMAGE_MODEL, reported with other problems', () => {
+  for (const bad of ['gpt-4', '', '   ', '\n', 'CLAUDE-SONNET-5-5', 'claude-', 'claude', 'claude-sonnet 5', 'claude-sonnet/5', 'xclaude-sonnet', 'claude-sonnet-5-5;rm']) {
+    assert.throws(
+      () => loadConfig({ ...base, IMAGE_MODEL: bad }),
+      (e) => e instanceof Error && e.message.includes('IMAGE_MODEL'),
+      `IMAGE_MODEL ${JSON.stringify(bad)} must be rejected`
+    );
+  }
+  assert.throws(
+    () => loadConfig({ ...base, JWT_SECRET: 'short', IMAGE_MODEL: 'gpt-4' }),
+    (e) => e.message.includes('JWT_SECRET') && e.message.includes('IMAGE_MODEL')
+  );
+});
+
+test('the .env.example IMAGE_MODEL line, if uncommented, is a valid id', () => {
+  const text = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', '.env.example'), 'utf8');
+  const lines = text.split(/\r?\n/).filter((l) => /^#?\s*IMAGE_MODEL=/.test(l));
+  assert.ok(lines.length >= 1, 'IMAGE_MODEL is documented');
+  for (const l of lines) {
+    const value = l.replace(/^#?\s*IMAGE_MODEL=/, '');
+    assert.match(loadConfig({ ...base, IMAGE_MODEL: value }).imageModel, /^claude-/);
+  }
 });
 
 test('deployWarnings: a Railway deploy without NODE_ENV=production warns, production and non-Railway do not', () => {

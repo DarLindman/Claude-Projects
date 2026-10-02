@@ -21,7 +21,7 @@ export function populateProfileSelects() {
     if (!sel) return;
     const options = [];
     for (let h = 220; h >= 100; h--) {
-      options.push(html`<option value="${h}">${h} ס"מ</option>`);
+      options.push(html`<option value="${h}">${h} ס״מ</option>`);
     }
     setHtml(sel, html`<option value="">גובה</option>${options}`);
   });
@@ -32,7 +32,7 @@ export function populateProfileSelects() {
     const options = [];
     for (let w = 250; w >= 30; w -= 0.5) {
       const v = w.toFixed(1);
-      options.push(html`<option value="${v}">${v} ק"ג</option>`);
+      options.push(html`<option value="${v}">${v} ק״ג</option>`);
     }
     setHtml(sel, html`<option value="">משקל</option>${options}`);
   });
@@ -49,7 +49,7 @@ export async function doChangePassword() {
   try {
     await apiFetch('/auth/change-password', { method: 'POST', body: JSON.stringify({ currentPassword: cur, newPassword: nw }) });
     closeModal('modal-change-pass');
-    showToast('הסיסמא שונתה בהצלחה');
+    showToast('הסיסמה שונתה בהצלחה');
   } catch (e) { document.getElementById('cp-error').textContent = messageFor(e); }
 }
 
@@ -120,7 +120,7 @@ export function updateMpPreview() {
     goalKg: state.mpGoalKg,
   };
   const rec = calcRecommendedCal(profile);
-  document.getElementById('mp-cal-preview').textContent = rec > 0 ? `${rec} קל'` : '—';
+  document.getElementById('mp-cal-preview').textContent = rec > 0 ? `${rec} קק״ל` : '—';
 }
 
 export async function saveMpProfile() {

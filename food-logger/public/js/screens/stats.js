@@ -1,7 +1,7 @@
 import { state } from '../state.js';
 import { apiFetch } from '../api.js';
 import { renderLineChart, renderStatAvgBox, renderStatMacros } from '../charts.js';
-import { addMonths, formatDateShort, formatMonth, todayStr } from '../dates.js';
+import { addMonths, formatDateShort, formatDayCount, formatMonth, todayStr } from '../dates.js';
 import { html, setHtml } from '../dom.js';
 import { cloneCapybara, setPetState } from '../pet.js';
 import { calcRecommendedCal } from '../profile.js';
@@ -83,6 +83,9 @@ export function statsChangeYear(n) {
   loadStats();
 }
 
+// The line under the macro averages; empty (the line is hidden) when there are no days.
+const averageFootnote = (days) => (days > 0 ? `ממוצע יומי על בסיס ${formatDayCount(days)}` : '');
+
 export async function loadStats() {
   if (state.currentStatsTab === 'weekly') await loadWeeklyStats();
   if (state.currentStatsTab === 'monthly') await loadMonthlyStats();
@@ -93,7 +96,7 @@ async function loadWeeklyStats() {
   try {
     const rows = await apiFetch('/api/stats/weekly');
     const rec = calcRecommendedCal();
-    renderStatAvgBox('weekly-avg-box', rows, rec, "ממוצע קל' יומי");
+    renderStatAvgBox('weekly-avg-box', rows, rec, 'ממוצע קלוריות יומי');
     const chartEl = document.getElementById('weekly-chart');
     // Build last 7 days including today, filling zeros for missing days
     const todayDate = new Date();
@@ -130,7 +133,7 @@ async function loadWeeklyStats() {
         });
       }
     }
-    renderStatMacros('weekly-macro', rows, `ממוצע יומי ב-${rows.length} ימים`);
+    renderStatMacros('weekly-macro', rows, averageFootnote(rows.length));
     const wrapEl = document.getElementById('pet-stats-wrap');
     if (wrapEl) {
       if (!wrapEl.querySelector('.capy-walk-stage')) {
@@ -157,7 +160,7 @@ async function loadMonthlyStats() {
   try {
     const rows = await apiFetch(`/api/stats/monthly?month=${state.statsMonth}`);
     const rec = calcRecommendedCal();
-    renderStatAvgBox('monthly-avg-box', rows, rec, "ממוצע קל' יומי");
+    renderStatAvgBox('monthly-avg-box', rows, rec, 'ממוצע קלוריות יומי');
     const chartEl = document.getElementById('monthly-chart');
     if (!rows.length) { setHtml(chartEl, html`<div class="empty-state"><p>אין נתונים</p></div>`); return; }
     const todayS = todayStr();
@@ -177,7 +180,7 @@ async function loadMonthlyStats() {
         }));
       }
     }
-    renderStatMacros('monthly-macro', rows, `ממוצע יומי ב-${rows.length} ימים`);
+    renderStatMacros('monthly-macro', rows, averageFootnote(rows.length));
   } catch { }
 }
 
@@ -186,7 +189,7 @@ async function loadYearlyStats() {
   try {
     const rows = await apiFetch(`/api/stats/yearly?year=${state.statsYear}`);
     const rec = calcRecommendedCal();
-    const monthNames = ['ינו','פבר','מרץ','אפר','מאי','יונ','יול','אוג','ספט','אוק','נוב','דצמ'];
+    const monthNames = ['ינו׳','פבר׳','מרץ','אפר׳','מאי','יוני','יולי','אוג׳','ספט׳','אוק׳','נוב׳','דצמ׳'];
     const totalCal = rows.reduce((s, r) => s + (+r.calories || 0), 0);
     const totalDays = rows.reduce((s, r) => s + (parseInt(r.day_count, 10) || 0), 0);
     const yearlyDailyAvg = totalDays > 0 ? Math.round(totalCal / totalDays) : (rows.length > 0 ? Math.round(totalCal / (rows.length * 30)) : 0);
@@ -196,9 +199,10 @@ async function loadYearlyStats() {
       if (rec > 0) {
         const diff = yearlyDailyAvg - rec;
         const cls = diff <= 0 ? 'under' : 'over';
-        diffHtml = html`<div class="avg-diff ${cls}">${diff > 0 ? '+' : ''}${diff} קל'</div><div style="font-size:11px;color:var(--muted)">מהמומלץ</div>`;
+        // the signed number is isolated left-to-right, so its sign stays on its left in the RTL page
+        diffHtml = html`<div class="avg-diff ${cls}"><bdi dir="ltr">${diff > 0 ? '+' : ''}${diff}</bdi> קק״ל</div><div style="font-size:11px;color:var(--muted)">מהמומלץ</div>`;
       }
-      setHtml(yearlyAvgEl, html`<div class="avg-box"><div class="avg-box-left"><div class="avg-val">${yearlyDailyAvg}</div><div class="avg-label">ממוצע קל' יומי</div></div><div class="avg-box-right">${diffHtml}</div></div>`);
+      setHtml(yearlyAvgEl, html`<div class="avg-box"><div class="avg-box-left"><div class="avg-val">${yearlyDailyAvg}</div><div class="avg-label">ממוצע קלוריות יומי</div></div><div class="avg-box-right">${diffHtml}</div></div>`);
     }
     const chartEl = document.getElementById('yearly-chart');
     if (!rows.length) { setHtml(chartEl, html`<div class="empty-state"><p>אין נתונים</p></div>`); return; }
@@ -209,7 +213,7 @@ async function loadYearlyStats() {
       isToday: r => r.month === currentMonth,
       recommended: rec,
     }));
-    renderStatMacros('yearly-macro', rows, `ממוצע יומי על בסיס ${totalDays} ימים`, totalDays);
+    renderStatMacros('yearly-macro', rows, averageFootnote(totalDays), totalDays);
   } catch { }
 }
 

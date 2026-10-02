@@ -43,5 +43,5 @@ export function updateSettingsProfileSub() {
   const sub = document.getElementById('settings-profile-sub');
   if (!sub) return;
   const rec = calcRecommendedCal();
-  sub.textContent = rec > 0 ? `${rec} קל' מומלצות ביום` : 'לא הוגדר';
+  sub.textContent = rec > 0 ? `${rec} קלוריות מומלצות ביום` : 'לא הוגדר';
 }

@@ -99,7 +99,7 @@ test('full user journey', async ({ page }) => {
   await page.locator('#nav-settings').click();
   await expect(page.locator('#screen-settings')).toBeVisible();
   await expect(page.locator('#settings-user')).toContainText(username);
-  await page.getByText('שינוי סיסמא', { exact: true }).first().click();
+  await page.getByText('שינוי סיסמה', { exact: true }).first().click();
   await expect(page.locator('#modal-change-pass')).toHaveClass(/open/);
   await page.locator('#cp-current').fill(PASSWORD);
   await page.locator('#cp-new').fill(NEW_PASSWORD);

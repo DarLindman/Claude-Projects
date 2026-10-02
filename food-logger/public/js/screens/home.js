@@ -5,7 +5,7 @@ import { closeModal, html, openModal, setHtml, showToast } from '../dom.js';
 import { getFoodEmoji } from '../format.js';
 import { cloneCapybara, setIdleWrap, setPetState, startIdleAnimations } from '../pet.js';
 import { calcRecommendedCal } from '../profile.js';
-import { messageFor } from '../errors.js';
+import { analysisMessageFor, messageFor } from '../errors.js';
 
 // ════════════════════════════════════════════════════
 // Diary
@@ -30,7 +30,7 @@ export async function loadDiary() {
 function renderMealList(entries) {
   const el = document.getElementById('meal-list');
   if (!entries.length) {
-    setHtml(el, html`<div class="empty-state"><div class="empty-icon">🍽️</div><p>אין ארוחות מתועדות<br>לחץ 📷 לצלם אוכל</p></div>`);
+    setHtml(el, html`<div class="empty-state"><div class="empty-icon">🍽️</div><p>אין ארוחות מתועדות<br>לחץ על ➕ כדי להוסיף ארוחה</p></div>`);
     return;
   }
   const ACCENT = { breakfast: 'meal-accent-breakfast', lunch: 'meal-accent-lunch', dinner: 'meal-accent-dinner', snack: 'meal-accent-snack' };
@@ -94,7 +94,7 @@ function renderDailySummary(entries) {
     const consumed = Math.round(totals.cal);
     const pct = Math.min(Math.round(consumed / rec * 100), 200);
     const isOver = consumed > rec;
-    document.getElementById('cal-goal-text').textContent = `${rec} / ${consumed} קל'`;
+    document.getElementById('cal-goal-text').textContent = `${rec} / ${consumed} קק״ל`;
     const pctEl = document.getElementById('cal-goal-pct');
     pctEl.textContent = `${Math.round(consumed / rec * 100)}%`;
     pctEl.className = 'cal-goal-pct' + (isOver ? ' over' : '');
@@ -132,7 +132,7 @@ export async function deleteEntry(id) {
     await apiFetch(`/api/food/${id}`, { method: 'DELETE' });
     document.getElementById(`entry-${id}`)?.remove();
     loadDiary();
-    showToast('הרשומה נמחקה');
+    showToast('המנה נמחקה');
   } catch (e) { showToast('שגיאה במחיקה'); }
 }
 
@@ -230,10 +230,7 @@ export async function editRecalculate() {
     setHtml(document.getElementById('edit-btn-row'),
       html`<button class="btn btn-primary" style="width:100%" data-action="editSave">שמור</button>`);
   } catch (e) {
-    const msg = e?.status === 429
-      ? 'הגעת למגבלת הניתוחים לשעה זו'
-      : messageFor(e);
-    showToast(msg);
+    showToast(analysisMessageFor(e));
     updateEditButtons();
   } finally {
     _editAnalyzing = false;

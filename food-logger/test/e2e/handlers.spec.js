@@ -283,11 +283,11 @@ test('inline handlers are gone and every delegated action still works', async ({
   expect(await savedProfile(page)).toMatchObject({ gender: 'male', activity: 'sedentary', goalKg: -0.5, height: 175 });
 
   // ── settings: change-password modal ────────────────────────────────────
-  await page.locator('#screen-settings .settings-item', { hasText: 'שינוי סיסמא' }).click();
+  await page.locator('#screen-settings .settings-item', { hasText: 'שינוי סיסמה' }).click();
   await expect(page.locator('#modal-change-pass')).toHaveClass(/open/);
   await expectNoInline(page, 'change password modal');
   await expectBackdropRule(page, 'modal-change-pass', '.modal-title');
-  await page.locator('#screen-settings .settings-item', { hasText: 'שינוי סיסמא' }).click();
+  await page.locator('#screen-settings .settings-item', { hasText: 'שינוי סיסמה' }).click();
   await page.locator('#modal-change-pass .modal-close').click();
   await expect(page.locator('#modal-change-pass')).not.toHaveClass(/open/);
 

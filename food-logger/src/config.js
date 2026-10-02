@@ -3,6 +3,8 @@
 const NODE_ENVS = ['development', 'test', 'production'];
 const DEFAULT_ORIGIN = 'http://localhost:3000';
 const MIN_JWT_SECRET_LENGTH = 32;
+const DEFAULT_IMAGE_MODEL = 'claude-sonnet-5-5';
+const MODEL_ID = /^claude-[A-Za-z0-9._-]+$/;
 
 // Treat unset and empty/whitespace-only values the same way.
 function read(env, name) {
@@ -95,6 +97,19 @@ function loadConfig(env = process.env) {
 
   const databaseCa = read(env, 'DATABASE_CA');
 
+  // The model of the image analysis (text analysis stays on Haiku). Unlike the values
+  // above, a set-but-blank IMAGE_MODEL is an error, not the default: it is a typo to fix.
+  // The value is not echoed, in case a secret was pasted into the wrong variable.
+  let imageModel = DEFAULT_IMAGE_MODEL;
+  if (env.IMAGE_MODEL !== undefined && env.IMAGE_MODEL !== null) {
+    const m = String(env.IMAGE_MODEL).trim();
+    if (MODEL_ID.test(m)) {
+      imageModel = m;
+    } else {
+      errors.push(`IMAGE_MODEL must be a Claude model id such as ${DEFAULT_IMAGE_MODEL} or claude-haiku-4-5-20251001 (lowercase "claude-" then letters, digits, ".", "_" or "-")`);
+    }
+  }
+
   if (errors.length) {
     throw new Error(`Invalid configuration:\n- ${errors.join('\n- ')}`);
   }
@@ -108,6 +123,7 @@ function loadConfig(env = process.env) {
     nodeEnv,
     trustProxy,
     databaseCa,
+    imageModel,
     isProd,
   });
 }
