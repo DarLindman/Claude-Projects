@@ -2,6 +2,7 @@ import { state } from './state.js';
 import { apiFetch, configureApi } from './api.js';
 import { updateSettingsProfileSub } from './profile.js';
 import { navigate } from './router.js';
+import { resetCamera } from './screens/camera.js';
 
 // The session itself is an HttpOnly cookie set by the server; JavaScript never sees it.
 // Only the username is kept here, in memory, for display.
@@ -60,6 +61,7 @@ export async function doLogout() {
   try { await apiFetch('/auth/logout', { method: 'POST', silent: true }); } catch {}
   localStorage.removeItem('fl_profile');
   username = null; state.userProfile = null;
+  resetCamera();   // the next person must not see this one's photo or text
   document.getElementById('bottom-nav').style.display = 'none';
   navigate('auth');
 }

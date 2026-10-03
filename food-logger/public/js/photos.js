@@ -36,10 +36,10 @@ export async function makeThumbnail(blob, { maxSide = 480, quality = 0.7 } = {})
   try {
     if (!blob || !blob.size) return null;   // nothing to decode (an empty blob would even raise a CSP report)
     const img = await decodeImage(blob);
+    if (!(img.naturalWidth > 0 && img.naturalHeight > 0)) return null;
     const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
     const w = Math.max(1, Math.round(img.naturalWidth * scale));
     const h = Math.max(1, Math.round(img.naturalHeight * scale));
-    if (!(img.naturalWidth > 0 && img.naturalHeight > 0)) return null;
     const canvas = document.createElement('canvas');
     canvas.width = w; canvas.height = h;
     canvas.getContext('2d').drawImage(img, 0, 0, w, h);

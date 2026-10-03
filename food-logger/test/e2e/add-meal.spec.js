@@ -225,11 +225,17 @@ test.describe('add meal', () => {
     expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
   });
 
-  test('a text analysis sends no thumbnail, even when a photo was chosen before', async ({ page }) => {
+  test('a text analysis sends no thumbnail, even after a photo was analysed first', async ({ page }) => {
     const puts = [];
     page.on('request', (r) => { if (r.method() === 'PUT' && PHOTO_URL.test(r.url())) puts.push(r.url()); });
     await openAdd(page);
     await choosePhoto(page);
+    // the photo is really analysed first (this is what puts it in the app's state), then the user goes back and types
+    await page.locator('#analyze-btn').click();
+    await expect(page.locator('#analysis-result')).toBeVisible();
+    await page.locator('#nav-camera').click();
+    await expect(page.locator('#screen-camera')).toBeVisible();
+    await expect(page.locator('#preview-img')).toBeVisible();   // the photo is still there
     await page.locator('#food-text-input').fill('סלט ולחם');
     await page.locator('#text-analyze-btn').click();
     await expect(page.locator('#analysis-result')).toBeVisible();
@@ -238,6 +244,80 @@ test.describe('add meal', () => {
     await expect(page.locator('#meal-list .meal-item-row .plate-ph')).toBeVisible();
     expect(puts).toEqual([]);
     expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+  });
+
+  test('a second click on "שמור ביומן" during the celebration does not save the meal twice', async ({ page }) => {
+    await openAdd(page);
+    await page.locator('#food-text-input').fill('סלט ולחם');
+    await page.locator('#text-analyze-btn').click();
+    await expect(page.locator('#analysis-result')).toBeVisible();
+    await page.locator('#save-entry-btn').click();
+    await expect(page.locator('#save-entry-btn')).toBeDisabled();
+    await page.locator('#save-entry-btn').click({ force: true });
+    await expect(page.locator('#screen-home')).toBeVisible(SAVE_TO_DIARY);
+    await expect(page.locator('#meal-list .meal-item-row')).toHaveCount(1);
+    expect(await (await page.request.get('/api/food')).json()).toHaveLength(1);
+    // the next analysis can be saved again
+    await page.locator('#nav-camera').click();
+    await page.locator('#food-text-input').fill('לחם');
+    await page.locator('#text-analyze-btn').click();
+    await expect(page.locator('#analysis-result')).toBeVisible();
+    await expect(page.locator('#save-entry-btn')).toBeEnabled();
+    expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+  });
+
+  test('the diary does not open after the user left the analysis page during the celebration', async ({ page }) => {
+    await openAdd(page);
+    await page.locator('#food-text-input').fill('סלט ולחם');
+    await page.locator('#text-analyze-btn').click();
+    await expect(page.locator('#analysis-result')).toBeVisible();
+    await page.locator('#save-entry-btn').click();
+    await page.locator('#nav-stats').click();
+    await expect(page.locator('#screen-stats')).toBeVisible();
+    await page.waitForTimeout(4500);
+    await expect(page.locator('#screen-stats')).toBeVisible();
+    await expect(page.locator('#screen-home')).toBeHidden();
+    expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+  });
+
+  test('signing out clears the photo and the text for the next person', async ({ page }) => {
+    await openAdd(page);
+    await choosePhoto(page);
+    await page.locator('#food-text-input').fill('סלט ולחם');
+    await page.evaluate(async () => { await (await import('/js/session.js')).doLogout(); });
+    await expect(page.locator('#screen-auth')).toBeVisible();
+    const state = await page.evaluate(async () => {
+      const { state } = await import('/js/state.js');
+      return { b64: state.capturedImageBase64, blob: state.photoBlob, src: document.getElementById('preview-img').getAttribute('src'), has: document.getElementById('screen-camera').classList.contains('has-photo'), text: document.getElementById('food-text-input').value };
+    });
+    expect(state).toEqual({ b64: null, blob: null, src: null, has: false, text: '' });
+    expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+  });
+
+  test('a file that is not an image leaves the empty frame, silently; the latest pick wins', async ({ page }) => {
+    await openAdd(page);
+    const [c1] = await Promise.all([page.waitForEvent('filechooser'), page.locator('.cam-frame').click()]);
+    await c1.setFiles({ name: 'x.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('this is not an image') });
+    await expect(page.locator('.cam-frame')).toBeVisible();
+    await expect(page.locator('#preview-img')).toBeHidden();
+    await expect(page.locator('#analyze-btn')).toBeHidden();
+    // two picks in a row: a huge photo (slow to decode) and then a small one; the small one must stay
+    const input = page.locator('#file-input');
+    await input.setInputFiles(photoFile(bigPhoto(4000, 3000, 90)));
+    await input.setInputFiles(photoFile(realJpeg(60, 40, 33)));
+    await expect(page.locator('#preview-img')).toBeVisible();
+    await page.waitForTimeout(1500);
+    const dims = await page.locator('#preview-img').evaluate((i) => [i.naturalWidth, i.naturalHeight]);
+    expect(dims).toEqual([60, 40]);
+    expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+  });
+
+  test('with a photo, only "נתח את הצלחת" is a filled red button; the text button is an outline', async ({ page }) => {
+    await openAdd(page);
+    await choosePhoto(page);
+    const bg = (sel) => page.locator(sel).evaluate((el) => getComputedStyle(el).backgroundColor);
+    expect(await bg('#analyze-btn')).toBe('rgb(179, 49, 29)');
+    expect(await bg('#text-analyze-btn')).toBe('rgba(0, 0, 0, 0)');
   });
 
   test('photos.js: makeThumbnail bounds size and side, uploadThumbnail never throws', async ({ page }) => {

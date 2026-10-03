@@ -42,14 +42,24 @@ export function selectCameraMeal(chip) {
   syncMealChips();
 }
 
-// The camera page back to its empty state (after a save): no photo, no text.
-export function resetCamera() {
+// Only the latest pick may apply: a slower decode of an older pick must not overwrite a newer photo (nor bring back a
+// photo that a save or a sign-out has already cleared).
+let _pickSeq = 0;
+
+// The photo part of the camera page back to its empty frame.
+function clearPhoto() {
+  _pickSeq += 1;
   state.capturedImageBase64 = null;
   state.photoBlob = null;
   byId('screen-camera').classList.remove('has-photo');
   byId('preview-img').removeAttribute('src');
   byId('analyze-btn').disabled = true;
   byId('file-input').value = '';
+}
+
+// The camera page back to its empty state (after a save or a sign-out): no photo, no text.
+export function resetCamera() {
+  clearPhoto();
   const text = byId('food-text-input');
   text.value = '';
   autoResizeTextarea(text);
@@ -67,10 +77,17 @@ export function onImageSelected(e) {
   const file = e.target.files[0];
   if (!file) return;
   state.capturedMime = 'image/jpeg';
+  const seq = ++_pickSeq;
+  // a file that cannot be read or decoded leaves the empty frame, silently (the user just picks again)
+  const fail = () => { if (seq === _pickSeq) clearPhoto(); };
   const reader = new FileReader();
+  reader.onerror = fail;
   reader.onload = ev => {
+    if (seq !== _pickSeq) return;
     const img = new Image();
+    img.onerror = fail;
     img.onload = () => {
+      if (seq !== _pickSeq) return;
       const canvas = document.createElement('canvas');
       const MAX = 1024;
       let w = img.width, h = img.height;
@@ -96,6 +113,7 @@ export async function analyzeText() {
   if (!text) return;
   const btn = document.getElementById('text-analyze-btn');
   btn.disabled = true;
+  byId('save-entry-btn').disabled = false;
   state.photoBlob = null;   // this meal comes from the text, so no thumbnail is made even if a photo was chosen before
   navigate('analysis');
   _cameraCapyState('thinking');
@@ -136,6 +154,7 @@ export async function analyzeText() {
 
 export async function analyzeFood() {
   if (!state.capturedImageBase64) return;
+  byId('save-entry-btn').disabled = false;
   state.photoBlob = blobFromBase64(state.capturedImageBase64, state.capturedMime);   // the saved meal's thumbnail is made from it
   navigate('analysis');
   _cameraCapyState('thinking');

@@ -7,6 +7,7 @@ import { cloneCapybara, setPetState } from '../pet.js';
 import { navigate } from '../router.js';
 import { messageFor } from '../errors.js';
 import { makeThumbnail, uploadThumbnail } from '../photos.js';
+import { getUsername } from '../session.js';
 import { resetCamera } from './camera.js';
 
 // The thumbnail of a saved photo meal, made and sent in the background. It never rejects and never shows anything: a
@@ -44,7 +45,8 @@ export async function saveEntry() {
     // a meal that came from a photo also gets its thumbnail; the diary opens after it settles (bounded below), so it shows it
     const photo = state.photoBlob;
     const thumbnail = photo && saved?.id ? saveThumbnail(saved.id, photo) : Promise.resolve();
-    saveBtn.disabled = false;
+    // the button stays disabled until the diary opens (a second click during the celebration would save the meal twice);
+    // a new analysis enables it again (camera.js), and so does the timer below
     saveBtn.textContent = 'שמור ביומן';
     state.diaryDate = todayStr();
     // Fly-in celebration popup
@@ -67,7 +69,11 @@ export async function saveEntry() {
     }
     spawnConfetti();
     // the celebration runs 2.7 s; the diary opens after it, and after the thumbnail when that is not slower than 1.5 s more
-    setTimeout(() => Promise.race([thumbnail, new Promise(r => setTimeout(r, 1500))]).then(() => navigate('home')), 2700);
+    // The diary opens only if the user is still on this page and still signed in (they may have left or signed out meanwhile).
+    setTimeout(() => Promise.race([thumbnail, new Promise(r => setTimeout(r, 1500))]).then(() => {
+      saveBtn.disabled = false;
+      if (state.currentScreen === 'analysis' && getUsername()) navigate('home');
+    }), 2700);
     showToast('✅ נשמר ביומן!');
     resetCamera();
   } catch (e) {
