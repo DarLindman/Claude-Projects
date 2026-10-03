@@ -13,224 +13,9 @@
 
 /* ════════════════════════════════════════
    DASHBOARD
+   The home page is a diary page: its styles live with the other redone pages in screens.css ("Home").
+   What stays here is used by code outside it: the log-preview rows and the chart's plate legend.
 ════════════════════════════════════════ */
-.dash-wrap {
-  flex: 1;
-  padding: 0 20px 16px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-evenly;
-  gap: 0;
-  max-width: 800px;
-  margin-inline: auto;
-  width: 100%;
-  overflow-y: auto;
-  overflow-x: hidden;
-}
-
-
-.dash-logo-vid {
-  width: 80px;
-  height: 80px;
-  border-radius: var(--radius-sharp);
-  flex-shrink: 0;
-  mix-blend-mode: screen;
-}
-
-.pet-strip {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 16px 14px;
-  background: rgba(232,112,58,0.05);
-  border-bottom: 1px solid var(--border);
-  direction: rtl;
-}
-.pet-strip .pet-wrap { flex-shrink: 0; }
-
-.pet-bubble {
-  flex: 1;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px 12px 12px 4px;
-  padding: 9px 13px;
-  direction: rtl;
-}
-.pet-bubble-name {
-  font-size: 14px;
-  color: var(--text);
-  margin-bottom: 3px;
-}
-.pet-bubble-name strong { color: var(--accent); }
-.pet-bubble-status {
-  font-size: 12px;
-  color: var(--text2);
-}
-
-/* Hero calorie number */
-.dash-hero-cal {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 0;
-  position: relative;
-}
-
-.dash-cal-row {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  direction: ltr;
-}
-.dash-cal-num {
-  font-family: var(--font-text);
-  font-style: normal;
-  font-weight: 300;
-  font-size: clamp(38px, 11vw, 52px);
-  color: var(--text);
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -2px;
-}
-.dash-cal-num-goal {
-  color: var(--muted);
-}
-.dash-cal-sep {
-  font-family: var(--font-text);
-  font-style: normal;
-  font-size: clamp(30px, 8vw, 38px);
-  color: var(--border);
-  line-height: 1;
-}
-.dash-cal-pct {
-  font-family: var(--font-text);
-  font-size: 18px;
-  color: var(--accent);
-  letter-spacing: 2px;
-  margin-top: 4px;
-}
-
-.dash-cal-label-main {
-  font-family: var(--font-text);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.dash-cal-label-sub {
-  font-family: var(--font-text);
-  font-size: 12px;
-  color: var(--text2);
-}
-
-
-/* Macro plate */
-.dash-plate-tooltip {
-  font-family: var(--font-text);
-  font-size: 12px;
-  color: var(--text2);
-  text-align: center;
-  min-height: 18px;
-}
-
-.plate-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--font-text);
-  font-size: 11px;
-  color: var(--text2);
-}
-
-.plate-legend-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.dash-streak-circle {
-  width: 160px;
-  height: 160px;
-  border-radius: 50%;
-  background: var(--accent-dim);
-  border: 2px solid var(--accent);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  align-self: center;
-  gap: 4px;
-  box-shadow: 0 0 24px var(--accent-glow);
-}
-
-.dash-streak-num {
-  font-family: var(--font-text);
-  font-weight: 700;
-  font-size: 56px;
-  color: var(--accent);
-  line-height: 1;
-  text-shadow: 0 0 12px var(--accent-glow), 0 2px 8px rgba(0,0,0,0.8);
-}
-
-.dash-streak-lbl {
-  font-family: var(--font-text);
-  font-size: 15px;
-  color: var(--text);
-  text-align: center;
-  letter-spacing: 1px;
-  text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
-}
-
-/* Fire & streak wrap */
-.dash-streak-wrap {
-  position: relative;
-  display: flex;
-  justify-content: center;
-  align-items: flex-end;
-  height: 185px;
-}
-.dash-streak-circle {
-  position: relative;
-  z-index: 1;
-  width: 120px;
-  height: 120px;
-}
-.dash-fire-canvas {
-  position: absolute;
-  bottom: 35px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 160px;
-  height: 240px;
-  pointer-events: none;
-  z-index: 0;
-}
-/* Entrance stagger */
-.dash-stagger {
-  opacity: 0;
-  transform: translateY(12px);
-  transition: opacity 0.5s var(--ease-out), transform 0.5s var(--ease-out);
-}
-.dash-stagger.anim-visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-/* Grain texture */
-.dash-wrap::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
-  opacity: 0.03;
-  pointer-events: none;
-  z-index: 0;
-}
-
 /* Log preview rows */
 .dash-log-preview {
   display: flex;
@@ -300,15 +85,23 @@
   margin-top: 2px;
 }
 
-.dash-username {
-  font-size: 13px;
+
+.plate-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-text);
+  font-size: 11px;
   color: var(--text2);
-  font-weight: 500;
-  letter-spacing: 0.02em;
 }
 
-.dash-cta { margin-top: 4px; border-radius: var(--radius-pill); }
-.dash-cta-ghost { width: 100%; margin-top: 2px; border-radius: var(--radius-pill); }
+.plate-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 
 .form-group { margin-bottom: 16px; }
 
@@ -468,19 +261,6 @@ input::placeholder { color: var(--muted); }
 .topbar-brand-ig:hover { opacity: 0.8; }
 
 /* The bottom dock (#bottom-nav) lives in base.css. */
-
-.wavy-divider {
-  display: block;
-  width: 100%;
-  height: 8px;
-  margin: 4px 0;
-  overflow: visible;
-}
-.wavy-divider path {
-  stroke: var(--border);
-  fill: none;
-  stroke-width: 0.5;
-}
 
 /* ════════════════════════════════════════
    PAGE CONTENT

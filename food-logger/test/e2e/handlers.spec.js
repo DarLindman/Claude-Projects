@@ -125,7 +125,7 @@ test('inline handlers are gone and every delegated action still works', async ({
   await expectNoInline(page, 'dashboard');
 
   // ── camera: file picker button and the file input's change handler ─────
-  await page.locator('#screen-dashboard .dash-cta').click();      // dashboard CTA -> camera
+  await page.locator('#nav-camera').click();                       // the dock's add button -> camera (the home page has no CTA of its own any more)
   await expect(page.locator('#screen-camera')).toBeVisible();
   // The listener is registered before the click that opens the chooser (Promise.all), and the
   // button is given time to be actionable once the screen transition has settled.

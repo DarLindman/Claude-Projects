@@ -27,6 +27,15 @@ export function formatDate(str) {
   return `${label}, ${date.getDate()} ב${months[date.getMonth()]}`;
 }
 
+// The home page's title: "שבת, 3 באוקטובר" (the weekday, then the day of the month with the full month name).
+export function formatDateTitle(str) {
+  const [y, m, d] = str.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  const days = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
+  const months = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  return `${days[date.getDay()]}, ${date.getDate()} ב${months[date.getMonth()]}`;
+}
+
 // A number of days in words: "יום אחד" for one, "N ימים" otherwise.
 export function formatDayCount(n) {
   return n === 1 ? 'יום אחד' : `${n} ימים`;

@@ -1,12 +1,17 @@
 import { state } from '../state.js';
 import { apiFetch } from '../api.js';
-import { addDays, daysBetween, todayStr } from '../dates.js';
+import { addDays, daysBetween, formatDateTitle, formatDayCount, todayStr } from '../dates.js';
 import { html, setHtml } from '../dom.js';
-import { animateCountUp, startFireCanvas, stopFireCanvas } from '../effects.js';
-import { getFoodEmoji } from '../format.js';
+import { animateCountUp } from '../effects.js';
+import { formatNumber, getFoodEmoji } from '../format.js';
 import { PET_MESSAGES, cloneCapybara, getIdleWrap, getPetState, setIdleWrap, setPetState, startIdleAnimations } from '../pet.js';
+import { plateSvg } from '../placeholder.js';
+import { photoSrc } from '../photos.js';
 import { calcRecommendedCal } from '../profile.js';
 import { getUsername } from '../session.js';
+import { tallySvg } from '../tally.js';
+
+const PET_SIZE = 132;
 
 // ════════════════════════════════════════════════════
 // Dashboard helpers
@@ -30,15 +35,77 @@ export function renderDashLogPreview(entries) {
   })}`);
 }
 
-export function animateDashStagger() {
-  var els = document.querySelectorAll('.dash-stagger');
-  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  els.forEach(function(el) { el.classList.remove('anim-visible'); });
-  var delays = [0, 150, 300, 450];
-  els.forEach(function(el, i) {
-    if (reduced) { el.classList.add('anim-visible'); return; }
-    setTimeout(function() { el.classList.add('anim-visible'); }, delays[i] || 0);
-  });
+const byId = (id) => document.getElementById(id);
+
+// The meal list of a day is ordered oldest first, so the last entry is the latest meal.
+// Left: the name in handwriting and the circled calories; right: the polaroid (the thumbnail when the meal has one,
+// else the drawn plate) with the time under it.
+function lastMealHtml(entry) {
+  const time = entry.logged_at ? String(entry.logged_at).slice(11, 16) : '';
+  const picture = entry.has_photo
+    ? html`<img class="ph-img" src="${photoSrc(entry.id)}" alt="">`
+    : plateSvg();
+  return html`<div class="polaroid dash-polaroid"><i class="tape"></i><div class="ph">${picture}</div><div class="cp">${time}</div></div>
+    <div class="dash-meal hand">
+      <div class="dash-meal-name">${entry.food_name || ''}</div>
+      <span class="circ">${formatNumber(+entry.calories)}</span>
+      <div class="dash-kcal">קק״ל</div>
+    </div>`;
+}
+
+function renderLastMeal(entries) {
+  const el = byId('dash-last');
+  if (!el) return;
+  const entry = entries && entries.length ? entries[entries.length - 1] : null;
+  if (!entry) { el.hidden = true; el.replaceChildren(); return; }
+  setHtml(el, lastMealHtml(entry));
+  el.hidden = false;
+}
+
+// The weight line shows only when a weight was logged today (registration logs one; the weight screen keeps the list fresh).
+function renderWeight() {
+  const el = byId('dash-weight');
+  if (!el) return;
+  const last = state.weightLogs.length ? state.weightLogs[state.weightLogs.length - 1] : null;
+  const kg = last ? +last.weight_kg : 0;
+  if (!last || last.logged_at !== todayStr() || !(kg > 0)) { el.hidden = true; return; }
+  byId('dash-weight-val').textContent = kg.toFixed(1);
+  el.hidden = false;
+}
+
+// A streak of 0 draws nothing: no line, no tally.
+function renderStreak(streak) {
+  const box = byId('dash-streak');
+  if (!box) return;
+  if (!(streak >= 1)) { box.hidden = true; byId('dash-tally').replaceChildren(); return; }
+  byId('dash-streak-num').textContent = formatDayCount(streak);
+  setHtml(byId('dash-tally'), tallySvg(streak, { width: 288 }));
+  box.hidden = false;
+}
+
+// The red bar: the share of the goal eaten, never wider than its track.
+function renderBar(cal, goal) {
+  const bar = byId('dash-bar');
+  const fill = byId('dash-cal-fill');
+  if (!bar || !fill) return;
+  if (!(goal > 0)) { bar.hidden = true; fill.style.width = '0%'; return; }
+  const pct = Math.max(0, Math.min(100, Math.round((cal / goal) * 100)));
+  bar.hidden = false;
+  bar.setAttribute('aria-valuenow', String(pct));
+  // set after a frame so the width animates from 0 when the screen opens
+  requestAnimationFrame(() => { fill.style.width = pct + '%'; });
+}
+
+// Leaving the screen empties what is user data, so the next visit (or the next user) never shows stale content.
+export function resetDashboard() {
+  const last = byId('dash-last');
+  if (last) { last.hidden = true; last.replaceChildren(); }
+  const streak = byId('dash-streak');
+  if (streak) streak.hidden = true;
+  const weight = byId('dash-weight');
+  if (weight) weight.hidden = true;
+  const fill = byId('dash-cal-fill');
+  if (fill) fill.style.width = '0%';
 }
 
 // Dashboard
@@ -46,54 +113,36 @@ export function animateDashStagger() {
 export async function loadDashboard() {
   let entries = [], cal = 0, goal = 0;
 
+  byId('dash-date').textContent = formatDateTitle(todayStr());
+  renderWeight();
+
   try {
     entries = await apiFetch(`/api/food?date=${todayStr()}`);
-    const { cal: c, pro, carb, fat, fiber } = entries.reduce(
-      (s, e) => ({
-        cal:   s.cal   + (+e.calories  || 0),
-        pro:   s.pro   + (+e.protein_g || 0),
-        carb:  s.carb  + (+e.carbs_g   || 0),
-        fat:   s.fat   + (+e.fat_g     || 0),
-        fiber: s.fiber + (+e.fiber_g   || 0),
-      }),
-      { cal: 0, pro: 0, carb: 0, fat: 0, fiber: 0 }
-    );
-    cal = c;
+    cal = entries.reduce((sum, e) => sum + (+e.calories || 0), 0);
     goal = calcRecommendedCal(state.userProfile);
-    const calEl  = document.getElementById('dash-cal-remaining');
-    const sepEl  = document.getElementById('dash-cal-sep');
-    const goalEl = document.getElementById('dash-cal-goal-label');
-    const pctEl  = document.getElementById('dash-cal-pct');
+    const calEl  = byId('dash-cal-remaining');
+    const sepEl  = byId('dash-cal-sep');
+    const goalEl = byId('dash-cal-goal-label');
     if (cal === 0 && goal === 0) {
       calEl.textContent = '—';
     } else if (cal === 0) {
       calEl.textContent = '0';
     } else {
-      animateCountUp(calEl, cal);
+      animateCountUp(calEl, Math.round(cal));
     }
     if (goal > 0) {
       goalEl.textContent = goal.toLocaleString('he-IL');
-      goalEl.style.display = '';
-      sepEl.style.display  = '';
-      const pct = Math.round((cal / goal) * 100);
-      pctEl.textContent    = pct + '%';
-      pctEl.style.display  = '';
+      sepEl.hidden = false;
     } else {
-      goalEl.style.display = 'none';
-      sepEl.style.display  = 'none';
-      pctEl.style.display  = 'none';
+      sepEl.hidden = true;
     }
+    renderBar(cal, goal);
+    renderLastMeal(entries);
   } catch {}
 
   try {
     const { streak, lastLogDate } = await apiFetch(`/api/streak?today=${todayStr()}`);
-    const numEl = document.getElementById('dash-streak-num');
-    if (numEl) numEl.textContent = streak ?? '—';
-    // the label under the number: "1 יום ברצף", not "1 ימים ברצף"
-    const lblEl = document.querySelector('.dash-streak-lbl');
-    if (lblEl) lblEl.textContent = streak === 1 ? 'יום ברצף' : 'ימים ברצף';
-    if (streak >= 1) startFireCanvas();
-    else stopFireCanvas();
+    renderStreak(streak);
 
     // Pet state: the same local "today" the server was given for the streak
     const today = todayStr();
@@ -105,9 +154,9 @@ export async function loadDashboard() {
       : 999;
 
     const petState = getPetState(cal / (goal || 2000), hasLoggedToday, hasLoggedYesterday, daysSinceLastLog);
-    const wrapEl = document.getElementById('pet-dashboard-wrap');
+    const wrapEl = byId('pet-dashboard-wrap');
     if (wrapEl && !wrapEl.querySelector('svg')) {
-      wrapEl.appendChild(cloneCapybara(80));
+      wrapEl.appendChild(cloneCapybara(PET_SIZE));
       setIdleWrap('dash', wrapEl.querySelector('.pet-wrap'));
     }
     if (getIdleWrap('dash')) startIdleAnimations(getIdleWrap('dash'));
@@ -115,8 +164,8 @@ export async function loadDashboard() {
     if (petWrap) setPetState(petWrap, petState);
 
     const petUsername = getUsername() || '';
-    document.getElementById('pet-name-label').textContent = petUsername;
-    document.getElementById('pet-status-text').textContent = PET_MESSAGES[petState](petUsername);
+    byId('pet-name-label').textContent = petUsername;
+    byId('pet-status-text').textContent = PET_MESSAGES[petState](petUsername);
 
   } catch {}
 }
