@@ -129,7 +129,7 @@ test('inline handlers are gone and every delegated action still works', async ({
   await expect(page.locator('#screen-camera')).toBeVisible();
   // The listener is registered before the click that opens the chooser (Promise.all), and the
   // button is given time to be actionable once the screen transition has settled.
-  const shoot = page.locator('.cam-btn-shoot');
+  const shoot = page.locator('.cam-frame');   // the dashed frame is the whole shutter button
   await expect(shoot).toBeEnabled();
   const [chooser] = await Promise.all([
     page.waitForEvent('filechooser', { timeout: 15_000 }),

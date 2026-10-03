@@ -4,6 +4,9 @@ import { _cameraCapyState, scheduleCameraHappy } from '../pet.js';
 import { navigate } from '../router.js';
 import { nowTimeStr } from '../dates.js';
 import { analysisMessageFor } from '../errors.js';
+import { blobFromBase64 } from '../photos.js';
+
+const byId = (id) => document.getElementById(id);
 
 let _placeholderIv = null;
 export function animatePlaceholder() {
@@ -22,6 +25,39 @@ export function animatePlaceholder() {
 export function autoResizeTextarea(el) {
   el.style.height = 'auto';
   el.style.height = el.scrollHeight + 'px';
+}
+
+// ════════════════════════════════════════════════════
+// Meal type: the camera page's chips and the analysis page's buttons show the same choice (state.selectedMeal).
+// ════════════════════════════════════════════════════
+export function syncMealChips() {
+  document.querySelectorAll('#cam-chips .chip').forEach(c => c.classList.toggle('on', c.dataset.meal === state.selectedMeal));
+  document.querySelectorAll('#screen-analysis .meal-opt').forEach(b => b.classList.toggle('selected', b.dataset.meal === state.selectedMeal));
+  const caption = byId('cam-caption');
+  if (caption) caption.textContent = document.querySelector('#cam-chips .chip.on')?.textContent || '';
+}
+
+export function selectCameraMeal(chip) {
+  state.selectedMeal = chip.dataset.meal;
+  syncMealChips();
+}
+
+// The camera page back to its empty state (after a save): no photo, no text.
+export function resetCamera() {
+  state.capturedImageBase64 = null;
+  state.photoBlob = null;
+  byId('screen-camera').classList.remove('has-photo');
+  byId('preview-img').removeAttribute('src');
+  byId('analyze-btn').disabled = true;
+  byId('file-input').value = '';
+  const text = byId('food-text-input');
+  text.value = '';
+  autoResizeTextarea(text);
+}
+
+export function enterCamera() {
+  syncMealChips();
+  animatePlaceholder();
 }
 
 // ════════════════════════════════════════════════════
@@ -46,10 +82,9 @@ export function onImageSelected(e) {
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
       const compressed = canvas.toDataURL('image/jpeg', 0.8);
       state.capturedImageBase64 = compressed.split(',')[1];
-      document.getElementById('preview-img').src = compressed;
-      document.getElementById('preview-img').style.display = 'block';
-      document.querySelector('.cam-placeholder').style.display = 'none';
-      document.getElementById('analyze-btn').disabled = false;
+      byId('preview-img').src = compressed;
+      byId('screen-camera').classList.add('has-photo');
+      byId('analyze-btn').disabled = false;
     };
     img.src = ev.target.result;
   };
@@ -61,6 +96,7 @@ export async function analyzeText() {
   if (!text) return;
   const btn = document.getElementById('text-analyze-btn');
   btn.disabled = true;
+  state.photoBlob = null;   // this meal comes from the text, so no thumbnail is made even if a photo was chosen before
   navigate('analysis');
   _cameraCapyState('thinking');
   document.getElementById('analysis-img').style.display = 'none';
@@ -100,6 +136,7 @@ export async function analyzeText() {
 
 export async function analyzeFood() {
   if (!state.capturedImageBase64) return;
+  state.photoBlob = blobFromBase64(state.capturedImageBase64, state.capturedMime);   // the saved meal's thumbnail is made from it
   navigate('analysis');
   _cameraCapyState('thinking');
   document.getElementById('analysis-img').src = `data:${state.capturedMime};base64,${state.capturedImageBase64}`;
@@ -145,5 +182,6 @@ export const actions = {
   pickImage: () => document.getElementById('file-input').click(),
   analyzeFood: () => analyzeFood(),
   analyzeText: () => analyzeText(),
+  selectCameraMeal: (el) => selectCameraMeal(el),
   onImageSelected: (el, event) => onImageSelected(event),
 };

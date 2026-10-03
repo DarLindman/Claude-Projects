@@ -6,7 +6,7 @@ import { loadProfile } from './profile.js';
 import { actions as navActions, registerScreen } from './router.js';
 import { actions as analysisActions } from './screens/analysis.js';
 import { actions as authActions, doLogin, doRegister, enterAuth, leaveAuth } from './screens/auth.js';
-import { actions as cameraActions, animatePlaceholder, autoResizeTextarea } from './screens/camera.js';
+import { actions as cameraActions, autoResizeTextarea, enterCamera } from './screens/camera.js';
 import { loadDashboard, resetDashboard } from './screens/dashboard.js';
 import { actions as homeActions, loadDiary } from './screens/home.js';
 import { actions as settingsActions, populateProfileSelects } from './screens/settings.js';
@@ -25,7 +25,7 @@ registerScreen('dashboard', { enter: loadDashboard, leave: resetDashboard });
 registerScreen('home',      { enter: loadDiary });
 registerScreen('stats',     { enter: () => { loadStats(); }, leave: stopStatsCapyWalk });
 registerScreen('weight',    { enter: loadWeightScreen });
-registerScreen('camera',    { enter: animatePlaceholder });
+registerScreen('camera',    { enter: enterCamera });
 registerScreen('analysis',  { enter: () => _cameraCapyState('neutral') });
 
 installPhotoFallback();

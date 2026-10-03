@@ -191,27 +191,36 @@
 
 <!-- ════════════════ CAMERA ════════════════ -->
 <div id="screen-camera" class="screen">
-  <div class="camera-area">
-    <div class="cam-tip">צלם את האוכל שלך</div>
-    <div class="cam-preview" id="cam-preview">
-      <div class="cam-corners">
-  <svg class="cam-corner" viewBox="0 0 20 20"><path d="M18 2 H10 M18 2 V10"/></svg>
-  <svg class="cam-corner" viewBox="0 0 20 20"><path d="M2 2 H10 M2 2 V10"/></svg>
-  <svg class="cam-corner" viewBox="0 0 20 20"><path d="M18 18 H10 M18 18 V10"/></svg>
-  <svg class="cam-corner" viewBox="0 0 20 20"><path d="M2 18 H10 M2 18 V10"/></svg>
-</div>
-      <span class="cam-placeholder">📷</span>
-      <img id="preview-img" alt="תצוגה מקדימה">
-    </div>
-    <div class="cam-actions">
-      <button class="cam-btn cam-btn-shoot" data-action="pickImage" aria-label="צלם / בחר תמונה"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></button>
-      <button class="cam-btn cam-btn-analyze" id="analyze-btn" data-action="analyzeFood" disabled>✨ נתח תמונה</button>
-    </div>
-    <input type="file" id="file-input" accept="image/*" data-change="onImageSelected">
-    <div class="text-analyze-section">
-      <div class="text-analyze-divider"><span>או הקלד תיאור אוכל</span></div>
-      <textarea id="food-text-input" placeholder="" data-placeholder="לדוגמה: 100 גרם חזה עוף עם כוס אורז וסלט ירקות"></textarea>
-      <button class="cam-btn cam-btn-analyze" id="text-analyze-btn" data-action="analyzeText">✍️ נתח טקסט</button>
+  <div class="page"><div class="rules"></div><div class="margin"></div>
+    <div class="content">
+      <div class="title big cam-title">מה אכלת?</div>
+      <!-- #cam-preview is the stage: before a photo the dashed frame (the whole frame is the button), after a photo the
+           taped polaroid with #preview-img and the "צלם שוב" link. screens/camera.js toggles .has-photo. -->
+      <div class="cam-stage" id="cam-preview">
+        <button type="button" class="cam-frame" data-action="pickImage">
+          <span class="cam-frame-in">
+            <svg class="cam-icon" width="96" height="82" viewBox="0 0 96 82" fill="none" stroke="#2b1f16" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" filter="url(#wobS)" aria-hidden="true" focusable="false"><path d="M8 24h18l7-11h30l7 11h18v48H8z" fill="#fffdf6"/><circle cx="48" cy="46" r="15"/><circle cx="48" cy="46" r="6" stroke="#b3311d"/><path d="M76 33h6" stroke="#b3311d"/></svg>
+            <span class="cam-big hand">לחץ לצילום</span>
+            <span class="cam-small hand">או בחר תמונה מהגלריה</span>
+          </span>
+        </button>
+        <i class="tape cam-frame-tape"></i>
+        <div class="polaroid cam-polaroid"><i class="tape"></i><div class="ph"><img id="preview-img" alt="תצוגה מקדימה"></div><div class="cp" id="cam-caption"></div></div>
+        <button type="button" class="cam-retake hand" data-action="pickImage">צלם שוב</button>
+      </div>
+      <div class="cam-chips" id="cam-chips">
+        <button type="button" class="chip" data-meal="breakfast" data-action="selectCameraMeal">בוקר</button>
+        <button type="button" class="chip on" data-meal="lunch" data-action="selectCameraMeal">צהריים</button>
+        <button type="button" class="chip" data-meal="dinner" data-action="selectCameraMeal">ערב</button>
+        <button type="button" class="chip" data-meal="snack" data-action="selectCameraMeal">חטיף</button>
+      </div>
+      <div class="cam-analyze-row" id="cam-analyze-row"><button type="button" class="penbtn cam-analyze" id="analyze-btn" data-action="analyzeFood" disabled>נתח את הצלחת</button></div>
+      <input type="file" id="file-input" accept="image/*" data-change="onImageSelected">
+      <div class="field cam-text">
+        <label for="food-text-input">או הקלד תיאור אוכל</label>
+        <textarea id="food-text-input" rows="1" placeholder="" data-placeholder="לדוגמה: 100 גרם חזה עוף עם כוס אורז וסלט ירקות"></textarea>
+        <button type="button" class="penbtn cam-text-go" id="text-analyze-btn" data-action="analyzeText">נתח טקסט</button>
+      </div>
     </div>
   </div>
 </div>

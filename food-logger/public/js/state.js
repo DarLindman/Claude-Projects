@@ -11,6 +11,7 @@ export const state = {
   selectedMeal: 'lunch',
   capturedImageBase64: null,
   capturedMime: 'image/jpeg',
+  photoBlob: null,   // the photo of the analysis in progress (set by analyzeFood, cleared by a text analysis); saveEntry makes the thumbnail from it
   userProfile: null,
   weightLogs: [],
   pendingRegUser: null,

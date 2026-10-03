@@ -1,170 +1,55 @@
 /* ════════════════════════════════════════
-   CAMERA SCREEN
+   ADD MEAL (#screen-camera)
+   A ruled page: the title, the stage (the dashed frame before a photo, the taped polaroid after it), the meal-type
+   chips, the red ink button (after a photo) and the text line. The stage is a fixed 270 px (nine rules); the frame is
+   the whole button. screens/camera.js toggles .has-photo on the screen.
 ════════════════════════════════════════ */
-/* #screen-camera: no background or padding of its own any more; it is a legacy cream page like the others (was black, with the dock padding now reserved by the .screen box) */
-
-.camera-area {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 24px;
-  padding: 24px;
-}
-
-.cam-tip {
-  font-size: 11px;
-  color: #444;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  font-weight: 500;
-}
-
-.cam-preview {
-  width: 100%;
-  max-width: 360px;
-  aspect-ratio: 1;
-  border-radius: 22px;
-  overflow: hidden;
-  background: #0c0c0c;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  border: 1px solid #1e1e1e;
-}
-
-
-.cam-corners {
-  position: absolute;
-  inset: 12px;
-  pointer-events: none;
-  z-index: 2;
-}
-.cam-corner {
-  position: absolute;
-  width: 20px;
-  height: 20px;
-}
-.cam-corner path {
-  stroke: var(--accent);
-  fill: none;
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  animation: cornerPulse 2s ease-in-out infinite;
-}
-.cam-corner:nth-child(1) { top: 0; right: 0; }
-.cam-corner:nth-child(2) { top: 0; left: 0; }
-.cam-corner:nth-child(3) { bottom: 0; right: 0; }
-.cam-corner:nth-child(4) { bottom: 0; left: 0; }
-@keyframes cornerPulse {
-  0%, 100% { opacity: 0.5; }
-  50%       { opacity: 1; }
-}
-
-.cam-preview img { width: 100%; height: 100%; object-fit: cover; display: none; }
-.cam-placeholder { font-size: 44px; opacity: 0.2; }
-
-.cam-actions {
-  display: flex;
-  gap: 10px;
-  width: 100%;
-  max-width: 360px;
-}
-
-.cam-btn {
-  flex: 1;
-  padding: 15px;
-  border: none;
-  border-radius: 14px;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: var(--font-text);
-  transition: all .15s;
-}
-
-.cam-btn-shoot {
-  position: relative;
-  width: 64px !important;
-  height: 64px !important;
-  border-radius: 50% !important;
-  padding: 0 !important;
-  background: var(--surface2) !important;
-  border: 2px solid var(--accent) !important;
-  box-shadow: 0 0 0 6px var(--surface), 0 0 0 7px transparent;
-  flex: 0 0 64px;
-  overflow: hidden;
-  transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast);
-  font-size: 0;
-}
-.cam-btn-shoot::after {
-  content: '';
-  position: absolute;
-  inset: -8px;
-  border-radius: 50%;
-  border: 1px dashed rgba(232,112,58,0.4);
-  animation: outerRingRotate 10s linear infinite;
-}
-.cam-btn-shoot:active {
-  transform: scale(0.92);
-  box-shadow: 0 0 0 6px var(--surface), 0 0 20px var(--accent-glow);
-}
-@keyframes outerRingRotate {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-
-.cam-btn-analyze {
-  background: var(--accent);
-  color: #fff;
-  box-shadow: 0 4px 18px rgba(232,112,58,0.38);
-}
-
-.cam-btn:disabled { opacity: 0.3; }
 #file-input { display: none; }
-
-.text-analyze-section {
-  width: 100%;
-  max-width: 360px;
-  margin-top: 20px;
-  padding: 0 4px;
+#screen-camera .content { padding-bottom: 28px; }
+.cam-title { margin-top: 6px; }
+.cam-stage { position: relative; height: 270px; margin-top: 6px; }
+.cam-frame {
+  position: absolute; inset: 2px 0 auto 0; height: 266px; width: auto; padding: 0; cursor: pointer;
+  border: 2.5px dashed rgba(43, 31, 22, .55); border-radius: 12px; background: rgba(255, 253, 246, .55);
+  display: grid; place-items: center; text-align: center; color: var(--ink); font: inherit;
+  transition: transform var(--dur-fast) var(--ease-out);
 }
-.text-analyze-divider {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
-  color: #444;
-  font-size: 11px;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
+.cam-frame:active { transform: scale(.99); }
+.cam-frame-in { display: block; padding: 0 8px; }
+.cam-icon { display: block; margin: 0 auto; max-width: 100%; }
+.cam-big { display: block; font-size: 30px; line-height: 34px; color: var(--ink); margin-top: 6px; }
+.cam-small { display: block; font-size: 17px; line-height: 22px; color: var(--graphite); margin-top: 2px; }
+.cam-frame-tape { top: -8px; right: 60px; transform: rotate(-4deg); }
+.cam-polaroid, .cam-retake { display: none; }
+.cam-polaroid { right: 10px; top: 4px; width: min(210px, calc(100% - 20px)); transform: rotate(-2deg); animation: cam-drop var(--dur-slow) var(--ease-spring) both; }
+.cam-polaroid .tape { top: -10px; left: calc(50% - 29px); transform: rotate(-4deg); }
+.cam-retake {
+  position: absolute; left: 0; bottom: 0; padding: 10px 6px; margin: -10px -6px; border: 0; background: none; cursor: pointer;
+  font: 400 16px/24px var(--font-text); color: var(--graphite); text-decoration: underline; text-decoration-color: var(--red); text-underline-offset: 4px;
 }
-.text-analyze-divider::before,
-.text-analyze-divider::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: #2a2620;
+@keyframes cam-drop {
+  from { opacity: 0; transform: translateY(-14px) rotate(-6deg); }
+  to   { opacity: 1; transform: translateY(0) rotate(-2deg); }
 }
+#screen-camera.has-photo .cam-frame, #screen-camera.has-photo .cam-frame-tape { display: none; }
+#screen-camera.has-photo .cam-polaroid { display: block; }
+#screen-camera.has-photo .cam-retake { display: block; }
+.cam-chips { margin-top: 14px; }
+.cam-chips .chip { padding: 0 11px; margin-left: 4px; }   /* four chips fit one line on a 390 px phone */
+.cam-analyze-row { display: none; text-align: center; margin-top: 4px; }
+#screen-camera.has-photo .cam-analyze-row { display: block; }
+.cam-analyze { position: static; display: inline-block; font-size: 24px; line-height: 30px; padding: 8px 30px; }
+.cam-analyze:active, .cam-text-go:active { transform: translateY(1px); box-shadow: 0 1px 0 #7f2010, 0 4px 10px rgba(120, 30, 10, .35); }
+.cam-analyze:disabled { opacity: .45; cursor: default; }
+.cam-text { margin-top: 12px; }
 #food-text-input {
-  width: 100%;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-input);
-  color: var(--text);
-  font-family: var(--font-text);
-  font-size: 14px;
-  padding: 12px 14px;
-  resize: none;
-  overflow: hidden;
-  min-height: 72px;
-  margin-bottom: 10px;
-  direction: rtl;
+  display: block; width: 100%; min-height: 30px; padding: 0; border: 0; border-bottom: 2px solid var(--ink); border-radius: 0;
+  background: transparent; color: var(--ink); box-shadow: none; outline: none; resize: none; overflow: hidden;
+  font: 400 22px/30px var(--font-text); direction: rtl;
 }
-#food-text-input::placeholder { color: var(--muted); }
-#food-text-input:focus { outline: none; border-color: var(--accent); }
+#food-text-input::placeholder { color: rgba(111, 93, 76, .45); font-size: 18px; }
+#food-text-input:focus { border-bottom-color: var(--red); box-shadow: none; }
+.cam-text-go { position: static; display: block; margin: 14px 0 0; font-size: 20px; line-height: 28px; padding: 4px 22px; }
 
 /* ════════════════════════════════════════
    ANALYSIS
