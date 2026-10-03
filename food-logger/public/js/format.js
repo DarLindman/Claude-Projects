@@ -53,3 +53,10 @@ export function getFoodEmoji(name) {
   }
   return '🍽️';
 }
+
+// A whole number with the thousands separator used across the app (1142 -> "1,142").
+// Anything that is not a finite number prints as 0, so a bad value never shows NaN.
+export function formatNumber(value) {
+  const n = typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : 0;
+  return n.toLocaleString('he-IL');
+}
