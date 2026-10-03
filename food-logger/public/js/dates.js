@@ -66,14 +66,11 @@ export function addMonths(str, n) {
 }
 
 // "3 באוק׳": the day of the month with the short month name (the weight list's dates).
+// A malformed date (or a month outside 1-12) gives '' rather than "NaN ב".
 export function formatDayMonth(str) {
-  const [y, m, d] = str.split('-').map(Number);
-  return `${d} ב${MONTHS_SHORT[m - 1]}`;
-}
-
-export function formatDateShort(str) {
-  const [y, m, d] = str.split('-').map(Number);
-  return `${d}/${m}`;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(str));
+  if (!m || +m[2] < 1 || +m[2] > 12) return '';
+  return `${+m[3]} ב${MONTHS_SHORT[+m[2] - 1]}`;
 }
 
 // The Hebrew letter of the weekday of `str` (YYYY-MM-DD) with a geresh: "א׳" is Sunday. Date.UTC keeps any time zone out of it.

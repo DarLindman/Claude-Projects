@@ -53,3 +53,13 @@ test('weekOf: the leap day 2028-02-29 (a Tuesday) and the days around it', async
   assert.deepEqual(weekOf('2028-02-29'), ['2028-02-27', '2028-02-28', '2028-02-29', '2028-03-01', '2028-03-02', '2028-03-03', '2028-03-04']);
   assert.deepEqual(weekOf('2027-02-28'), ['2027-02-28', '2027-03-01', '2027-03-02', '2027-03-03', '2027-03-04', '2027-03-05', '2027-03-06']);
 });
+
+// formatDayMonth: the weight list's dates, "3 באוק׳"; a malformed date gives '' (never "NaN ב...").
+test('formatDayMonth: the day and the short month name; malformed input is empty', async () => {
+  const { formatDayMonth } = await load();
+  assert.equal(formatDayMonth('2026-10-03'), '3 באוק׳');
+  assert.equal(formatDayMonth('2026-09-05'), '5 בספט׳');
+  assert.equal(formatDayMonth('2026-03-31'), '31 במרץ');
+  assert.equal(formatDayMonth('2026-10-03T12:00'), '3 באוק׳');
+  for (const bad of ['', 'abc', '2026-13-01', '2026-00-10', '10/3/2026', null, undefined, 42]) assert.equal(formatDayMonth(bad), '', String(bad));
+});

@@ -6,6 +6,7 @@ import { html, setHtml, showToast } from '../dom.js';
 import { formatNumber } from '../format.js';
 import { mountWalkingCapybara } from '../pet.js';
 import { sortWeightLogs, updateSettingsProfileSub } from '../profile.js';
+import { getUsername } from '../session.js';
 import { loadDiary } from './home.js';
 import { messageFor } from '../errors.js';
 
@@ -14,12 +15,16 @@ import { messageFor } from '../errors.js';
 // (router hooks registered in main.js). Mounting the same page twice returns the same walker.
 // ════════════════════════════════════════════════════
 let _walker = null;
+// Bumped by every leave: a load that was started before it is stale and its reply is dropped (a slow reply must never land on
+// the next person's screen, nor write their profile).
+let loadSeq = 0;
 export function enterWeight() {
   const page = document.querySelector('#screen-weight .page');
   if (page) _walker = mountWalkingCapybara(page, { state: 'neutral', size: 96, bottom: 4 });
   loadWeightScreen();
 }
 export function leaveWeight() {
+  loadSeq += 1;
   if (_walker) { _walker.stop(); _walker = null; }
 }
 
@@ -33,10 +38,14 @@ export async function loadWeightScreen() {
   dateEl.max = todayStr();
   // draw what is held first (empty after a sign-out), so a failed load never leaves the previous person's entries on the page
   renderWeightScreen();
+  const seq = ++loadSeq;
   try {
-    state.weightLogs = sortWeightLogs(await apiFetch('/api/weight'));
+    const rows = sortWeightLogs(await apiFetch('/api/weight'));
+    if (seq !== loadSeq) return;
+    state.weightLogs = rows;
     renderWeightScreen();
-  } catch (e) { showToast('שגיאה בטעינת נתוני משקל'); }
+    syncProfileWeight();
+  } catch (e) { if (seq === loadSeq) showToast('שגיאה בטעינת נתוני משקל'); }
 }
 
 export async function addWeightLog() {
@@ -51,11 +60,15 @@ export async function addWeightLog() {
     document.getElementById('weight-add-error').textContent = 'לא ניתן לרשום משקל לתאריך עתידי';
     return;
   }
+  const who = getUsername();
   try {
     await apiFetch('/api/weight', { method: 'POST', body: JSON.stringify({ weight_kg: +val, logged_at: date || todayStr() }) });
     document.getElementById('weight-val').value = '';
-    state.weightLogs = sortWeightLogs(await apiFetch('/api/weight'));
+    const rows = sortWeightLogs(await apiFetch('/api/weight'));
+    if (getUsername() !== who) return;   // signed out meanwhile: the reply belongs to the previous person
+    state.weightLogs = rows;
     renderWeightScreen();
+    syncProfileWeight();
     // weightLogs refreshed — update all calorie displays
     updateSettingsProfileSub();
     loadDiary(); // refresh home screen calorie bar regardless of current screen
@@ -63,13 +76,21 @@ export async function addWeightLog() {
   } catch (e) { document.getElementById('weight-add-error').textContent = messageFor(e); }
 }
 
+// Ids whose DELETE is in flight: a second tap on the same cross sends nothing (it would only come back as a 404).
+const deleting = new Set();
 export async function deleteWeightLog(id) {
+  if (deleting.has(id)) return;
+  deleting.add(id);
+  const who = getUsername();
   try {
     await apiFetch(`/api/weight/${id}`, { method: 'DELETE' });
+    if (getUsername() !== who) return;
     state.weightLogs = state.weightLogs.filter(w => w.id !== id);
     renderWeightScreen();
+    syncProfileWeight();
     showToast('המדידה נמחקה');
   } catch (e) { showToast('שגיאה במחיקה'); }
+  finally { deleting.delete(id); }
 }
 
 function renderWeightScreen() {
@@ -83,7 +104,8 @@ function weightGoal() {
   const g = +(state.userProfile && state.userProfile.goalWeight);
   return Number.isFinite(g) && g > 0 ? g : 0;
 }
-const formatGoal = (g) => (Number.isInteger(g) ? formatNumber(g) : g.toFixed(1));
+// The goal with the app's thousands separator; a fraction keeps one decimal (72.5, 1,000.5).
+const formatGoal = (g) => (Number.isInteger(g) ? formatNumber(g) : g.toLocaleString('he-IL', { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
 
 // The newest weight, big, with the unit and the goal beside it; no entries, no head.
 function renderWeightHead() {
@@ -100,18 +122,22 @@ function drawWeightChart() {
   setHtml(document.getElementById('weight-chart'), renderWeightChart(state.weightLogs.map(w => +w.weight_kg), { goal: weightGoal() }));
 }
 
+// The profile keeps the newest weight (the calorie goal reads it). Called where the data changes (after a load, an add, a delete),
+// never from a render; nothing is stored or sent when the profile already holds that weight.
+function syncProfileWeight() {
+  if (!state.weightLogs.length || !state.userProfile) return;
+  const latest = +state.weightLogs[state.weightLogs.length - 1].weight_kg;
+  if (!(latest > 0) || +state.userProfile.weight === latest) return;
+  state.userProfile.weight = latest;
+  try { localStorage.setItem('fl_profile', JSON.stringify(state.userProfile)); } catch { /* storage unavailable */ }
+  apiFetch('/api/profile', { method: 'PUT', body: JSON.stringify(state.userProfile) }).catch(() => {});
+}
+
 function renderWeightList() {
   const el = document.getElementById('weight-list');
   if (!state.weightLogs.length) {
     setHtml(el, html`<div class="empty-state"><p>אין מדידות עדיין</p></div>`);
     return;
-  }
-  // Update profile weight from latest log (last item = newest, sortWeightLogs orders ASC)
-  const latestWeight = +state.weightLogs[state.weightLogs.length - 1].weight_kg;
-  if (state.userProfile && latestWeight) {
-    state.userProfile.weight = latestWeight;
-    localStorage.setItem('fl_profile', JSON.stringify(state.userProfile));
-    apiFetch('/api/profile', { method: 'PUT', body: JSON.stringify(state.userProfile) }).catch(() => {});
   }
   // Display newest first
   setHtml(el, html`${[...state.weightLogs].reverse().map(w => html`

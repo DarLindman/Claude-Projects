@@ -167,6 +167,66 @@ test('an invalid weight shows the error and adds nothing; a deleted weight leave
   expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
 });
 
+test('two weights on the same day: the one added later is first, whatever order the server returns them in', async ({ page }) => {
+  const guards = attachGuards(page);
+  await register(page);
+  await seed(page, [74.1]);
+  // the server answers newest-first (the reverse of its usual order): only the id tie-break can put the later entry on top
+  await page.route('**/api/weight', async (route) => {
+    if (route.request().method() !== 'GET') return route.continue();
+    const res = await route.fetch();
+    await route.fulfill({ response: res, json: (await res.json()).reverse() });
+  });
+  await openWeight(page);
+  const rows = page.locator('#weight-list .weight-entry');
+  for (const kg of ['72.4', '72.0', '71.6']) {
+    const before = await rows.count();
+    await page.locator('#weight-val').fill(kg);
+    await page.locator('#screen-weight').getByRole('button', { name: 'הוסף שקילה', exact: true }).click();
+    await expect(rows).toHaveCount(before + 1);
+  }
+  // all three were added today, in this order; the list shows them last-added first, then yesterday's
+  await expect(rows.locator('.weight-val-big')).toHaveText(['71.6', '72.0', '72.4', '74.1']);
+  await expect(page.locator('#screen-weight .wt-big')).toHaveText('71.6');
+  expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+});
+
+test('the dates are the day and the short month name, whatever today is', async ({ page }) => {
+  const guards = attachGuards(page);
+  await register(page);
+  for (const [kg, day] of [[80, '2026-09-05'], [79, '2026-01-31'], [78, '2025-12-01']]) {
+    const res = await post(page, '/api/weight', { weight_kg: kg, logged_at: day });
+    expect(res.status(), await res.text()).toBe(200);
+  }
+  await openWeight(page);
+  await expect(page.locator('#weight-list .weight-entry .weight-entry-date')).toHaveText(['5 בספט׳', '31 בינו׳', '1 בדצמ׳']);
+  expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+});
+
+test('a second tap on a cross while its DELETE is in flight sends nothing and shows no error', async ({ page }) => {
+  const guards = attachGuards(page);
+  await register(page);
+  await seed(page, [80, 79.5]);
+  const deletes = [];
+  await page.route('**/api/weight/*', async (route) => {
+    if (route.request().method() !== 'DELETE') return route.continue();
+    deletes.push(route.request().url());
+    await new Promise((r) => setTimeout(r, 600));
+    await route.continue();
+  });
+  await openWeight(page);
+  const rows = page.locator('#weight-list .weight-entry');
+  await expect(rows).toHaveCount(2);
+  // two clicks in the same tick on the same cross
+  await rows.filter({ hasText: '80.0' }).locator('.delete-btn').evaluate((b) => { b.click(); b.click(); });
+  await expect(rows).toHaveCount(1);
+  await expect(page.locator('#toast')).toHaveText('המדידה נמחקה');
+  await page.waitForTimeout(300);
+  expect(deletes).toHaveLength(1);
+  await expect(page.locator('#toast')).toHaveText('המדידה נמחקה');
+  expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+});
+
 // ── 2. The graph with 0, 1 and 30 points ───────────────────────────────────────────────────
 for (const [count, label] of [[0, 'no entries'], [1, 'one entry'], [30, '30 entries']]) {
   test(`the graph renders with ${label}: squared paper, no NaN, the last point red`, async ({ page }) => {
@@ -483,4 +543,73 @@ test('signing out clears the weights; the next user never sees them, even when l
   expect(userA).not.toBe(userB);
   // the failed load is the only noise
   expectNoGuardEvents(guards, [SIGNED_OUT_ME, /api\/weight|net::ERR_FAILED|Failed to load resource/]);
+});
+
+test("a slow weight reply of the previous person lands nowhere: not in the next person's list, state or profile", async ({ page }) => {
+  const guards = attachGuards(page);
+  const userB = uniqueName();
+  await register(page, userB);
+  await seed(page, [65.5]);                            // B's own weight
+  await register(page);                                // the cookie moves to A
+  await seed(page, [91.1]);                            // A's weight differs from the profile's 70, so a stale write would show
+  const puts = [];
+  page.on('request', (req) => { if (req.method() === 'PUT' && req.url().endsWith('/api/profile')) puts.push(req.postData() || ''); });
+  let hold = false;
+  const releases = [];
+  await page.route('**/api/weight', async (route) => {
+    if (route.request().method() !== 'GET' || !hold) return route.continue();
+    const res = await route.fetch();                   // A's answer is fetched now (with A's cookie) and delivered late
+    await new Promise((r) => releases.push(r));
+    await route.fulfill({ response: res });
+  });
+  await page.goto('/');
+  await expect(page.locator('#screen-dashboard')).toBeVisible();
+  hold = true;
+  await page.locator('#nav-weight').click();
+  await expect.poll(() => releases.length).toBe(1);   // A's load is in flight
+  hold = false;
+
+  await page.evaluate(async () => { await (await import('/js/session.js')).doLogout(); });
+  await expect(page.locator('#screen-auth')).toBeVisible();
+  await page.locator('#auth-step1 .tab-btn', { hasText: 'כניסה' }).click();
+  await page.locator('#login-user').fill(userB);
+  await page.locator('#login-pass').fill(PASSWORD);
+  await page.locator('#auth-login').getByRole('button', { name: 'כניסה' }).click();
+  await expect(page.locator('#screen-dashboard')).toBeVisible();
+  const weightsOf = () => page.evaluate(async () => (await import('/js/state.js')).state.weightLogs.map((w) => +w.weight_kg));
+  expect(await weightsOf()).toEqual([65.5]);
+
+  releases.forEach((r) => r());                         // now A's reply arrives
+  await page.waitForTimeout(500);
+  expect(await weightsOf(), "B keeps B's weights").toEqual([65.5]);
+  expect(puts.filter((p) => p.includes('91.1')), "no profile write carries A's weight").toEqual([]);
+  expect(await page.evaluate(async () => (await import('/js/state.js')).state.userProfile.weight)).toBe(70);
+  await page.locator('#nav-weight').click();
+  await expect(page.locator('#weight-list .weight-entry')).toHaveCount(1);
+  await expect(page.locator('#weight-list .weight-entry').first()).toContainText('65.5');
+  expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+});
+
+test('the profile weight is synced where the data changes: nothing is sent when it already matches, one write per change', async ({ page }) => {
+  const guards = attachGuards(page);
+  await register(page);                                // the profile holds weight 70
+  await seed(page, [70]);
+  const puts = [];
+  page.on('request', (req) => { if (req.method() === 'PUT' && req.url().endsWith('/api/profile')) puts.push(JSON.parse(req.postData()).weight); });
+  await openWeight(page);
+  await expect(page.locator('#weight-list .weight-entry')).toHaveCount(1);
+  await page.waitForTimeout(300);
+  expect(puts, 'the profile already holds 70: no write').toEqual([]);
+
+  await page.locator('#weight-val').fill('69.5');
+  await page.locator('#screen-weight').getByRole('button', { name: 'הוסף שקילה', exact: true }).click();
+  await expect(page.locator('#weight-list .weight-entry')).toHaveCount(2);
+  await expect.poll(() => puts).toEqual([69.5]);
+  // deleting the newest brings 70 back as the newest: one more write
+  await page.locator('#weight-list .weight-entry').first().getByRole('button', { name: 'מחק' }).click();
+  await expect(page.locator('#weight-list .weight-entry')).toHaveCount(1);
+  await expect.poll(() => puts).toEqual([69.5, 70]);
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('fl_profile')).weight);
+  expect(stored).toBe(70);
+  expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
 });
