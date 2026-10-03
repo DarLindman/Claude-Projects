@@ -113,6 +113,48 @@ export function renderBarChart(rows, { getValue, getLabel, isToday = () => false
 }
 
 // ════════════════════════════════════════════════════
+// Weight line graph on squared paper (the weight screen)
+// ════════════════════════════════════════════════════
+// One SVG, viewBox 248 x 130 (it scales with the page), the paper of the reference: a grid every 26 / 31 units, the line in
+// ink, every point a cream circle with an ink outline and the newest one red, the goal a dashed red line. Time runs left to
+// right, the newest point is the rightmost. The scale always includes the goal and spans at least MIN_SPAN kg, so a goal
+// above or below every value stays on the paper, and equal values (a zero range) sit in the middle instead of dividing by
+// zero. Up to MAX_DOTS points get a circle each; a longer history keeps the line and circles only the newest point.
+const WW = 248, WH = 130, WX0 = 10, WX1 = 238, WY0 = 16, WY1 = 114, MIN_SPAN = 2, MAX_DOTS = 60;
+const WGRID = 'M0 26h248M0 52h248M0 78h248M0 104h248M31 0v130M62 0v130M93 0v130M124 0v130M155 0v130M186 0v130M217 0v130';
+const r2 = (n) => Math.round(n * 100) / 100;
+
+export function renderWeightChart(values, { goal = 0 } = {}) {
+  const vals = values.map(Number).filter((v) => Number.isFinite(v) && v > 0);
+  const g = positive(goal);
+  const scaled = g > 0 ? [...vals, g] : vals;
+  let lo = scaled.length ? Math.min(...scaled) : 0;
+  let hi = scaled.length ? Math.max(...scaled) : 0;
+  if (hi - lo < MIN_SPAN) { const mid = (hi + lo) / 2; lo = mid - MIN_SPAN / 2; hi = mid + MIN_SPAN / 2; }
+  const yOf = (v) => r2(WY1 - ((v - lo) / (hi - lo)) * (WY1 - WY0));
+
+  const n = vals.length;
+  const pts = vals.map((v, i) => ({ x: r2(n === 1 ? (WX0 + WX1) / 2 : WX0 + (i / (n - 1)) * (WX1 - WX0)), y: yOf(v) }));
+  const line = n >= 2 ? html`<polyline class="wline" points="${pts.map((p) => `${p.x},${p.y}`).join(' ')}" fill="none" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>` : '';
+  const r = n <= 14 ? 4 : n <= 30 ? 3 : 2.2;
+  const shown = n > MAX_DOTS ? [n - 1] : pts.map((p, i) => i);
+  const dots = shown.map((i) => (i === n - 1
+    ? html`<circle class="wpt last" cx="${pts[i].x}" cy="${pts[i].y}" r="${r + 1}" stroke-width="${r > 3 ? 2.4 : 1.8}"/>`
+    : html`<circle class="wpt" cx="${pts[i].x}" cy="${pts[i].y}" r="${r}" stroke-width="${r > 3 ? 2.4 : 1.8}"/>`));
+  const goalLine = g > 0 ? html`<line class="goal-line" x1="0" y1="${yOf(g)}" x2="${WW}" y2="${yOf(g)}" stroke-dasharray="6 5" stroke-width="2"/>` : '';
+
+  // the paper is inside the filtered group, so its box never collapses (a flat line would otherwise have no height and vanish)
+  return html`<svg class="wchart" viewBox="0 0 ${WW} ${WH}" overflow="visible" xmlns="http://www.w3.org/2000/svg">
+    <g filter="url(#wobS)" stroke-linecap="round">
+      <path class="wgrid" d="${WGRID}" fill="none" stroke-width="1"/>
+      ${goalLine}
+      ${line}
+      ${dots}
+    </g>
+  </svg>`;
+}
+
+// ════════════════════════════════════════════════════
 // Plate chart (arc SVG with tap tooltips)
 // ════════════════════════════════════════════════════
 export function renderPlate(svgId, legendId, tooltipId, totals) {

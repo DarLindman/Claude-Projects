@@ -239,7 +239,7 @@ test('inline handlers are gone and every delegated action still works', async ({
   const weights = page.locator('#weight-list .weight-entry');
   await expect(weights).toHaveCount(1);
   await page.locator('#weight-val').fill('71.5');
-  await page.locator('#screen-weight').getByRole('button', { name: 'הוסף', exact: true }).click();
+  await page.locator('#screen-weight').getByRole('button', { name: 'הוסף שקילה', exact: true }).click();
   await expect(weights).toHaveCount(2);
   await expectNoInline(page, 'weight list');
   await weights.filter({ hasText: '71.5' }).getByRole('button', { name: 'מחק' }).click();

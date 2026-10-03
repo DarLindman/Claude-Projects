@@ -18,6 +18,13 @@ function profileAge(p) {
   return +pr.age || 0;
 }
 
+// The weight entries oldest first; entries of the same day by id, so the newest added is last whatever order the server
+// returned (calcRecommendedCal, the dashboard and the weight screen read the last element as the newest).
+export function sortWeightLogs(rows) {
+  const day = (r) => String(r.logged_at).slice(0, 10);
+  return [...rows].sort((a, b) => (day(a) < day(b) ? -1 : day(a) > day(b) ? 1 : a.id - b.id));
+}
+
 export function calcRecommendedCal(profile) {
   const p = profile || state.userProfile;
   if (!p) return 0;

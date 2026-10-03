@@ -1,10 +1,27 @@
 import { state } from '../state.js';
 import { apiFetch } from '../api.js';
-import { formatDate, formatDateShort, todayStr } from '../dates.js';
+import { renderWeightChart } from '../charts.js';
+import { formatDayMonth, todayStr } from '../dates.js';
 import { html, setHtml, showToast } from '../dom.js';
-import { updateSettingsProfileSub } from '../profile.js';
+import { formatNumber } from '../format.js';
+import { mountWalkingCapybara } from '../pet.js';
+import { sortWeightLogs, updateSettingsProfileSub } from '../profile.js';
 import { loadDiary } from './home.js';
 import { messageFor } from '../errors.js';
+
+// ════════════════════════════════════════════════════
+// The walking capybara (along the bottom of the page): mounted when the screen is entered, stopped when it is left
+// (router hooks registered in main.js). Mounting the same page twice returns the same walker.
+// ════════════════════════════════════════════════════
+let _walker = null;
+export function enterWeight() {
+  const page = document.querySelector('#screen-weight .page');
+  if (page) _walker = mountWalkingCapybara(page, { state: 'neutral', size: 96, bottom: 4 });
+  loadWeightScreen();
+}
+export function leaveWeight() {
+  if (_walker) { _walker.stop(); _walker = null; }
+}
 
 // ════════════════════════════════════════════════════
 // Weight screen
@@ -14,10 +31,11 @@ export async function loadWeightScreen() {
   const dateEl = document.getElementById('weight-date');
   dateEl.value = todayStr();
   dateEl.max = todayStr();
+  // draw what is held first (empty after a sign-out), so a failed load never leaves the previous person's entries on the page
+  renderWeightScreen();
   try {
-    state.weightLogs = await apiFetch('/api/weight');
-    renderWeightChart();
-    renderWeightList();
+    state.weightLogs = sortWeightLogs(await apiFetch('/api/weight'));
+    renderWeightScreen();
   } catch (e) { showToast('שגיאה בטעינת נתוני משקל'); }
 }
 
@@ -36,9 +54,8 @@ export async function addWeightLog() {
   try {
     await apiFetch('/api/weight', { method: 'POST', body: JSON.stringify({ weight_kg: +val, logged_at: date || todayStr() }) });
     document.getElementById('weight-val').value = '';
-    state.weightLogs = await apiFetch('/api/weight');
-    renderWeightChart();
-    renderWeightList();
+    state.weightLogs = sortWeightLogs(await apiFetch('/api/weight'));
+    renderWeightScreen();
     // weightLogs refreshed — update all calorie displays
     updateSettingsProfileSub();
     loadDiary(); // refresh home screen calorie bar regardless of current screen
@@ -50,80 +67,46 @@ export async function deleteWeightLog(id) {
   try {
     await apiFetch(`/api/weight/${id}`, { method: 'DELETE' });
     state.weightLogs = state.weightLogs.filter(w => w.id !== id);
-    renderWeightChart();
-    renderWeightList();
+    renderWeightScreen();
     showToast('המדידה נמחקה');
   } catch (e) { showToast('שגיאה במחיקה'); }
 }
 
-function renderWeightChart() {
-  const el = document.getElementById('weight-chart');
-  if (!state.weightLogs.length) {
-    setHtml(el, html`<div class="empty-state" style="padding:20px"><p>אין נתונים עדיין</p></div>`);
-    return;
-  }
+function renderWeightScreen() {
+  renderWeightHead();
+  drawWeightChart();
+  renderWeightList();
+}
 
-  const W = 300, H = 130, LEFT = 38, RIGHT = 24, TOP = 12, BOTTOM = 24;
-  const chartW = W - LEFT - RIGHT;
-  const chartH = H - BOTTOM - TOP;
-  const n = state.weightLogs.length;
-  const weights = state.weightLogs.map(w => +w.weight_kg);
-  const minW = Math.min(...weights);
-  const maxW = Math.max(...weights);
-  const range = maxW - minW || 1;
+// The weight goal of the profile (none yet: the profile has no such field, so no goal line and no goal text), a positive number or 0.
+function weightGoal() {
+  const g = +(state.userProfile && state.userProfile.goalWeight);
+  return Number.isFinite(g) && g > 0 ? g : 0;
+}
+const formatGoal = (g) => (Number.isInteger(g) ? formatNumber(g) : g.toFixed(1));
 
-  const pts = state.weightLogs.map((w, i) => {
-    const x = LEFT + (n === 1 ? chartW / 2 : (i / (n - 1)) * chartW);
-    const y = TOP + chartH - ((+w.weight_kg - minW) / range) * chartH;
-    return { x, y, w };
-  });
+// The newest weight, big, with the unit and the goal beside it; no entries, no head.
+function renderWeightHead() {
+  const el = document.getElementById('weight-head');
+  const logs = state.weightLogs;
+  if (!logs.length) { el.hidden = true; el.replaceChildren(); return; }
+  const goal = weightGoal();
+  const kg = +logs[logs.length - 1].weight_kg;
+  setHtml(el, html`<span class="wt-big">${kg.toFixed(1)}</span><span class="wt-unit">${goal > 0 ? `ק״ג · יעד ${formatGoal(goal)}` : 'ק״ג'}</span>`);
+  el.hidden = false;
+}
 
-  const polyline = pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-  const areaPath = `M ${pts[0].x.toFixed(1)},${(TOP + chartH).toFixed(1)} ` +
-    pts.map(p => `L ${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ') +
-    ` L ${pts[pts.length-1].x.toFixed(1)},${(TOP + chartH).toFixed(1)} Z`;
-
-  const showDots = n <= 20;
-  const dots = showDots ? pts.map(p =>
-    html`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="#5eead4" stroke="#0d0b09" stroke-width="1.5"/>`
-  ) : '';
-
-  // Y labels on left side (min/max)
-  const yLabels = html`
-    <text x="${LEFT - 4}" y="${(TOP + chartH).toFixed(1)}" text-anchor="end" font-size="8" fill="#7a6e62" font-family="IBM Plex Mono,monospace">${minW.toFixed(1)}</text>
-    <text x="${LEFT - 4}" y="${(TOP + 8).toFixed(1)}" text-anchor="end" font-size="8" fill="#7a6e62" font-family="IBM Plex Mono,monospace">${maxW.toFixed(1)}</text>
-  `;
-
-  // X labels: first and last date (only show last if different from first)
-  const firstDate = formatDateShort(state.weightLogs[0].logged_at);
-  const lastDate = formatDateShort(state.weightLogs[n-1].logged_at);
-  const xLabels = n > 1 ? html`
-    <text x="${LEFT}" y="${H - 4}" text-anchor="start" font-size="8" fill="#7a6e62" font-family="IBM Plex Mono,monospace">${firstDate}</text>
-    ${firstDate !== lastDate ? html`<text x="${W - RIGHT}" y="${H - 4}" text-anchor="end" font-size="8" fill="#7a6e62" font-family="IBM Plex Mono,monospace">${lastDate}</text>` : ''}
-  ` : '';
-
-  setHtml(el, html`<svg viewBox="0 0 ${W} ${H}" overflow="visible" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="wgrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#5eead4" stop-opacity="0.25"/>
-        <stop offset="100%" stop-color="#5eead4" stop-opacity="0"/>
-      </linearGradient>
-    </defs>
-    <path d="${areaPath}" fill="url(#wgrad)"/>
-    <polyline points="${polyline}" fill="none" stroke="#5eead4" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-    ${dots}
-    ${yLabels}
-    ${xLabels}
-  </svg>`);
+function drawWeightChart() {
+  setHtml(document.getElementById('weight-chart'), renderWeightChart(state.weightLogs.map(w => +w.weight_kg), { goal: weightGoal() }));
 }
 
 function renderWeightList() {
   const el = document.getElementById('weight-list');
   if (!state.weightLogs.length) {
-    setHtml(el, html`<div class="empty-state"><div class="empty-icon">⚖️</div><p>אין מדידות עדיין</p></div>`);
+    setHtml(el, html`<div class="empty-state"><p>אין מדידות עדיין</p></div>`);
     return;
   }
-  // Update profile weight from latest log (last item = newest, server orders ASC)
+  // Update profile weight from latest log (last item = newest, sortWeightLogs orders ASC)
   const latestWeight = +state.weightLogs[state.weightLogs.length - 1].weight_kg;
   if (state.userProfile && latestWeight) {
     state.userProfile.weight = latestWeight;
@@ -133,13 +116,11 @@ function renderWeightList() {
   // Display newest first
   setHtml(el, html`${[...state.weightLogs].reverse().map(w => html`
     <div class="weight-entry">
+      <span class="weight-entry-date">${formatDayMonth(w.logged_at)}</span>
+      <span class="weight-val-big">${(+w.weight_kg).toFixed(1)}</span>
       <button class="delete-btn" data-action="deleteWeightLog" data-id="${w.id}" aria-label="מחק">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
-      <div class="weight-entry-info">
-        <div class="weight-val-big">${(+w.weight_kg).toFixed(1)} ק״ג</div>
-        <div class="weight-entry-date">${formatDate(w.logged_at)}</div>
-      </div>
     </div>
   `)}`);
 }

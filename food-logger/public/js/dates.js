@@ -65,6 +65,12 @@ export function addMonths(str, n) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
+// "3 באוק׳": the day of the month with the short month name (the weight list's dates).
+export function formatDayMonth(str) {
+  const [y, m, d] = str.split('-').map(Number);
+  return `${d} ב${MONTHS_SHORT[m - 1]}`;
+}
+
 export function formatDateShort(str) {
   const [y, m, d] = str.split('-').map(Number);
   return `${d}/${m}`;

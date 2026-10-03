@@ -11,7 +11,7 @@ import { loadDashboard, resetDashboard } from './screens/dashboard.js';
 import { actions as homeActions, loadDiary } from './screens/home.js';
 import { actions as settingsActions, populateProfileSelects } from './screens/settings.js';
 import { actions as statsActions, enterStats, leaveStats } from './screens/stats.js';
-import { actions as weightActions, loadWeightScreen } from './screens/weight.js';
+import { actions as weightActions, enterWeight, leaveWeight } from './screens/weight.js';
 import { actions as welcomeActions, mountWelcomePet } from './screens/welcome.js';
 import { bootSession } from './session.js';
 
@@ -24,7 +24,7 @@ registerScreen('auth',      { enter: enterAuth, leave: leaveAuth });
 registerScreen('dashboard', { enter: loadDashboard, leave: resetDashboard });
 registerScreen('home',      { enter: loadDiary });
 registerScreen('stats',     { enter: enterStats, leave: leaveStats });
-registerScreen('weight',    { enter: loadWeightScreen });
+registerScreen('weight',    { enter: enterWeight, leave: leaveWeight });
 registerScreen('camera',    { enter: enterCamera });
 registerScreen('analysis',  { leave: () => { leaveAnalysis(); releaseAnalyzeButtons(); } });
 

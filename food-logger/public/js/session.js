@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { apiFetch, configureApi } from './api.js';
-import { updateSettingsProfileSub } from './profile.js';
+import { sortWeightLogs, updateSettingsProfileSub } from './profile.js';
 import { navigate } from './router.js';
 import { resetCamera } from './screens/camera.js';
 
@@ -47,7 +47,7 @@ export async function setLoggedIn(u) {
   } catch {}
   if (logoutCount !== startedAt) return; // the session was lost: stay on the auth screen
   // Load weight logs at startup so calcRecommendedCal always has current weight
-  try { state.weightLogs = await apiFetch('/api/weight'); } catch {}
+  try { state.weightLogs = sortWeightLogs(await apiFetch('/api/weight')); } catch {}
   if (logoutCount !== startedAt) return;
   updateSettingsProfileSub();
   document.getElementById('bottom-nav').style.display = 'flex';
@@ -61,6 +61,7 @@ export async function doLogout() {
   try { await apiFetch('/auth/logout', { method: 'POST', silent: true }); } catch {}
   localStorage.removeItem('fl_profile');
   username = null; state.userProfile = null;
+  state.weightLogs = [];   // the next person must not see this one's weights (the dashboard and the weight screen read them)
   resetCamera();   // the next person must not see this one's photo or text
   document.getElementById('bottom-nav').style.display = 'none';
   navigate('auth');

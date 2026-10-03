@@ -87,7 +87,7 @@ test('full user journey', async ({ page }) => {
   await expect(weights).toHaveCount(1);
   await expect(weights.first().locator('.weight-val-big')).toContainText('70.0');
   await page.locator('#weight-val').fill('70.5');
-  await page.locator('#screen-weight').getByRole('button', { name: 'הוסף', exact: true }).click();
+  await page.locator('#screen-weight').getByRole('button', { name: 'הוסף שקילה', exact: true }).click();
   await expect(weights).toHaveCount(2);
   const added = weights.filter({ hasText: '70.5' });
   await expect(added).toHaveCount(1);
