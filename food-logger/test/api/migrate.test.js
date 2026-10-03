@@ -36,11 +36,11 @@ after(async () => { await pool.end(); });
 
 test('migrate applies all migrations on an empty schema', async () => {
   await freshSchema();
-  assert.deepEqual(await migrate(pool), ['001_baseline', '002_token_version']);
+  assert.deepEqual(await migrate(pool), ['001_baseline', '002_token_version', '003_food_photos']);
   const { rows } = await pool.query(`SELECT to_regclass('public.schema_migrations') AS t`);
   assert.ok(rows[0].t);
   const applied = await pool.query('SELECT version FROM schema_migrations ORDER BY version');
-  assert.deepEqual(applied.rows.map((r) => r.version), ['001_baseline', '002_token_version']);
+  assert.deepEqual(applied.rows.map((r) => r.version), ['001_baseline', '002_token_version', '003_food_photos']);
 });
 
 test('migrate is idempotent', async () => {
@@ -66,11 +66,27 @@ test('migrate upgrades a legacy database in place and matches a fresh one', asyn
   await freshSchema();
   await pool.query(fs.readFileSync(path.join(__dirname, '..', 'fixtures', 'legacy-schema.sql'), 'utf8'));
   await pool.query(`INSERT INTO users (username, password_hash) VALUES ('legacy', 'hash')`);
-  assert.deepEqual(await migrate(pool), ['001_baseline', '002_token_version']);
+  assert.deepEqual(await migrate(pool), ['001_baseline', '002_token_version', '003_food_photos']);
 
   const { rows } = await pool.query('SELECT username, password_hash, token_version FROM users');
   assert.deepEqual(rows, [{ username: 'legacy', password_hash: 'hash', token_version: 0 }]);
   assert.deepEqual(await snapshot(), fresh);
+});
+
+test('003_food_photos applies on a database already at version 002 and cascades from food_logs', async () => {
+  await freshSchema();
+  await migrate(pool);
+  await pool.query('DROP TABLE food_photos');
+  await pool.query("DELETE FROM schema_migrations WHERE version = '003_food_photos'");
+  assert.deepEqual(await migrate(pool), ['003_food_photos']);
+  const { rows: u } = await pool.query("INSERT INTO users (username, password_hash) VALUES ('p', 'h') RETURNING id");
+  const { rows: f } = await pool.query(
+    "INSERT INTO food_logs (user_id, meal_type, food_name) VALUES ($1, 'lunch', 'x') RETURNING id", [u[0].id]
+  );
+  await pool.query('INSERT INTO food_photos (food_log_id, bytes) VALUES ($1, $2)', [f[0].id, Buffer.from([0xff, 0xd8, 0xff])]);
+  await pool.query('DELETE FROM food_logs WHERE id = $1', [f[0].id]);
+  const { rows: n } = await pool.query('SELECT count(*)::int AS n FROM food_photos');
+  assert.equal(n[0].n, 0);
 });
 
 test('sslConfig: no TLS outside production', () => {
