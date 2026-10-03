@@ -1,0 +1,137 @@
+'use strict';
+
+const { test, expect } = require('@playwright/test');
+const { attachGuards, expectNoGuardEvents, SIGNED_OUT_ME } = require('./helpers');
+
+// Foundation of the diary look (Task 2): the self-hosted handwriting fonts load, nothing is
+// fetched from another origin, every number on a visible screen is drawn with the `Digits`
+// family (the first entry of the body font stack), and nothing scrolls sideways at 320 px.
+
+const PASSWORD = 'first-password-1';
+
+// Every visible text node that contains a digit, outside the receipt and the phone's own
+// chrome, must be drawn by a font-family list that starts with `Digits`.
+async function digitOffenders(page) {
+  return page.evaluate(() => {
+    const offenders = [];
+    let seen = 0;
+    const visible = (el) => {
+      for (let e = el; e && e !== document.documentElement; e = e.parentElement) {
+        const cs = getComputedStyle(e);
+        if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+      }
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0;
+    };
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (!/[0-9]/.test(n.nodeValue)) continue;
+      const el = n.parentElement;
+      if (!el || ['SCRIPT', 'STYLE', 'TEMPLATE', 'NOSCRIPT'].includes(el.tagName)) continue;
+      if (el.closest('.receipt, [data-native-chrome]')) continue;
+      if (!visible(el)) continue;
+      seen += 1;
+      const family = getComputedStyle(el).fontFamily;
+      const first = family.split(',')[0].trim().replace(/^["']|["']$/g, '');
+      if (first !== 'Digits') offenders.push(`${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}.${el.className && el.className.baseVal === undefined ? el.className : ''} "${n.nodeValue.trim().slice(0, 30)}" -> ${family}`);
+    }
+    return { seen, offenders };
+  });
+}
+
+const noSidewaysScroll = (page) =>
+  page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, innerWidth: window.innerWidth }));
+
+async function fontsLoaded(page) {
+  return page.evaluate(async () => {
+    const result = {};
+    for (const [family, sample] of [['Gveret Levin', 'שלום'], ['Suez One', 'יומן'], ['Digits', '0123456789']]) {
+      await document.fonts.load(`16px "${family}"`, sample);
+      const faces = [...document.fonts].filter((f) => f.family.replace(/["']/g, '') === family);
+      result[family] = {
+        check: document.fonts.check(`16px "${family}"`, sample),
+        loaded: faces.some((f) => f.status === 'loaded'),
+      };
+    }
+    return result;
+  });
+}
+
+test('fonts, same-origin requests, digit family and 320 px fit', async ({ page, baseURL }) => {
+  const guards = attachGuards(page);
+  const origin = new URL(baseURL).origin;
+  const foreign = [];
+  page.on('request', (req) => {
+    const url = req.url();
+    if (url.startsWith('data:') || url.startsWith('blob:')) return;
+    if (new URL(url).origin !== origin) foreign.push(url);
+  });
+
+  // ── welcome ───────────────────────────────────────────────────────────
+  await page.goto('/');
+  await expect(page.locator('#screen-welcome')).toBeVisible();
+
+  const loaded = await fontsLoaded(page);
+  for (const family of ['Gveret Levin', 'Suez One', 'Digits']) {
+    expect(loaded[family], family).toEqual({ check: true, loaded: true });
+  }
+  const stack = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
+  expect(stack.replace(/["']/g, '')).toMatch(/^Digits, Gveret Levin, Playpen Sans Hebrew, cursive$/);
+
+  const welcome = await digitOffenders(page);
+  expect(welcome.offenders, 'welcome digit font').toEqual([]);
+
+  await page.setViewportSize({ width: 320, height: 640 });
+  let w = await noSidewaysScroll(page);
+  expect(w.scrollWidth, 'welcome at 320px').toBeLessThanOrEqual(w.innerWidth);
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  // ── register, then every screen of the dock ───────────────────────────
+  await page.getByRole('button', { name: 'התחל עכשיו' }).click();
+  await expect(page.locator('#screen-auth')).toBeVisible();
+  const authDigits = await digitOffenders(page);
+  expect(authDigits.offenders, 'auth digit font').toEqual([]);
+  await page.locator('#reg-user').fill(`user${Date.now()}`);
+  await page.locator('#reg-pass').fill(PASSWORD);
+  await page.locator('#auth-register').getByRole('button', { name: 'הרשמה' }).click();
+  await expect(page.locator('#auth-step2')).toBeVisible();
+  const step2 = await digitOffenders(page);
+  expect(step2.seen, 'the height list has digits').toBeGreaterThan(0);
+  expect(step2.offenders, 'profile step digit font').toEqual([]);
+  await page.locator('#reg-birthdate').fill('1990-05-15');
+  await page.locator('#reg-height').selectOption('175');
+  await page.getByRole('button', { name: /בוא נתחיל/ }).click();
+  await expect(page.locator('#screen-dashboard')).toBeVisible();
+  await expect(page.locator('#bottom-nav')).toBeVisible();
+
+  const loadedAfter = await fontsLoaded(page);
+  for (const family of ['Gveret Levin', 'Suez One', 'Digits']) {
+    expect(loadedAfter[family], family).toEqual({ check: true, loaded: true });
+  }
+
+  let digitsSeenTotal = 0;
+  for (const [nav, screen] of [
+    ['#nav-dashboard', '#screen-dashboard'],
+    ['#nav-home', '#screen-home'],
+    ['#nav-camera', '#screen-camera'],
+    ['#nav-stats', '#screen-stats'],
+    ['#nav-weight', '#screen-weight'],
+    ['#nav-settings', '#screen-settings'],
+  ]) {
+    await page.locator(nav).click();
+    await expect(page.locator(screen)).toBeVisible();
+    const { seen, offenders } = await digitOffenders(page);
+    digitsSeenTotal += seen;
+    expect(offenders, `${screen} digit font`).toEqual([]);
+
+    await page.setViewportSize({ width: 320, height: 640 });
+    w = await noSidewaysScroll(page);
+    expect(w.scrollWidth, `${screen} at 320px`).toBeLessThanOrEqual(w.innerWidth);
+    await page.setViewportSize({ width: 390, height: 844 });
+  }
+  expect(digitsSeenTotal, 'the walker saw digits on the app screens').toBeGreaterThan(0);
+
+  // ── nothing left the origin ───────────────────────────────────────────
+  expect(foreign, 'requests to other origins').toEqual([]);
+  expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+});

@@ -1,28 +1,75 @@
+/* Diary design tokens (spec section 3). Values come from the approved reference mock-up. */
 :root {
-  --bg:          #0F0A07;
+  /* paper, leather, ink */
+  --leather:     #22140c;   /* the cover */
+  --page:        #f5ecd9;   /* cream page */
+  --ink:         #2b1f16;
+  --graphite:    #6f5d4c;
+  --red:         #b3311d;   /* red pen */
+  --gold:        #d2a95a;   /* gold foil, stitch */
+  --rule:        rgba(112, 138, 170, .30);   /* ruled lines, every 30 px */
+  --margin-line: rgba(190, 55, 38, .38);     /* red margin line, 46 px from the right */
+
+  /* light comes from the top left */
+  --lift: 0 1px 1px rgba(40, 22, 8, .28), 0 6px 12px rgba(40, 22, 8, .20), 0 20px 34px rgba(40, 22, 8, .26);
+
+  /* fine grain, a tiled SVG feTurbulence (no image file) */
+  --noise: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .3  0 0 0 0 .2  0 0 0 0 .1  0 0 0 .7 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+
+  /* type: Digits (digits only) comes first so every number is drawn in it; see fonts.css */
+  --font-text:    'Digits', 'Gveret Levin', 'Playpen Sans Hebrew', cursive;
+  --font-display: 'Digits', 'Suez One', 'Gveret Levin', cursive;
+  --font-receipt: 'Cousine', monospace;
+
+  /* geometry shared by the page and the dock */
+  --page-top:    calc(30px + env(safe-area-inset-top, 0px));
+  --nav-h:       96px;   /* space under the page for the dock */
+
+  --radius-sharp: 4px;
+  --radius-pill:  99px;
+  --radius-input: 8px;
+
+  /* motion */
+  --ease-out:    cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-fast:    150ms;
+  --dur-mid:     250ms;
+  --dur-slow:    400ms;
+}
+
+/* ── legacy aliases (removed in Task 15) ────────────────────────────────
+   The screens that are not redone yet still use the names of the old dark
+   theme. They now sit on the cream page, so each name maps to a value that
+   reads on cream. Each screen task deletes the aliases it no longer needs. */
+:root {
+  --bg:          var(--page);
+  --surface:     #fffdf6;
+  --surface2:    #efe4cc;
+  --surface3:    #e6d9bd;
+  --border:      rgba(43, 31, 22, .22);
+  --text:        var(--ink);
+  --text2:       var(--graphite);
+  --muted:       var(--graphite);
+  --accent:      var(--red);
+  --accent-dim:  rgba(179, 49, 29, .10);
+  --accent-glow: rgba(179, 49, 29, .20);
+  /* macro colours, darkened to read on cream */
+  --protein:     #0f766e;
+  --carb:        #1d4ed8;
+  --fat:         #b91c1c;
+  --fiber:       #6d28d9;
+}
+/* the welcome screen still sits on the dark leather cover with its old dark colours */
+#screen-welcome {
+  --bg:          #22140c;
   --surface:     #1A1209;
   --surface2:    #231810;
   --surface3:    #2a2620;
   --border:      #3D2515;
   --text:        #F5E8D0;
   --text2:       #C4956A;
-  --muted:       #8B6B4A;
+  --muted:       #a58560;
   --accent:      #E8703A;
-  --accent-dim:  rgba(232,112,58,0.12);
-  --accent-glow: rgba(232,112,58,0.25);
-  --gold:       #c4a265;
-  --protein:    #5eead4;
-  --carb:       #93c5fd;
-  --fat:        #fca5a5;
-  --fiber:      #c4b5fd;
-  --nav-h:      80px;
-  --radius-sharp: 4px;
-  --radius-pill:  99px;
-  --radius-input: 8px;
-  /* Animation system */
-  --ease-out:    cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --dur-fast:    150ms;
-  --dur-mid:     250ms;
-  --dur-slow:    400ms;
+  --accent-dim:  rgba(232, 112, 58, .12);
+  --accent-glow: rgba(232, 112, 58, .25);
 }

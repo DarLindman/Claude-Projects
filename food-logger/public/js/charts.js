@@ -209,7 +209,7 @@ function renderMacroProgressBars(t) {
   ];
   return html`${items.map(item => html`
     <div class="prog-row">
-      <div class="prog-label"><span>${item.label}</span><span style="font-family:'IBM Plex Mono',monospace">${item.val} גרם</span></div>
+      <div class="prog-label"><span>${item.label}</span><span style="font-family:var(--font-text)">${item.val} גרם</span></div>
       <div class="prog-track"><div class="prog-fill" style="width:${Math.min(item.val / item.target * 100, 100)}%;background:${item.color}"></div></div>
     </div>
   `)}`;
