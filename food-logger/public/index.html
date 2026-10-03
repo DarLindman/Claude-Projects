@@ -143,7 +143,7 @@
 <div id="screen-dashboard" class="screen">
   <div class="page"><div class="rules"></div><div class="margin"></div><div class="ribbon"></div>
     <div class="content">
-      <div class="title dash-date" id="dash-date"></div>
+      <div class="title page-date" id="dash-date"></div>
       <div class="lbl dash-hello">שלום, <strong id="pet-name-label"></strong> 👋</div>
       <div class="dash-top">
         <div class="bubble dash-bubble" id="pet-bubble"><span id="pet-status-text">טוען...</span></div>
@@ -162,51 +162,29 @@
 </div>
 
 <!-- ════════════════ HOME (DIARY) ════════════════ -->
+<!-- The diary page of one day: the week strip (an arrow at each end, the shown day circled in red pen, future days dimmed),
+     the date, the calories eaten with the red bar, the day's macro totals and every meal as a taped polaroid.
+     screens/home.js fills it. The two arrows live in .date-nav (changeDay, one day); the seven day buttons are outside it. -->
 <div id="screen-home" class="screen">
-  <div class="topbar">
-    <div>
-      <div class="topbar-title">יומן</div>
-    </div>
-    <div class="topbar-brand">
-      <div class="topbar-brand-title">Your Personal Food Logger</div>
-      <div class="topbar-brand-sub"><a class="topbar-brand-ig" href="https://www.instagram.com/darlindman/" target="_blank" rel="noopener"><svg width="9" height="9" viewBox="0 0 24 24" fill="#E1306C"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>Instagram</a> &middot; By Dar</div>
-    </div>
-  </div>
-  <div class="screen-body">
-    <div class="date-nav">
-      <button data-action="changeDay" data-arg="-1">&#8249;</button>
-      <div class="date-display" id="diary-date-label"></div>
-      <button data-action="changeDay" data-arg="1">&#8250;</button>
-    </div>
-
-    <div class="card" id="daily-summary-card">
-      <div class="card-title">סיכום יומי</div>
-      <div class="macro-row">
-        <div class="macro-pill mp-cal"><div class="mp-val" id="sum-cal">0</div><div class="mp-label">קלוריות</div></div>
-        <div class="macro-pill mp-pro"><div class="mp-val" id="sum-pro">0</div><div class="mp-label">חלבון</div></div>
-        <div class="macro-pill mp-carb"><div class="mp-val" id="sum-carb">0</div><div class="mp-label">פחמימות</div></div>
-        <div class="macro-pill mp-fat"><div class="mp-val" id="sum-fat">0</div><div class="mp-label">שומן</div></div>
-        <div class="macro-pill mp-fiber"><div class="mp-val" id="sum-fiber">0</div><div class="mp-label">סיבים</div></div>
-      </div>
-      <!-- Calorie goal progress bar (shown if profile set) -->
-      <div id="cal-goal-section" style="display:none">
-        <div class="cal-goal-bar">
-          <div class="cal-goal-label">
-            <span id="cal-goal-text">0 / 0 קק״ל</span>
-          </div>
-          <div class="cal-goal-track-outer">
-            <div id="pet-diary-wrap" style="position:absolute;bottom:7px;right:-24px;z-index:1;pointer-events:none;display:flex;flex-direction:column;align-items:center;width:48px;transition:right .7s cubic-bezier(.4,0,.2,1)">
-              <span class="cal-goal-pct" id="cal-goal-pct" style="margin-bottom:2px">0%</span>
-            </div>
-            <div class="cal-goal-track"><div class="cal-goal-fill" id="cal-goal-fill" style="width:0%"></div></div>
-          </div>
+  <div class="page"><div class="rules"></div><div class="margin"></div><div class="ribbon"></div>
+    <div class="content">
+      <div class="weekrow">
+        <div class="date-nav">
+          <button data-action="changeDay" data-arg="-1"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+          <button data-action="changeDay" data-arg="1" id="diary-next"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
         </div>
+        <div class="week" id="diary-week"></div>
       </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">ארוחות</div>
-      <div id="meal-list"><div class="empty-state"><div class="empty-icon">🍽️</div><p>אין ארוחות מתועדות<br>לחץ על ➕ כדי להוסיף ארוחה</p></div></div>
+      <div class="title page-date" id="diary-date-label"></div>
+      <div class="eat"><span class="n" id="sum-cal">0</span><span class="of">קק״ל<span id="diary-goal-sep" hidden> מתוך <span id="diary-goal-label"></span></span></span></div>
+      <div class="ink2" id="diary-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><div class="track"><div class="fill" id="diary-cal-fill"></div></div></div>
+      <div class="macros lbl">
+        <span>חלבון <b id="sum-pro">0</b></span>
+        <span>פחמימות <b id="sum-carb">0</b></span>
+        <span>שומן <b id="sum-fat">0</b></span>
+        <span>סיבים <b id="sum-fiber">0</b></span>
+      </div>
+      <div id="meal-list"></div>
     </div>
   </div>
 </div>

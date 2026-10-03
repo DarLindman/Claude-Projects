@@ -289,98 +289,6 @@ input::placeholder { color: var(--muted); }
 }
 
 /* ════════════════════════════════════════
-   MACRO PILLS (dynamically injected)
-════════════════════════════════════════ */
-.macro-row { display: flex; gap: 8px; margin-bottom: 16px; }
-
-.macro-pill {
-  flex: 1;
-  text-align: center;
-  padding: 12px 6px;
-  border-radius: 12px;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-}
-
-.macro-pill .mp-val {
-  font-family: var(--font-text);
-  font-size: 18px;
-  font-weight: 600;
-  line-height: 1;
-}
-
-.macro-pill .mp-label {
-  font-size: 10px;
-  color: var(--muted);
-  margin-top: 4px;
-}
-
-.mp-cal .mp-val { color: var(--accent); }
-.mp-pro .mp-val { color: var(--protein); }
-.mp-carb .mp-val { color: var(--carb); }
-.mp-fat .mp-val { color: var(--fat); }
-.mp-fiber .mp-val { color: var(--fiber); }
-
-/* ════════════════════════════════════════
-   CALORIE GOAL PROGRESS BAR
-════════════════════════════════════════ */
-.cal-goal-bar {
-  margin-bottom: 16px;
-}
-.cal-goal-label {
-  display: flex;
-  font-size: 12px;
-  color: var(--text);
-  font-weight: 600;
-  margin-bottom: 6px;
-}
-.cal-goal-pct {
-  font-family: var(--font-text);
-  font-weight: 600;
-  font-size: 11px;
-  text-align: center;
-  white-space: nowrap;
-}
-.cal-goal-pct.over { color: #f87171; }
-.cal-goal-track-outer {
-  position: relative;
-  padding-top: 68px;
-  overflow: visible;
-}
-.cal-goal-track {
-  height: 7px;
-  background: var(--surface3);
-  border-radius: 99px;
-  overflow: hidden;
-}
-.cal-goal-fill {
-  height: 100%;
-  border-radius: 99px;
-  transition: width .7s cubic-bezier(.4,0,.2,1);
-  background: var(--accent);
-}
-.cal-goal-fill.over { background: #f87171; }
-
-/* Calorie goal glow animations */
-@keyframes goal-glow-pulse {
-  0%, 100% { box-shadow: 0 0 0px var(--accent-glow); }
-  50%       { box-shadow: 0 0 10px 2px var(--accent-glow); }
-}
-@keyframes goal-done-bounce {
-  0%   { transform: scaleY(1); }
-  40%  { transform: scaleY(1.5); }
-  70%  { transform: scaleY(0.9); }
-  100% { transform: scaleY(1); }
-}
-.cal-goal-fill--half {
-  animation: goal-glow-pulse 1.5s ease-in-out 2;
-}
-.cal-goal-fill--done {
-  background: #5a9e3a !important;
-  animation: goal-done-bounce 0.5s var(--ease-spring), goal-glow-pulse 1.5s ease-in-out 3 0.5s;
-}
-
-/* ════════════════════════════════════════
    DONUT CHART (dynamically injected)
 ════════════════════════════════════════ */
 .donut-wrap { display: flex; align-items: center; gap: 16px; }
@@ -508,29 +416,6 @@ input::placeholder { color: var(--muted); }
   transition: background .15s;
 }
 .delete-btn:active { background: var(--surface2); }
-
-/* ════════════════════════════════════════
-   MEAL ITEM ROW (asymmetric layout)
-════════════════════════════════════════ */
-.meal-item-row {
-  display: grid;
-  grid-template-columns: 44px 1fr auto;
-  column-gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px solid rgba(61,37,21,0.3);
-  align-items: start;
-  border-right: 3px solid var(--meal-accent, var(--border));
-  padding-right: 10px;
-  background: transparent;
-  border-radius: 0;
-}
-.meal-item-row:last-child { border-bottom: none; }
-
-.meal-accent-breakfast { --meal-accent: #F5A623; }
-.meal-accent-lunch     { --meal-accent: #E8703A; }
-.meal-accent-dinner    { --meal-accent: #C0392B; }
-.meal-accent-snack     { --meal-accent: #8B6B4A; }
-
 
 /* ════════════════════════════════════════
    THE RECEIPT (receiptHtml in js/receipt.js) AND THE TALLY (tallySvg in js/tally.js)

@@ -132,10 +132,10 @@ test('one meal saved through the UI: eaten calories, circled calories, tally for
   const eaten = analysedCal.toLocaleString('he-IL');
 
   await expect(page.locator('#pet-name-label')).toHaveText(username);
-  const big = page.locator('.eat .n');
+  const big = page.locator('#screen-dashboard .eat .n');
   await expect(big).toHaveText(eaten);                       // digits only, counted up
   await expect(big).toHaveCSS('font-size', '46px');
-  await expect(page.locator('.eat .of')).toContainText('קק״ל מתוך');
+  await expect(page.locator('#screen-dashboard .eat .of')).toContainText('קק״ל מתוך');
 
   // streak 1: the line says "יום אחד" and the tally is one stroke
   await expect(page.locator('#dash-streak')).toBeVisible();
@@ -203,7 +203,7 @@ test('eating more than the goal keeps the bar inside its track and a long name i
   await meal(page, { calories: 6000, name: longName });
   await openHome(page);
 
-  await expect(page.locator('.eat .n')).toHaveText('6,000');
+  await expect(page.locator('#screen-dashboard .eat .n')).toHaveText('6,000');
   const geo = await page.evaluate(() => {
     const track = document.querySelector('#dash-bar .track').getBoundingClientRect();
     const fill = document.querySelector('#dash-cal-fill').getBoundingClientRect();
@@ -219,7 +219,7 @@ test('eating more than the goal keeps the bar inside its track and a long name i
   const bounds = await page.evaluate(() => {
     const content = document.querySelector('#screen-dashboard .content').getBoundingClientRect();
     const out = [];
-    for (const sel of ['#dash-last', '#dash-last .polaroid', '#dash-last .dash-meal-name', '#dash-last .circ', '.eat', '#pet-bubble']) {
+    for (const sel of ['#dash-last', '#dash-last .polaroid', '#dash-last .dash-meal-name', '#dash-last .circ', '#screen-dashboard .eat', '#pet-bubble']) {
       const r = document.querySelector(sel).getBoundingClientRect();
       if (r.left < content.left - 0.5 || r.right > content.right + 0.5) out.push(`${sel} ${Math.round(r.left)}..${Math.round(r.right)} vs ${Math.round(content.left)}..${Math.round(content.right)}`);
     }

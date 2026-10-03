@@ -1,91 +1,3 @@
-/* ════ Diary leather journal ════ */
-#diary-date-label {
-  font-family: var(--font-text);
-  font-size: 11px;
-  letter-spacing: 3px;
-  text-transform: uppercase;
-  color: var(--muted);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 4px 12px;
-}
-#meal-list {
-  background-image: repeating-linear-gradient(
-    to bottom,
-    transparent,
-    transparent 27px,
-    rgba(61,37,21,0.35) 27px,
-    rgba(61,37,21,0.35) 28px
-  );
-  background-size: 100% 28px;
-  padding: 4px 0;
-}
-
-.mir-time-col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-
-.mir-food-icon {
-  font-size: 18px;
-  line-height: 1;
-}
-
-.mir-time {
-  font-family: var(--font-text);
-  font-size: 11px;
-  color: var(--muted);
-  padding-top: 3px;
-}
-.mir-body {
-  min-width: 0;
-}
-.mir-name {
-  font-family: var(--font-text);
-  font-style: italic;
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--text);
-  line-height: 1.3;
-}
-.mir-macros {
-  font-family: var(--font-text);
-  font-size: 11px;
-  color: var(--text2);
-  margin-top: 3px;
-}
-.mir-right {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-}
-.mir-kcal {
-  font-family: var(--font-text);
-  font-style: italic;
-  font-weight: 300;
-  font-size: 20px;
-  color: var(--text);
-  line-height: 1;
-}
-.mir-delete {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--muted);
-  padding: 4px;
-  border-radius: 4px;
-  transition: color var(--dur-fast);
-  min-width: 32px;
-  min-height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.mir-delete:hover { color: #f87171; }
-
 /* ════════════════════════════════════════
    CAMERA SCREEN
 ════════════════════════════════════════ */
@@ -832,7 +744,7 @@
    the streak tally, the last meal. The ribbon (top 50 px, left 46 px) sits beside the first lines, so the date keeps clear of it. */
 #screen-dashboard [hidden] { display: none !important; }
 #screen-dashboard .content { padding-bottom: 28px; }
-.dash-date { font-size: 24px; line-height: 30px; margin: 0 0 0 50px; white-space: normal; overflow-wrap: anywhere; }
+.page-date { font-size: 24px; line-height: 30px; margin: 0 0 0 50px; white-space: normal; overflow-wrap: anywhere; }
 .dash-hello { margin-top: 0; font-size: 17px; line-height: 30px; }
 .dash-hello strong { font-weight: 400; color: var(--ink); overflow-wrap: anywhere; }
 .dash-top { display: flex; gap: 10px; align-items: flex-start; min-height: 150px; margin-top: 30px; }
@@ -871,3 +783,59 @@
   from { opacity: 0; transform: translateY(-14px) rotate(-7deg); }
   to   { opacity: 1; transform: translateY(0) rotate(-3deg); }
 }
+
+/* ════ Diary: one day on a ruled page ════
+   Flow layout on the 30 px rules: the week strip, the date, the calories eaten (60 px) with the bar, the macro totals, then
+   one 180 px (six rules) block per meal. The ribbon hangs below the strip (top 50 px, 46 px from the left), so the date keeps
+   clear of it (.page-date has a 50 px left margin). The two arrows are in .date-nav, laid over the ends of the strip; the
+   seven day buttons are in .week, outside it. */
+#screen-home [hidden] { display: none !important; }
+#screen-home .content { padding-bottom: 28px; }
+#screen-home .ribbon { pointer-events: none; }
+.weekrow { position: relative; height: 30px; }
+#screen-home .date-nav { position: absolute; inset: 0; display: flex; align-items: center; justify-content: space-between; margin: 0; pointer-events: none; }
+#screen-home .date-nav button {
+  pointer-events: auto; width: 28px; height: 30px; padding: 0; border: 0; border-radius: 0; background: none; cursor: pointer;
+  display: grid; place-items: center;
+}
+#screen-home .date-nav button:active { background: none; }
+#screen-home .date-nav svg { width: 16px; height: 16px; stroke: var(--graphite); fill: none; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+#screen-home .date-nav button:disabled { cursor: default; }
+#screen-home .date-nav button:disabled svg { opacity: .3; }
+.week { display: flex; height: 30px; align-items: center; justify-content: space-between; margin: 0 28px; }
+.week .day {
+  position: relative; width: 30px; height: 30px; padding: 0; border: 0; background: none; cursor: pointer;
+  font: 400 15px/30px var(--font-text); color: var(--graphite); text-align: center;
+}
+.week .day.sel { color: var(--ink); }
+.week .day.sel::after {                      /* the shown day, circled in red pen */
+  content: ''; position: absolute; inset: 2px -1px; border: 2px solid var(--red);
+  border-radius: 46% 54% 50% 50% / 55% 45% 55% 45%; transform: rotate(-6deg);
+}
+.week .day.future { opacity: .35; cursor: default; }
+.macros { display: flex; flex-wrap: wrap; column-gap: 10px; margin-top: 0; font-size: 15px; line-height: 30px; }
+.macros b { font-weight: 400; color: var(--ink); }
+#meal-list { padding: 0; }
+#meal-list .empty-state { padding: 20px 0; color: var(--graphite); }
+#meal-list .empty-icon { width: 90px; height: 90px; margin: 0 auto 6px; opacity: .55; border-radius: 50%; overflow: hidden; }
+#meal-list .empty-icon svg { display: block; width: 100%; height: 100%; }
+#meal-list .empty-state p { font: 400 20px/30px var(--font-text); color: var(--graphite); }
+
+.meal-item-row { position: relative; height: 180px; --pw: min(122px, 42%); }
+.meal-item-row .polaroid { top: 8px; width: var(--pw); right: 0; transform: rotate(-3.5deg); }
+.meal-item-row .tape { top: -10px; left: calc(50% - 29px); transform: rotate(-6deg); }
+.meal-item-row .polaroid .cp { font-size: 14px; }
+.mir-body { position: absolute; top: 30px; left: 0; width: calc(100% - var(--pw) - 16px); }
+.meal-item-row:nth-child(even) .polaroid { right: auto; left: 0; transform: rotate(3deg); }
+.meal-item-row:nth-child(even) .tape { transform: rotate(7deg); }
+.meal-item-row:nth-child(even) .mir-body { left: auto; right: 0; }
+.mir-name {
+  font: 400 20px/30px var(--font-text); color: var(--ink); overflow-wrap: anywhere; text-align: start;
+  display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; max-height: 90px;
+}
+.mir-body .circ { font-size: 21px; line-height: 30px; }
+.acts { display: flex; gap: 14px; height: 30px; align-items: center; font: 400 16px/24px var(--font-text); }
+.acts button {                                /* text buttons; the padding and the negative margin widen the tap area to 44 px */
+  border: 0; background: none; cursor: pointer; font: inherit; color: var(--graphite); padding: 10px 6px; margin: -10px -6px;
+}
+.acts .del { color: var(--red); }

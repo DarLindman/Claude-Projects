@@ -1,25 +1,41 @@
 import { state } from '../state.js';
 import { apiFetch } from '../api.js';
-import { addDays, formatDate, todayStr } from '../dates.js';
+import { formatDate, formatDateTitle, todayStr, addDays, weekOf } from '../dates.js';
 import { closeModal, html, openModal, setHtml, showToast } from '../dom.js';
-import { getFoodEmoji } from '../format.js';
-import { cloneCapybara, setIdleWrap, setPetState, startIdleAnimations } from '../pet.js';
+import { formatNumber } from '../format.js';
+import { plateSvg } from '../placeholder.js';
+import { photoSrc } from '../photos.js';
 import { calcRecommendedCal } from '../profile.js';
 import { analysisMessageFor, messageFor } from '../errors.js';
+
+const byId = (id) => document.getElementById(id);
+const WEEKDAY_LETTERS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];   // Sunday first, like weekOf()
 
 // ════════════════════════════════════════════════════
 // Diary
 // ════════════════════════════════════════════════════
-export function changeDay(n) {
-  const next = addDays(state.diaryDate, n);
-  if (next > todayStr()) return; // no future
-  state.diaryDate = next;
+function showDay(day) {
+  if (day > todayStr()) return; // no future
+  state.diaryDate = day;
+  const content = document.querySelector('#screen-home .content');
+  if (content) content.scrollTop = 0;
   loadDiary();
+}
+
+export function changeDay(n) {
+  showDay(addDays(state.diaryDate, n));
+}
+
+// A tap on a day of the week strip (a future day is a disabled button, and showDay refuses it as well).
+export function pickDay(day) {
+  if (day === state.diaryDate) return;
+  showDay(day);
 }
 
 export async function loadDiary() {
   try {
-    const label = document.getElementById('diary-date-label');
+    renderWeek();
+    const label = byId('diary-date-label');
     if (label) label.textContent = formatDate(state.diaryDate);
     const entries = await apiFetch(`/api/food?date=${state.diaryDate}`);
     renderMealList(entries);
@@ -27,48 +43,40 @@ export async function loadDiary() {
   } catch (e) { showToast('שגיאה בטעינת היומן'); }
 }
 
+// The seven days of the displayed week: the shown day is circled in red pen, a future day is dimmed and disabled.
+function renderWeek() {
+  const today = todayStr();
+  const week = byId('diary-week');
+  setHtml(week, html`${weekOf(state.diaryDate).map((day, i) => {
+    const shown = day === state.diaryDate;
+    return html`<button class="day${shown ? ' sel' : ''}${day > today ? ' future' : ''}" data-action="pickDay" data-arg="${day}" aria-label="${formatDateTitle(day)}" aria-current="${shown ? 'date' : 'false'}">${WEEKDAY_LETTERS[i]}</button>`;
+  })}`);
+  week.querySelectorAll('.future').forEach((b) => { b.disabled = true; });
+  byId('diary-next').disabled = state.diaryDate >= today;
+}
+
 function renderMealList(entries) {
-  const el = document.getElementById('meal-list');
+  const el = byId('meal-list');
   if (!entries.length) {
-    setHtml(el, html`<div class="empty-state"><div class="empty-icon">🍽️</div><p>אין ארוחות מתועדות<br>לחץ על ➕ כדי להוסיף ארוחה</p></div>`);
+    setHtml(el, html`<div class="empty-state"><div class="empty-icon">${plateSvg()}</div><p>אין ארוחות מתועדות<br>לחץ על ➕ כדי להוסיף ארוחה</p></div>`);
     return;
   }
+  // kept as a hook: the row carries its meal type as a class
   const ACCENT = { breakfast: 'meal-accent-breakfast', lunch: 'meal-accent-lunch', dinner: 'meal-accent-dinner', snack: 'meal-accent-snack' };
   _mealEntries.clear();
   entries.forEach(e => _mealEntries.set(e.id, e));
 
+  // One taped polaroid per meal, alternating sides (CSS: odd rows have the photo on the right). The photo is the stored
+  // thumbnail when the meal has one, else the drawn plate; the time is under the photo; the name, the circled calories
+  // and the two text buttons are beside it.
   setHtml(el, html`${entries.map(e => html`<div class="meal-item-row ${ACCENT[e.meal_type] || ''}" id="entry-${e.id}">
-  <div class="mir-time-col">
-    <div class="mir-food-icon">${getFoodEmoji(e.food_name)}</div>
-    <div class="mir-time">${e.logged_at ? e.logged_at.slice(11, 16) : ''}</div>
-  </div>
+  <div class="polaroid"><i class="tape"></i><div class="ph">${e.has_photo ? html`<img class="ph-img" data-photo src="${photoSrc(e.id)}" alt="">` : plateSvg()}</div><div class="cp">${e.logged_at ? String(e.logged_at).slice(11, 16) : ''}</div></div>
   <div class="mir-body">
     <div class="mir-name">${e.food_name || ''}</div>
-    <div class="mir-macros"><span style="color:var(--protein)">ח ${Math.round(e.protein_g||0)}</span> · <span style="color:var(--carb)">פ ${Math.round(e.carbs_g||0)}</span> · <span style="color:var(--fat)">ש ${Math.round(e.fat_g||0)}</span> · <span style="color:var(--fiber)">ס ${Math.round(e.fiber_g||0)}</span></div>
-  </div>
-  <div class="mir-right">
-    <div class="mir-kcal">${Math.round(e.calories || 0)}</div>
-    <div style="display:flex;flex-direction:row;gap:2px">
-      <button class="mir-delete" data-action="openEditModal" data-id="${e.id}" aria-label="ערוך">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
-          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-        </svg>
-      </button>
-      <button class="mir-delete" data-action="deleteEntry" data-id="${e.id}" aria-label="מחק">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
-          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
-        </svg>
-      </button>
-    </div>
+    <span class="circ">${formatNumber(+e.calories)}</span>
+    <div class="acts"><button data-action="openEditModal" data-id="${e.id}">ערוך</button><button class="del" data-action="deleteEntry" data-id="${e.id}">מחק</button></div>
   </div>
 </div>`)}`);
-}
-
-function getDiaryPetState(cal, goal) {
-  if (cal === 0)               return 'sleeping';
-  if (goal > 0 && cal > goal)  return 'surprised';
-  if (cal > 0)                 return 'happy';
-  return 'neutral';
 }
 
 function renderDailySummary(entries) {
@@ -80,50 +88,28 @@ function renderDailySummary(entries) {
     fiber: a.fiber + (+e.fiber_g || 0),
   }), { cal: 0, pro: 0, carb: 0, fat: 0, fiber: 0 });
 
-  document.getElementById('sum-cal').textContent = Math.round(totals.cal);
-  document.getElementById('sum-pro').textContent = Math.round(totals.pro);
-  document.getElementById('sum-carb').textContent = Math.round(totals.carb);
-  document.getElementById('sum-fat').textContent = Math.round(totals.fat);
-  document.getElementById('sum-fiber').textContent = Math.round(totals.fiber);
+  byId('sum-cal').textContent = formatNumber(totals.cal);
+  byId('sum-pro').textContent = Math.round(totals.pro);
+  byId('sum-carb').textContent = Math.round(totals.carb);
+  byId('sum-fat').textContent = Math.round(totals.fat);
+  byId('sum-fiber').textContent = Math.round(totals.fiber);
 
-  // Calorie goal bar
+  // "of the goal" and the red bar (the share of the goal eaten, never wider than its track); no goal, no bar
   const rec = calcRecommendedCal();
-  const goalSection = document.getElementById('cal-goal-section');
+  const bar = byId('diary-bar');
+  const fill = byId('diary-cal-fill');
+  const sep = byId('diary-goal-sep');
   if (rec > 0) {
-    goalSection.style.display = '';
-    const consumed = Math.round(totals.cal);
-    const pct = Math.min(Math.round(consumed / rec * 100), 200);
-    const isOver = consumed > rec;
-    document.getElementById('cal-goal-text').textContent = `${rec} / ${consumed} קק״ל`;
-    const pctEl = document.getElementById('cal-goal-pct');
-    pctEl.textContent = `${Math.round(consumed / rec * 100)}%`;
-    pctEl.className = 'cal-goal-pct' + (isOver ? ' over' : '');
-    const fill = document.getElementById('cal-goal-fill');
-    const visPct = Math.min(Math.round(consumed / rec * 100), 100);
-    fill.style.width = `${visPct}%`;
-    fill.className = 'cal-goal-fill' + (isOver ? ' over' : '');
-    const diaryPosEl = document.getElementById('pet-diary-wrap');
-    if (diaryPosEl) diaryPosEl.style.right = `calc(${visPct}% - 24px)`;
-    // Add glow milestone animations
-    fill.classList.remove('cal-goal-fill--half', 'cal-goal-fill--done');
-    void fill.offsetWidth; // force reflow to restart animation if class is re-added
-    if (pct >= 100) fill.classList.add('cal-goal-fill--done');
-    else if (pct >= 50) fill.classList.add('cal-goal-fill--half');
+    byId('diary-goal-label').textContent = formatNumber(rec);
+    sep.hidden = false;
+    const pct = Math.max(0, Math.min(100, Math.round((totals.cal / rec) * 100)));
+    bar.hidden = false;
+    bar.setAttribute('aria-valuenow', String(pct));
+    fill.style.width = pct + '%';
   } else {
-    goalSection.style.display = 'none';
-  }
-
-  // Diary capybara
-  const diaryWrapEl = document.getElementById('pet-diary-wrap');
-  if (diaryWrapEl) {
-    if (!diaryWrapEl.querySelector('svg')) {
-      const pet = cloneCapybara(48);
-      diaryWrapEl.appendChild(pet);
-      setIdleWrap('diary', pet);
-      startIdleAnimations(pet);
-    }
-    const pet = diaryWrapEl.querySelector('.pet-wrap');
-    if (pet) setPetState(pet, getDiaryPetState(totals.cal, calcRecommendedCal()));
+    sep.hidden = true;
+    bar.hidden = true;
+    fill.style.width = '0%';
   }
 }
 
@@ -270,6 +256,7 @@ export async function editSave() {
 // Actions for the diary screen and the edit-meal modal.
 export const actions = {
   changeDay: (el) => changeDay(+el.dataset.arg),
+  pickDay: (el) => pickDay(el.dataset.arg),
   openEditModal: (el) => openEditModal(+el.dataset.id),
   deleteEntry: (el) => deleteEntry(+el.dataset.id),
   closeEditModal: () => closeEditModal(),

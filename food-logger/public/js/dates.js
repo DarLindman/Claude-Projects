@@ -52,6 +52,13 @@ export function addDays(str, n) {
   return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
 }
 
+// The seven YYYY-MM-DD strings of the Sunday-Saturday week that holds `str` (calendar arithmetic only: Date.UTC for the weekday, addDays for the rest).
+export function weekOf(str) {
+  const [y, m, d] = str.split('-').map(Number);
+  const sunday = addDays(str, -new Date(Date.UTC(y, m - 1, d)).getUTCDay());
+  return Array.from({ length: 7 }, (_, i) => addDays(sunday, i));
+}
+
 export function addMonths(str, n) {
   const [y, m] = str.split('-').map(Number);
   const d = new Date(y, m - 1 + n, 1);

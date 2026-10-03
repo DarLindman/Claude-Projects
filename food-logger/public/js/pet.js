@@ -1,10 +1,9 @@
 // ── Idle animation refs ──────────────────────────────────────────────────────
-const _idleWraps = { dash: null, diary: null, camera: null };
+const _idleWraps = { dash: null, camera: null };
 export function setIdleWrap(name, wrap) { _idleWraps[name] = wrap; }
 export function getIdleWrap(name) { return _idleWraps[name]; }
 export function stopAllIdleAnimations() {
   stopIdleAnimations(_idleWraps.dash);
-  stopIdleAnimations(_idleWraps.diary);
   stopIdleAnimations(_idleWraps.camera);
 }
 let _cameraHappyTimer = null;
