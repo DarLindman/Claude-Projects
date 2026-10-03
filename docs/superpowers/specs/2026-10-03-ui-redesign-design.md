@@ -73,7 +73,7 @@ Components (each described and shown in the reference): leather cover and stitch
 
 ### 4.1 Per-item calories in the analysis reply
 
-`analyzeImage` and `analyzeText` additionally return `items: [{ name, calories }]` (names through the existing `cleanDishName`, at most 8 items, the rest folded by the client into "ועוד N"; calories are the sanity-checked values; **never weights**). The reply keeps all existing fields (`foodName`, `calories`, `protein_g`, `carbs_g`, `fat_g`, `fiber_g`), so older clients keep working. The items are shown on the receipt at analysis time only; they are not stored. Tests: the shape, the 8-item cap, no weight field, names cleaned, a reply with unusable names falls back to a neutral item label chosen with the owner's copy review.
+`analyzeImage` and `analyzeText` additionally return `items: [{ name, calories }]` (names through the existing `cleanDishName`, at most 8 items; the client adds one `ועוד` row with the remainder calories (total minus the sum of the items) when the items do not add up to the total; calories are the sanity-checked values; **never weights**). The reply keeps all existing fields (`foodName`, `calories`, `protein_g`, `carbs_g`, `fat_g`, `fiber_g`), so older clients keep working. The items are shown on the receipt at analysis time only; they are not stored. Tests: the shape, the 8-item cap, no weight field, names cleaned, a reply with unusable names falls back to a neutral item label chosen with the owner's copy review.
 
 ### 4.2 Meal thumbnails
 
@@ -106,7 +106,7 @@ Every screen keeps its existing module and `data-action` hooks; the markup and C
 | Settings | `screens/settings.js` | Handwritten list rows, red "התנתקות", the walking capybara |
 | Bottom dock | `index.html`, `router.js` | Six buttons: בית, יומן, + (orange), נתונים, משקל, הגדרות; the active one highlighted |
 
-**New or changed Hebrew copy** (the owner approved it by approving the reference; each string goes through the spelling guard and the copy audit): "לחץ לצילום", "או בחר תמונה מהגלריה", "נתח את הצלחת", "צלם שוב", "מחשב כמה יש בצלחת…", "הארוחה שזיהיתי", "נרשם", "ברצף כבר N ימים", "מתוך N" and the welcome feature lines in the shortened form shown in the reference. Existing strings that stay are not touched.
+**New or changed Hebrew copy** (the owner approved it by approving the reference; each string goes through the spelling guard and the copy audit): "לחץ לצילום", "או בחר תמונה מהגלריה", "נתח את הצלחת", "צלם שוב", "מחשב כמה יש בצלחת…", "הארוחה שזיהיתי", "נרשם", "ברצף כבר N ימים", "מתוך N", "ועוד" and the welcome feature lines in the shortened form shown in the reference. Existing strings that stay are not touched.
 
 ---
 
