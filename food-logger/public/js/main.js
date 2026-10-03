@@ -1,6 +1,7 @@
 import { actions as modalActions } from './dom.js';
 import { bindActions } from './events.js';
 import { _cameraCapyState } from './pet.js';
+import { installPhotoFallback } from './photos.js';
 import { loadProfile } from './profile.js';
 import { actions as navActions, registerScreen } from './router.js';
 import { actions as analysisActions } from './screens/analysis.js';
@@ -27,6 +28,7 @@ registerScreen('weight',    { enter: loadWeightScreen });
 registerScreen('camera',    { enter: animatePlaceholder });
 registerScreen('analysis',  { enter: () => _cameraCapyState('neutral') });
 
+installPhotoFallback();
 populateProfileSelects();
 mountWelcomePet();
 loadProfile();

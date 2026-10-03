@@ -828,19 +828,19 @@
 #screen-auth .page:has(#auth-step2:not([style*="none"])) > .walker { display: none; }
 
 /* ════ Home: the diary's first page ════
-   A flow layout on the 30 px rules: date, greeting, the capybara with her bubble, the calories eaten with the red bar,
+   A flow layout on the 30 px rules (every block starts on a rule and is a multiple of 30 px high): date, greeting, the capybara with her bubble, the calories eaten with the red bar,
    the streak tally, the last meal. The ribbon (top 50 px, left 46 px) sits beside the first lines, so the date keeps clear of it. */
 #screen-dashboard [hidden] { display: none !important; }
 #screen-dashboard .content { padding-bottom: 28px; }
-.dash-date { font-size: 24px; line-height: 36px; margin: 6px 0 0 50px; white-space: normal; overflow-wrap: anywhere; }
-.dash-hello { margin-top: -2px; font-size: 17px; line-height: 30px; }
+.dash-date { font-size: 24px; line-height: 30px; margin: 0 0 0 50px; white-space: normal; overflow-wrap: anywhere; }
+.dash-hello { margin-top: 0; font-size: 17px; line-height: 30px; }
 .dash-hello strong { font-weight: 400; color: var(--ink); overflow-wrap: anywhere; }
-.dash-top { display: flex; gap: 10px; align-items: flex-start; min-height: 150px; margin-top: 14px; }
-.dash-bubble { position: relative; flex: 1 1 0; min-width: 100px; margin-top: 2px; overflow-wrap: anywhere; }
+.dash-top { display: flex; gap: 10px; align-items: flex-start; min-height: 150px; margin-top: 30px; }
+.dash-bubble { position: relative; flex: 1 1 0; min-width: 100px; margin-top: 0; overflow-wrap: anywhere; }
 .dash-pet { flex: 0 1 132px; min-width: 80px; margin-left: -8px; }
 .dash-pet .pet-wrap { display: block; }
 .dash-pet svg { width: 100%; height: auto; }
-.eat { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; min-height: 60px; margin-top: 2px; }
+.eat { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; min-height: 60px; margin-top: 0; }
 .eat .n { font: 400 46px/60px var(--font-text); color: var(--red); }
 .eat .of { font: 400 17px/30px var(--font-text); color: var(--graphite); }
 .ink2 { height: 30px; display: flex; align-items: center; }
@@ -852,16 +852,13 @@
   position: absolute; inset: 0 0 0 auto; width: 0; max-width: 100%; border-radius: 10px;
   background: linear-gradient(#c8432a, #a82b17); transition: width var(--dur-slow) var(--ease-out);
 }
-.dash-streak { margin-top: 8px; }
+.dash-streak { margin-top: 0; }
 .dash-streak-line { line-height: 30px; }
-.dash-tally { min-height: 40px; }
-.dash-tally .tally { margin-top: -2px; }
-.dash-last { position: relative; height: 176px; margin-top: 18px; }
+.dash-tally { min-height: 60px; }
+.dash-last { position: relative; height: 180px; margin-top: 30px; }
 .dash-polaroid { right: 0; top: 8px; width: 120px; transform: rotate(-3deg); animation: polaroid-drop var(--dur-slow) var(--ease-spring) both; }
 .dash-polaroid .tape { top: -9px; left: 30px; transform: rotate(-6deg); }
 .dash-polaroid .cp { font-size: 14px; }
-.dash-polaroid .ph img, .dash-polaroid .ph svg { display: block; width: 100%; height: 100%; object-fit: cover; }
-.dash-polaroid .ph { overflow: hidden; }
 .dash-meal { position: absolute; left: 0; top: 14px; width: calc(100% - 140px); text-align: center; }
 .dash-meal-name {
   font: 400 20px/30px var(--font-text); color: var(--ink); overflow-wrap: anywhere; text-align: start;
@@ -869,7 +866,7 @@
 }
 .dash-meal .circ { font-size: 20px; line-height: 34px; margin-top: 4px; }
 .dash-kcal { font: 400 15px/20px var(--font-text); color: var(--graphite); }
-.dash-weight { margin-top: 6px; }
+.dash-weight { margin-top: 0; }
 @keyframes polaroid-drop {
   from { opacity: 0; transform: translateY(-14px) rotate(-7deg); }
   to   { opacity: 1; transform: translateY(0) rotate(-3deg); }

@@ -16,24 +16,24 @@ export function daysBetween(fromStr, toStr) {
   return Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / 86400000);
 }
 
+const WEEKDAYS = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];   // Sunday first, like Date.getDay()
+const MONTHS_SHORT = ['ינו׳','פבר׳','מרץ','אפר׳','מאי','יוני','יולי','אוג׳','ספט׳','אוק׳','נוב׳','דצמ׳'];
+const MONTHS_FULL = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+
 export function formatDate(str) {
   const [y, m, d] = str.split('-').map(Number);
   const date = new Date(y, m - 1, d);
-  const days = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
-  const months = ['ינו׳','פבר׳','מרץ','אפר׳','מאי','יוני','יולי','אוג׳','ספט׳','אוק׳','נוב׳','דצמ׳'];
   const isToday = str === todayStr();
-  const label = isToday ? 'היום' : `יום ${days[date.getDay()]}`;
+  const label = isToday ? 'היום' : `יום ${WEEKDAYS[date.getDay()]}`;
   // "1 באוק׳", "1 במרץ": the day of the month takes the prefix ב before the month name
-  return `${label}, ${date.getDate()} ב${months[date.getMonth()]}`;
+  return `${label}, ${date.getDate()} ב${MONTHS_SHORT[date.getMonth()]}`;
 }
 
 // The home page's title: "שבת, 3 באוקטובר" (the weekday, then the day of the month with the full month name).
 export function formatDateTitle(str) {
   const [y, m, d] = str.split('-').map(Number);
   const date = new Date(y, m - 1, d);
-  const days = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
-  const months = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
-  return `${days[date.getDay()]}, ${date.getDate()} ב${months[date.getMonth()]}`;
+  return `${WEEKDAYS[date.getDay()]}, ${date.getDate()} ב${MONTHS_FULL[date.getMonth()]}`;
 }
 
 // A number of days in words: "יום אחד" for one, "N ימים" otherwise.
@@ -43,8 +43,7 @@ export function formatDayCount(n) {
 
 export function formatMonth(str) {
   const [y, m] = str.split('-');
-  const months = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
-  return `${months[+m - 1]} ${y}`;
+  return `${MONTHS_FULL[+m - 1]} ${y}`;
 }
 
 export function addDays(str, n) {

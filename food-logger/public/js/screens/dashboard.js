@@ -43,7 +43,7 @@ const byId = (id) => document.getElementById(id);
 function lastMealHtml(entry) {
   const time = entry.logged_at ? String(entry.logged_at).slice(11, 16) : '';
   const picture = entry.has_photo
-    ? html`<img class="ph-img" src="${photoSrc(entry.id)}" alt="">`
+    ? html`<img class="ph-img" data-photo src="${photoSrc(entry.id)}" alt="">`
     : plateSvg();
   return html`<div class="polaroid dash-polaroid"><i class="tape"></i><div class="ph">${picture}</div><div class="cp">${time}</div></div>
     <div class="dash-meal hand">
@@ -62,13 +62,13 @@ function renderLastMeal(entries) {
   el.hidden = false;
 }
 
-// The weight line shows only when a weight was logged today (registration logs one; the weight screen keeps the list fresh).
+// The weight line shows the newest logged weight (the list is loaded at sign-in and kept fresh by the weight screen); no weights, no line.
 function renderWeight() {
   const el = byId('dash-weight');
   if (!el) return;
   const last = state.weightLogs.length ? state.weightLogs[state.weightLogs.length - 1] : null;
   const kg = last ? +last.weight_kg : 0;
-  if (!last || last.logged_at !== todayStr() || !(kg > 0)) { el.hidden = true; return; }
+  if (!(kg > 0)) { el.hidden = true; return; }
   byId('dash-weight-val').textContent = kg.toFixed(1);
   el.hidden = false;
 }

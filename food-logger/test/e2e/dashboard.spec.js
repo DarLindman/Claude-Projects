@@ -18,10 +18,10 @@ const put = (page, url, data) => page.request.put(url, { headers: CSRF, data });
 
 const uniqueName = () => `dash${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
-// A calendar day `back` days before the local today, built with local getters only (like the app).
+// A calendar day `back` days before the local today (localNow() gives today), built with local getters only (like the app).
 function dayBack(back) {
-  const d = new Date();
-  d.setDate(d.getDate() - back);
+  const [y, m, day] = localNow().date.split('-').map(Number);
+  const d = new Date(y, m - 1, day - back);
   const p = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
@@ -229,3 +229,78 @@ test('eating more than the goal keeps the bar inside its track and a long name i
   expect(bounds.scrollW).toBeLessThanOrEqual(bounds.innerW);
   expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
 });
+
+test('the weight line shows the newest weight even when it was logged on an earlier day, and is hidden with no weights', async ({ page }) => {
+  const guards = attachGuards(page);
+  await registerWithProfile(page, uniqueName());
+  await openHome(page);
+  await expect(page.locator('#dash-weight')).toBeHidden();               // no weight logged at all
+
+  expect((await post(page, '/api/weight', { weight_kg: 72, logged_at: dayBack(9) })).status()).toBe(200);
+  expect((await post(page, '/api/weight', { weight_kg: 69.5, logged_at: dayBack(3) })).status()).toBe(200);
+  await page.reload();
+  await expect(page.locator('#screen-dashboard')).toBeVisible();
+  await expect(page.locator('#dash-weight')).toHaveText('משקל 69.5 ק״ג');   // the newest one, not today's
+  const digits = await digitOffenders(page);
+  expect(digits.out, 'digit font').toEqual([]);
+  expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+});
+
+test('logging a meal and coming back to the home page shows the refreshed numbers', async ({ page }) => {
+  const guards = attachGuards(page);
+  await registerWithProfile(page, uniqueName());
+  await openHome(page);
+  await expect(page.locator('#dash-cal-remaining')).toHaveText('0');
+  await expect(page.locator('#dash-last')).toBeHidden();
+  await expect(page.locator('#dash-streak')).toBeHidden();
+
+  await meal(page, { name: 'ארוחת בוקר', calories: 300, time: '08:00' });
+  await page.locator('#nav-home').click();
+  await expect(page.locator('#screen-home')).toBeVisible();
+  await page.locator('#nav-dashboard').click();
+  await expect(page.locator('#dash-cal-remaining')).toHaveText('300');
+  await expect(page.locator('#dash-last .dash-meal-name')).toHaveText('ארוחת בוקר');
+  await expect(page.locator('#dash-streak .dash-streak-line')).toHaveText('ברצף כבר יום אחד');
+
+  await meal(page, { name: 'ארוחת צהריים', calories: 450, time: '13:00' });
+  await page.locator('#nav-home').click();
+  await page.locator('#nav-dashboard').click();
+  await expect(page.locator('#dash-cal-remaining')).toHaveText('750');
+  await expect(page.locator('#dash-last .dash-meal-name')).toHaveText('ארוחת צהריים');
+  await expect(page.locator('#dash-last .circ')).toHaveText('450');
+  expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+});
+
+// A thumbnail that cannot load (404, or the network is gone) must never show as a broken image: the drawn plate takes its
+// place inside the same polaroid. The browser logs the failed request itself, so only page errors are guarded here.
+for (const [label, handler] of [
+  ['answers 404', (route) => route.fulfill({ status: 404, contentType: 'application/json', body: '{"error":{"code":"NOT_FOUND"}}' })],
+  ['is aborted (offline)', (route) => route.abort('internetdisconnected')],
+]) {
+  test(`a thumbnail that ${label} falls back to the plate, never a broken image`, async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', (err) => pageErrors.push(err.message));
+    await registerWithProfile(page, uniqueName());
+    const created = await meal(page, { name: 'שניצל', calories: 500 });
+    const up = await page.request.put(`/api/food/${created.id}/photo`, { headers: { ...CSRF, 'Content-Type': 'image/jpeg' }, data: realJpeg(24, 24, 40) });
+    expect(up.status()).toBe(200);
+    let asked = 0;
+    await page.route('**/api/food/*/photo', (route) => { asked += 1; return handler(route); });
+    await openHome(page);
+
+    await expect(page.locator('#dash-last .polaroid .ph svg.plate-ph')).toBeVisible();
+    await expect(page.locator('#dash-last .polaroid .tape')).toHaveCount(1);          // the polaroid frame stays
+    expect(asked, 'the thumbnail was requested').toBeGreaterThan(0);
+    const broken = await page.evaluate(() => [...document.querySelectorAll('img[data-photo]')].filter((i) => !i.naturalWidth).length);
+    expect(broken, 'no img[data-photo] without a picture is left').toBe(0);
+    await expect(page.locator('#dash-last img')).toHaveCount(0);
+    expect(pageErrors).toEqual([]);
+
+    // going away and back renders the meal again: still the plate, no loop, no error
+    await page.locator('#nav-home').click();
+    await page.locator('#nav-dashboard').click();
+    await expect(page.locator('#dash-last .polaroid .ph svg.plate-ph')).toBeVisible();
+    expect(await page.evaluate(() => document.querySelectorAll('#dash-last img').length)).toBe(0);
+    expect(pageErrors).toEqual([]);
+  });
+}

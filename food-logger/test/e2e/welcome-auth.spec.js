@@ -40,7 +40,7 @@ test('welcome cover: foil title, three feature lines, the capybara in her salad 
   await expect(pet).toHaveCount(1);
   await expect(pet.locator('xpath=..')).toHaveClass(/pet--happy/);
   expect(await pet.locator('.pet-bowl circle').count(), 'salad in the bowl').toBeGreaterThan(8);
-  await expect(welcome.locator('svg.capy-logo')).toHaveCount(0);   // the dashboard keeps its own until Task 8
+  await expect(welcome.locator('svg.capy-logo')).toHaveCount(0);   // the old logo is gone from every screen
   await expect(welcome.locator('.walker')).toHaveCount(0);
 
   // the two buttons keep their actions
