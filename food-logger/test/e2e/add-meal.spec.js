@@ -294,21 +294,43 @@ test.describe('add meal', () => {
     expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
   });
 
-  test('a file that is not an image leaves the empty frame, silently; the latest pick wins', async ({ page }) => {
+  test('a file that is not an image leaves the empty frame, silently', async ({ page }) => {
     await openAdd(page);
     const [c1] = await Promise.all([page.waitForEvent('filechooser'), page.locator('.cam-frame').click()]);
     await c1.setFiles({ name: 'x.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('this is not an image') });
     await expect(page.locator('.cam-frame')).toBeVisible();
     await expect(page.locator('#preview-img')).toBeHidden();
     await expect(page.locator('#analyze-btn')).toBeHidden();
-    // two picks in a row: a huge photo (slow to decode) and then a small one; the small one must stay
-    const input = page.locator('#file-input');
-    await input.setInputFiles(photoFile(bigPhoto(4000, 3000, 90)));
-    await input.setInputFiles(photoFile(realJpeg(60, 40, 33)));
+    expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+  });
+
+  test('two picks racing: the latest one wins even when the older one finishes decoding last', async ({ page }) => {
+    await openAdd(page);
+    // Both change events are dispatched back to back inside the page, so the two reads and decodes really overlap: the
+    // first file is a large photo (slow to read and decode), the second a tiny one (done long before it).
+    const big = bigPhoto(4000, 3000, 90).toString('base64');
+    const small = realJpeg(60, 40, 33).toString('base64');
+    await page.evaluate(({ big, small }) => {
+      const file = (b64, name) => {
+        const bin = atob(b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return new File([bytes], name, { type: 'image/jpeg' });
+      };
+      const input = document.getElementById('file-input');
+      for (const f of [file(big, 'first-big.jpg'), file(small, 'second-small.jpg')]) {
+        const dt = new DataTransfer();
+        dt.items.add(f);
+        input.files = dt.files;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }, { big, small });
     await expect(page.locator('#preview-img')).toBeVisible();
-    await page.waitForTimeout(1500);
+    // the big photo is scaled to 1024 px; the small one stays 60 x 40. Wait well past the time both decodes need.
+    await page.waitForTimeout(3000);
     const dims = await page.locator('#preview-img').evaluate((i) => [i.naturalWidth, i.naturalHeight]);
     expect(dims).toEqual([60, 40]);
+    await expect(page.locator('#analyze-btn')).toBeEnabled();
     expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
   });
 
