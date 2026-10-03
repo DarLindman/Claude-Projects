@@ -4,7 +4,7 @@ import { installPhotoFallback } from './photos.js';
 import { loadProfile } from './profile.js';
 import { actions as navActions, registerScreen } from './router.js';
 import { actions as analysisActions } from './screens/analysis.js';
-import { leaveAnalysis } from './screens/analysisView.js';
+import { fitCalories, leaveAnalysis } from './screens/analysisView.js';
 import { actions as authActions, doLogin, doRegister, enterAuth, leaveAuth } from './screens/auth.js';
 import { actions as cameraActions, autoResizeTextarea, enterCamera, releaseAnalyzeButtons } from './screens/camera.js';
 import { loadDashboard, resetDashboard } from './screens/dashboard.js';
@@ -38,6 +38,7 @@ bootSession();
 
 document.getElementById('login-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 document.getElementById('reg-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
+document.getElementById('res-cal').addEventListener('input', fitCalories);
 document.getElementById('res-name').addEventListener('input', function() { autoResizeTextarea(this); });
 document.getElementById('food-text-input').addEventListener('input', function() { autoResizeTextarea(this); });
 

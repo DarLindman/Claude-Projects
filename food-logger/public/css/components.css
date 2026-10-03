@@ -419,8 +419,8 @@ input::placeholder { color: var(--muted); }
 
 /* ════════════════════════════════════════
    THE RECEIPT (receiptHtml in js/receipt.js) AND THE TALLY (tallySvg in js/tally.js)
-   Two classes (.receipt.receipt-slip) beat the older .receipt box in screens.css, which the
-   analysis screen still uses until it is redone.
+   Two classes (.receipt.receipt-slip) beat the older .receipt box in screens.css, which is now
+   used only by the edit-meal modal (cleaned up with it in Task 15).
 ════════════════════════════════════════ */
 .receipt.receipt-slip {
   position: relative; background: #faf6ea; color: #2a2016; border: 0; border-radius: 0; overflow: visible;

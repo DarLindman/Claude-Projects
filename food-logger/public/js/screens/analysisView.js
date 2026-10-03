@@ -15,10 +15,17 @@ const byId = (id) => document.getElementById(id);
 // The analysis that may still show its result: every new analysis and every leaving of the page moves it on.
 let _current = 0;
 export const isCurrent = (token) => token === _current;
+export const currentToken = () => _current;
 export function leaveAnalysis() { _current += 1; }
 
 // 722 -> "722", 38.04 -> "38"; the value of a number input (no trailing ".0" in a circled number).
 const num = (v) => String(Math.round((+v || 0) * 10) / 10);
+
+// The circled calories shrink with the length of the value (a CSS var read by .res-cal .circ), so even 1234.6 stays whole.
+export function fitCalories() {
+  const el = byId('res-cal');
+  el.closest('.res-cal').style.setProperty('--len', String(Math.max(2, el.value.length)));
+}
 
 function fitName(el) {
   el.style.height = 'auto';
@@ -79,6 +86,7 @@ export function showResult(data, photo) {
   name.value = data.foodName || '';
   fitName(name);
   byId('res-cal').value = num(data.calories);
+  fitCalories();
   byId('res-pro').value = num(data.protein_g);
   byId('res-carb').value = num(data.carbs_g);
   byId('res-fat').value = num(data.fat_g);

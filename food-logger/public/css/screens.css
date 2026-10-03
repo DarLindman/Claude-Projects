@@ -154,12 +154,13 @@
 .res-top.has-photo { height: 164px; }
 .res-top .polaroid { right: 0; top: 4px; width: 128px; transform: rotate(-3deg); animation: cam-drop var(--dur-slow) var(--ease-spring) both; }
 .res-top .polaroid .cp { font-size: 13px; }
-.res-cal { text-align: center; padding-top: 6px; }
+.res-cal { text-align: center; padding-top: 6px; container-type: inline-size; }
 .res-top.has-photo .res-cal { position: absolute; left: 0; top: 28px; width: calc(100% - 140px); padding-top: 0; }
-.res-cal .circ { font-size: 34px; line-height: 46px; padding: 0 14px; max-width: 100%; }
+/* the font shrinks with the number of characters (--len, set by analysisView.js) so the whole number fits its column */
+.res-cal .circ { font-size: clamp(14px, calc(100cqw / (var(--len, 3) * .66 + 1)), 34px); line-height: 1.35; padding: 0 .4em; max-width: 100%; }
 .res-cal .circ::after { pointer-events: none; }
 .res-cal .circ input {
-  field-sizing: content; width: 3.4em; min-width: 1.6em; max-width: 100%; padding: 0; border: 0; background: transparent; box-shadow: none; outline: none;
+  width: calc(var(--len, 3) * .66em); max-width: 100%; padding: 0; border: 0; background: transparent; box-shadow: none; outline: none;
   font: inherit; color: var(--red); text-align: center; -moz-appearance: textfield; appearance: textfield;
 }
 .res-cal input::-webkit-outer-spin-button, .res-cal input::-webkit-inner-spin-button,
@@ -201,7 +202,6 @@
   .res-top.has-photo { height: 150px; }
   .res-top .polaroid { width: 112px; }
   .res-top.has-photo .res-cal { width: calc(100% - 122px); top: 24px; }
-  .res-cal .circ { font-size: 28px; line-height: 40px; padding: 0 8px; }
   .wait-pet { width: 106px; }
   .wait-pet .pet-wrap { width: 84px; }
   .wait-magnifier { left: 54px; top: 40px; width: 48px; height: 48px; }

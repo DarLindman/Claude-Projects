@@ -164,6 +164,35 @@ test.describe('analysis in progress', () => {
     await expect(page.locator('#analysis-result')).toBeVisible();
     expectNoGuardEvents(guards, [SIGNED_OUT_ME, /status of 502/]);
   });
+
+  test('the late ERROR of an abandoned analysis never replaces the newer result', async ({ page }) => {
+    await openAdd(page);
+    let first = true;
+    let releaseA;
+    const gateA = new Promise((r) => { releaseA = r; });
+    await page.route(TEXT_API, async (route) => {
+      if (first) {
+        first = false;
+        await gateA;
+        await route.fulfill({ status: 502, contentType: 'application/json', body: JSON.stringify({ error: { code: 'AI_UNAVAILABLE' } }) });
+      } else {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(reply({ foodName: 'חדש וטרי' })) });
+      }
+    });
+    await analyzeText(page, 'א');
+    await expect(page.locator('#analysis-loading')).toBeVisible();
+    await page.locator('#nav-camera').click();
+    await analyzeText(page, 'ב');
+    await expect(page.locator('#res-name')).toHaveValue('חדש וטרי');
+    releaseA();
+    await page.waitForTimeout(500);
+    await expect(page.locator('#res-name')).toHaveValue('חדש וטרי');
+    await expect(page.locator('#analysis-result')).toBeVisible();
+    await expect(page.locator('#analysis-fail')).toBeHidden();
+    await expect(page.locator('#analysis-error')).toHaveText('');
+    await expect(page.locator('#text-analyze-btn')).toBeEnabled();
+    expectNoGuardEvents(guards, [SIGNED_OUT_ME, /status of 502/]);
+  });
 });
 
 test.describe('analysis result and the receipt', () => {
@@ -416,6 +445,69 @@ test.describe('analysis result and the receipt', () => {
     await expect(page.locator('#save-entry-btn')).toBeDisabled();
     await expect(page.locator('#screen-home')).toBeVisible(SAVE_TO_DIARY);
     await expect(page.locator('#meal-list .meal-item-row')).toHaveCount(1);
+    expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+  });
+
+  test('the circled calories show every character at 320 px (1234.6, a typed 6-char value), with and without a photo', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await openAdd(page);
+    const whole = (loc) => loc.evaluate((el) => el.scrollWidth <= el.clientWidth);
+    const check = async (label) => {
+      const cal = page.locator('#res-cal');
+      expect(await whole(cal), `${label}: value ${await cal.inputValue()} is cut`).toBe(true);
+      const inCirc = await page.evaluate(() => {
+        const i = document.getElementById('res-cal').getBoundingClientRect();
+        const c = document.querySelector('#analysis-result .circ').getBoundingClientRect();
+        return i.left >= c.left - 1 && i.right <= c.right + 1;
+      });
+      expect(inCirc, `${label}: the number sits inside its circle`).toBe(true);
+      const col = await box(page.locator('#analysis-result .res-cal'));
+      const ib = await box(cal);
+      expect(ib.x).toBeGreaterThanOrEqual(col.x - 1);
+      expect(ib.x + ib.width).toBeLessThanOrEqual(col.x + col.width + 1);
+    };
+    // text analysis (no photo), a stubbed 1234.6
+    await stub(page, reply({ calories: 1234.6 }));
+    await analyzeText(page);
+    await expect(page.locator('#res-cal')).toHaveValue('1234.6');
+    await check('text, 1234.6');
+    await page.locator('#res-cal').fill('123456');
+    await check('text, typed 123456');
+    // photo analysis, the polaroid takes the right side
+    await page.locator('#nav-camera').click();
+    await page.unroute(TEXT_API);
+    await page.route(IMAGE_API, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(reply({ calories: 1234.6 })) }));
+    await choosePhoto(page);
+    await page.locator('#analyze-btn').click();
+    await expect(page.locator('#analysis-result .polaroid')).toBeVisible();
+    await expect(page.locator('#res-cal')).toHaveValue('1234.6');
+    await check('photo, 1234.6');
+    await page.locator('#res-cal').fill('123456');
+    await check('photo, typed 123456');
+    await page.locator('#res-cal').fill('722');
+    await check('photo, 722');
+    expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+  });
+
+  test('the save timer never abandons a newer analysis: back to the camera and a new analysis inside the 2.7 s window stays', async ({ page }) => {
+    await openAdd(page);
+    await analyzeText(page);
+    await expect(page.locator('#analysis-result')).toBeVisible();
+    const saved = page.waitForResponse((r) => r.url().endsWith('/api/food') && r.request().method() === 'POST');
+    await page.locator('#save-entry-btn').click();
+    await saved;
+    // the save celebration is running; the user goes back and starts a new analysis
+    await page.locator('#nav-camera').click();
+    await expect(page.locator('#screen-camera')).toBeVisible();
+    await stub(page, reply({ foodName: 'ארוחה חדשה' }));
+    await analyzeText(page, 'ב');
+    await expect(page.locator('#res-name')).toHaveValue('ארוחה חדשה');
+    // well past the window (2.7 s + up to 1.5 s for the thumbnail wait): still the new analysis, not the diary
+    await page.waitForTimeout(4500);
+    await expect(page.locator('#screen-analysis')).toBeVisible();
+    await expect(page.locator('#screen-home')).toBeHidden();
+    await expect(page.locator('#res-name')).toHaveValue('ארוחה חדשה');
+    await expect(page.locator('#save-entry-btn')).toBeEnabled();
     expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
   });
 });

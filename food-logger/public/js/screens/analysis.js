@@ -8,7 +8,7 @@ import { navigate } from '../router.js';
 import { messageFor } from '../errors.js';
 import { makeThumbnail, uploadThumbnail } from '../photos.js';
 import { getUsername } from '../session.js';
-import { editTotals } from './analysisView.js';
+import { currentToken, editTotals } from './analysisView.js';
 import { resetCamera } from './camera.js';
 
 // The thumbnail of a saved photo meal, made and sent in the background. It never rejects and never shows anything: a
@@ -69,9 +69,11 @@ export async function saveEntry() {
     spawnConfetti();
     // the celebration runs 2.7 s; the diary opens after it, and after the thumbnail when that is not slower than 1.5 s more
     // The diary opens only if the user is still on this page and still signed in (they may have left or signed out meanwhile).
+    // ...and only if no newer analysis has been started meanwhile (it would be abandoned by the navigation)
+    const analysis = currentToken();
     setTimeout(() => Promise.race([thumbnail, new Promise(r => setTimeout(r, 1500))]).then(() => {
       saveBtn.disabled = false;
-      if (state.currentScreen === 'analysis' && getUsername()) navigate('home');
+      if (state.currentScreen === 'analysis' && currentToken() === analysis && getUsername()) navigate('home');
     }), 2700);
     showToast('✅ נשמר ביומן!');
     resetCamera();

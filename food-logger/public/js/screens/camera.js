@@ -124,6 +124,7 @@ async function runAnalysis(url, payload, photo) {
   } catch (e) {
     if (isCurrent(token)) showError(analysisMessageFor(e));
   }
+  return token;
 }
 
 export async function analyzeText() {
@@ -132,11 +133,9 @@ export async function analyzeText() {
   const btn = document.getElementById('text-analyze-btn');
   btn.disabled = true;
   state.photoBlob = null;   // this meal comes from the text, so no thumbnail is made even if a photo was chosen before
-  try {
-    await runAnalysis('/api/analyze-text', { text }, null);
-  } finally {
-    btn.disabled = false;
-  }
+  const token = await runAnalysis('/api/analyze-text', { text }, null);
+  // an abandoned analysis must not free the button of a newer one (leaving the page already freed it)
+  if (isCurrent(token)) btn.disabled = false;
 }
 
 export async function analyzeFood() {
