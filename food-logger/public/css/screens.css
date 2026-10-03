@@ -655,6 +655,8 @@
 .lbl { font: 400 17px/30px var(--font-text); letter-spacing: .02em; color: var(--graphite); }
 .title { font: 400 25px/46px var(--font-text); margin-top: 4px; white-space: nowrap; }
 .title.big { font-size: 34px; line-height: 50px; }
+/* the date title of the home page and the diary: one line on a rule, 50 px clear of the ribbon on the left */
+.page-date { font-size: 24px; line-height: 30px; margin: 0 0 0 50px; white-space: normal; overflow-wrap: anywhere; }
 
 /* ════ Welcome: the leather cover ════
    The cover is the leather frame itself (no .page): foil title, the capybara in her salad bowl
@@ -744,7 +746,6 @@
    the streak tally, the last meal. The ribbon (top 50 px, left 46 px) sits beside the first lines, so the date keeps clear of it. */
 #screen-dashboard [hidden] { display: none !important; }
 #screen-dashboard .content { padding-bottom: 28px; }
-.page-date { font-size: 24px; line-height: 30px; margin: 0 0 0 50px; white-space: normal; overflow-wrap: anywhere; }
 .dash-hello { margin-top: 0; font-size: 17px; line-height: 30px; }
 .dash-hello strong { font-weight: 400; color: var(--ink); overflow-wrap: anywhere; }
 .dash-top { display: flex; gap: 10px; align-items: flex-start; min-height: 150px; margin-top: 30px; }
@@ -787,7 +788,7 @@
 /* ════ Diary: one day on a ruled page ════
    Flow layout on the 30 px rules: the week strip, the date, the calories eaten (60 px) with the bar, the macro totals, then
    one 180 px (six rules) block per meal. The ribbon hangs below the strip (top 50 px, 46 px from the left), so the date keeps
-   clear of it (.page-date has a 50 px left margin). The two arrows are in .date-nav, laid over the ends of the strip; the
+   clear of it (see .page-date). The two arrows are in .date-nav, laid over the ends of the strip; the
    seven day buttons are in .week, outside it. */
 #screen-home [hidden] { display: none !important; }
 #screen-home .content { padding-bottom: 28px; }
@@ -839,3 +840,4 @@
   border: 0; background: none; cursor: pointer; font: inherit; color: var(--graphite); padding: 10px 6px; margin: -10px -6px;
 }
 .acts .del { color: var(--red); }
+#meal-list:focus { outline: none; }

@@ -34,25 +34,31 @@ export function pickDay(day) {
 
 export async function loadDiary() {
   try {
-    renderWeek();
+    const day = state.diaryDate ?? todayStr();
+    renderWeek(day);
     const label = byId('diary-date-label');
-    if (label) label.textContent = formatDate(state.diaryDate);
-    const entries = await apiFetch(`/api/food?date=${state.diaryDate}`);
+    if (label) label.textContent = formatDate(day);
+    const entries = await apiFetch(`/api/food?date=${day}`);
+    if (day !== state.diaryDate) return;   // the user moved to another day while this one loaded: its answer is stale
     renderMealList(entries);
     renderDailySummary(entries);
   } catch (e) { showToast('שגיאה בטעינת היומן'); }
 }
 
 // The seven days of the displayed week: the shown day is circled in red pen, a future day is dimmed and disabled.
-function renderWeek() {
+function renderWeek(shownDay) {
   const today = todayStr();
   const week = byId('diary-week');
-  setHtml(week, html`${weekOf(state.diaryDate).map((day, i) => {
-    const shown = day === state.diaryDate;
+  setHtml(week, html`${weekOf(shownDay).map((day, i) => {
+    const shown = day === shownDay;
     return html`<button class="day${shown ? ' sel' : ''}${day > today ? ' future' : ''}" data-action="pickDay" data-arg="${day}" aria-label="${formatDateTitle(day)}" aria-current="${shown ? 'date' : 'false'}">${WEEKDAY_LETTERS[i]}</button>`;
   })}`);
   week.querySelectorAll('.future').forEach((b) => { b.disabled = true; });
-  byId('diary-next').disabled = state.diaryDate >= today;
+  // the arrows keep an accessible name: the date they lead to (previous day on the right, next on the left)
+  const [previous, next] = document.querySelectorAll('#screen-home .date-nav button');
+  previous.setAttribute('aria-label', formatDateTitle(addDays(shownDay, -1)));
+  next.setAttribute('aria-label', formatDateTitle(addDays(shownDay, 1)));
+  next.disabled = shownDay >= today;
 }
 
 function renderMealList(entries) {
@@ -61,15 +67,13 @@ function renderMealList(entries) {
     setHtml(el, html`<div class="empty-state"><div class="empty-icon">${plateSvg()}</div><p>אין ארוחות מתועדות<br>לחץ על ➕ כדי להוסיף ארוחה</p></div>`);
     return;
   }
-  // kept as a hook: the row carries its meal type as a class
-  const ACCENT = { breakfast: 'meal-accent-breakfast', lunch: 'meal-accent-lunch', dinner: 'meal-accent-dinner', snack: 'meal-accent-snack' };
   _mealEntries.clear();
   entries.forEach(e => _mealEntries.set(e.id, e));
 
   // One taped polaroid per meal, alternating sides (CSS: odd rows have the photo on the right). The photo is the stored
   // thumbnail when the meal has one, else the drawn plate; the time is under the photo; the name, the circled calories
   // and the two text buttons are beside it.
-  setHtml(el, html`${entries.map(e => html`<div class="meal-item-row ${ACCENT[e.meal_type] || ''}" id="entry-${e.id}">
+  setHtml(el, html`${entries.map(e => html`<div class="meal-item-row" id="entry-${e.id}">
   <div class="polaroid"><i class="tape"></i><div class="ph">${e.has_photo ? html`<img class="ph-img" data-photo src="${photoSrc(e.id)}" alt="">` : plateSvg()}</div><div class="cp">${e.logged_at ? String(e.logged_at).slice(11, 16) : ''}</div></div>
   <div class="mir-body">
     <div class="mir-name">${e.food_name || ''}</div>
@@ -116,8 +120,12 @@ function renderDailySummary(entries) {
 export async function deleteEntry(id) {
   try {
     await apiFetch(`/api/food/${id}`, { method: 'DELETE' });
-    document.getElementById(`entry-${id}`)?.remove();
-    loadDiary();
+    const row = document.getElementById(`entry-${id}`);
+    const nextId = row?.nextElementSibling?.id;
+    row?.remove();
+    await loadDiary();
+    // keyboard focus must not fall to <body>: the next meal's "ערוך", or the list itself when none is left
+    (nextId && document.querySelector(`#${nextId} [data-action="openEditModal"]`) || byId('meal-list'))?.focus();
     showToast('המנה נמחקה');
   } catch (e) { showToast('שגיאה במחיקה'); }
 }

@@ -167,7 +167,6 @@ test('inline handlers are gone and every delegated action still works', async ({
   await expect(page.locator('#screen-home')).toBeVisible(SAVE_TO_DIARY);
   const rows = page.locator('#meal-list .meal-item-row');
   await expect(rows).toHaveCount(1);
-  await expect(rows.first()).toHaveClass(/meal-accent-dinner/);   // the saved meal type is the one selected
   await expectNoInline(page, 'diary with an entry (generated row buttons)');
 
   // diary day navigation

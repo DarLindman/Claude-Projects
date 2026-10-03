@@ -178,7 +178,7 @@ test('the ribbon sits below the week strip; the strip has an arrow at each end a
 
 test('the arrows move one day; the circled day in the strip follows and shows the red pen circle', async ({ page }) => {
   const guards = attachGuards(page);
-  const { addDays } = await loadDates();
+  const { addDays, formatDateTitle } = await loadDates();
   await register(page);
   await openDiary(page);
   const today = localNow().date;
@@ -196,9 +196,16 @@ test('the arrows move one day; the circled day in the strip follows and shows th
   const previous = page.locator('#screen-home .date-nav button').first();
   const next = page.locator('#screen-home .date-nav button').last();
 
+  // both arrows keep an accessible name: the date they lead to (no new copy; formatDateTitle of the neighbouring day)
+  const name = async (b) => (await b.getAttribute('aria-label')) || '';
+  expect(await name(previous)).toBe(formatDateTitle(addDays(today, -1)));
+  expect(await name(next)).toBe(formatDateTitle(addDays(today, 1)));
+  await expect(page.getByRole('button', { name: formatDateTitle(addDays(today, -1)), exact: true }).first()).toBeVisible();
   await expect(next, 'no future: next is disabled at today').toBeDisabled();
   await previous.click();
   await expect(sel(page)).toHaveAttribute('data-arg', addDays(today, -1));
+  expect(await name(previous)).toBe(formatDateTitle(addDays(today, -2)));   // the names follow the shown day
+  expect(await name(next)).toBe(formatDateTitle(today));
   await expect(label).not.toHaveText(todayLabel);
   await expect(label).not.toContainText('היום');
   await expect(next).toBeEnabled();
@@ -434,5 +441,51 @@ test('a thumbnail that loads fills the polaroid with the picture (a real img, no
   const im = await box(img);
   expect(Math.abs(ph.width - im.width)).toBeLessThan(1.5);
   expect(Math.abs(ph.height - im.height)).toBeLessThan(1.5);
+  expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+});
+
+test('a slow answer for an earlier tap never overwrites the day shown last (stale-response race)', async ({ page }) => {
+  const guards = attachGuards(page);
+  await register(page);
+  await page.clock.install({ time: new Date(2026, 9, 7, 12, 0) });          // Wednesday 2026-10-07
+  await meal(page, { name: 'מנה של יום שני', calories: 111, day: '2026-10-05', time: '09:00' });
+  await meal(page, { name: 'מנה של יום שלישי', calories: 222, day: '2026-10-06', time: '09:00' });
+  await openDiary(page);
+  // A (Monday) answers slowly, B (Tuesday) at once
+  await page.route(/\/api\/food\?date=2026-10-05$/, async (route) => { await new Promise((r) => setTimeout(r, 1500)); await route.continue(); });
+
+  await page.locator('#screen-home .week button[data-arg="2026-10-05"]').click();   // A
+  await page.locator('#screen-home .week button[data-arg="2026-10-06"]').click();   // B, before A has answered
+  await expect(rows(page)).toHaveCount(1);
+  await expect(rows(page).first().locator('.mir-name')).toHaveText('מנה של יום שלישי');
+  await page.waitForTimeout(2200);                                          // A's late answer arrives now
+  await expect(sel(page)).toHaveAttribute('data-arg', '2026-10-06');
+  await expect(rows(page)).toHaveCount(1);
+  await expect(rows(page).first().locator('.mir-name')).toHaveText('מנה של יום שלישי');
+  await expect(page.locator('#sum-cal')).toHaveText('222');
+  await expect(page.locator('#diary-date-label')).toHaveText('יום שלישי, 6 באוק׳');
+  expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+});
+
+test('after a delete keyboard focus moves to the next meal ערוך button, or to the list when none is left', async ({ page }) => {
+  const guards = attachGuards(page);
+  await register(page);
+  await meal(page, { name: 'ראשונה', time: '08:00' });
+  await meal(page, { name: 'שנייה', time: '12:00' });
+  await meal(page, { name: 'שלישית', time: '18:00' });
+  await openDiary(page);
+  await expect(rows(page)).toHaveCount(3);
+
+  await rows(page).nth(1).getByRole('button', { name: 'מחק' }).click();            // the middle one
+  await expect(rows(page)).toHaveCount(2);
+  await expect(rows(page).nth(1).locator('.mir-name')).toHaveText('שלישית');
+  await expect(rows(page).nth(1).getByRole('button', { name: 'ערוך' })).toBeFocused();
+  await rows(page).nth(1).getByRole('button', { name: 'מחק' }).click();            // the last one: nothing follows
+  await expect(rows(page)).toHaveCount(1);
+  await expect(rows(page).first().locator('.mir-name')).toHaveText('ראשונה');
+  await expect(page.locator('#meal-list')).toBeFocused();
+  await rows(page).first().getByRole('button', { name: 'מחק' }).click();
+  await expect(page.locator('#meal-list .empty-state')).toBeVisible();
+  await expect(page.locator('#meal-list')).toBeFocused();
   expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
 });
