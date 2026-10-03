@@ -155,8 +155,8 @@ test('inline handlers are gone and every delegated action still works', async ({
   await analysisMeals.filter({ hasText: 'ערב' }).click();
   await expectNoInline(page, 'analysis');
 
-  // the top-bar close button goes back to the camera
-  await page.locator('#screen-analysis .topbar button').click();
+  // the dock's add button goes back to the camera (the analysis page has no top bar of its own any more)
+  await page.locator('#nav-camera').click();
   await expect(page.locator('#screen-camera')).toBeVisible();
   await page.locator('#text-analyze-btn').click();
   await expect(page.locator('#analysis-result')).toBeVisible();

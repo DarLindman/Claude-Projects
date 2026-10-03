@@ -1,16 +1,9 @@
 // ── Idle animation refs ──────────────────────────────────────────────────────
-const _idleWraps = { dash: null, camera: null };
+const _idleWraps = { dash: null };
 export function setIdleWrap(name, wrap) { _idleWraps[name] = wrap; }
 export function getIdleWrap(name) { return _idleWraps[name]; }
 export function stopAllIdleAnimations() {
   stopIdleAnimations(_idleWraps.dash);
-  stopIdleAnimations(_idleWraps.camera);
-}
-let _cameraHappyTimer = null;
-export function clearCameraHappyTimer() { clearTimeout(_cameraHappyTimer); }
-export function scheduleCameraHappy() {
-  clearTimeout(_cameraHappyTimer);
-  _cameraHappyTimer = setTimeout(() => _cameraCapyState('happy'), 2000);
 }
 
 export function startIdleAnimations(petWrap) {
@@ -34,33 +27,6 @@ export function stopIdleAnimations(petWrap) {
   if (!petWrap?._idleIntervals) return;
   petWrap._idleIntervals.forEach(clearInterval);
   petWrap._idleIntervals = [];
-}
-
-// ── Capybara pet helpers ─────────────────────────
-export function _cameraCapyState(state) {
-  const wrap = document.getElementById('pet-camera-wrap');
-  if (!wrap) return;
-  if (!wrap.querySelector('svg')) {
-    const pet = cloneCapybara(56);
-    wrap.appendChild(pet);
-    _idleWraps.camera = pet;
-    startIdleAnimations(pet);
-  }
-  const pet = wrap.querySelector('.pet-wrap');
-  if (!pet) return;
-  const baseState = state === 'thinking' ? 'neutral' : state;
-  setPetState(pet, baseState);
-  pet.classList.toggle('pet--thinking', state === 'thinking');
-  if (state === 'ecstatic') {
-    pet.style.animation = 'none';
-    void pet.offsetWidth;
-    pet.style.animation = 'pet-tap 0.4s var(--ease-spring) forwards';
-    setTimeout(() => {
-      pet.style.animation = 'none';
-      void pet.offsetWidth;
-      pet.style.animation = 'pet-tap 0.4s var(--ease-spring) forwards';
-    }, 450);
-  }
 }
 
 // ── Drawing: the original SVG, redrawn in a soft hand-inked style ───────────────

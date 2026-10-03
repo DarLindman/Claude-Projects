@@ -1,10 +1,9 @@
 import { state } from '../state.js';
 import { apiFetch } from '../api.js';
-import { _cameraCapyState, scheduleCameraHappy } from '../pet.js';
 import { navigate } from '../router.js';
-import { nowTimeStr } from '../dates.js';
 import { analysisMessageFor } from '../errors.js';
 import { blobFromBase64 } from '../photos.js';
+import { beginWaiting, isCurrent, showError, showResult } from './analysisView.js';
 
 const byId = (id) => document.getElementById(id);
 
@@ -108,93 +107,43 @@ export function onImageSelected(e) {
   reader.readAsDataURL(file);
 }
 
+// The text button is disabled while a text analysis runs; leaving the analysis page frees it at once (the abandoned reply is ignored).
+export function releaseAnalyzeButtons() {
+  byId('text-analyze-btn').disabled = false;
+}
+
+// One analysis: the waiting page, the request, then the result or the error. A reply that arrives after the user left the page
+// (or started another analysis) is dropped (analysisView.js).
+async function runAnalysis(url, payload, photo) {
+  byId('save-entry-btn').disabled = false;
+  navigate('analysis');
+  const token = beginWaiting(photo);
+  try {
+    const data = await apiFetch(url, { method: 'POST', body: JSON.stringify(payload) });
+    if (isCurrent(token)) showResult(data, photo);
+  } catch (e) {
+    if (isCurrent(token)) showError(analysisMessageFor(e));
+  }
+}
+
 export async function analyzeText() {
   const text = document.getElementById('food-text-input').value.trim();
   if (!text) return;
   const btn = document.getElementById('text-analyze-btn');
   btn.disabled = true;
-  byId('save-entry-btn').disabled = false;
   state.photoBlob = null;   // this meal comes from the text, so no thumbnail is made even if a photo was chosen before
-  navigate('analysis');
-  _cameraCapyState('thinking');
-  document.getElementById('analysis-img').style.display = 'none';
-  document.getElementById('analysis-loading').style.display = 'block';
-  document.getElementById('analysis-result').style.display = 'none';
-  document.getElementById('analysis-error').textContent = '';
   try {
-    const data = await apiFetch('/api/analyze-text', { method: 'POST', body: JSON.stringify({ text }) });
-    _cameraCapyState('ecstatic');
-    scheduleCameraHappy();
-    const resName = document.getElementById('res-name');
-    resName.value = data.foodName || '';
-    requestAnimationFrame(() => autoResizeTextarea(resName));
-    document.getElementById('res-cal').value = (+data.calories || 0).toFixed(1);
-    document.getElementById('res-pro').value = (+data.protein_g || 0).toFixed(1);
-    document.getElementById('res-carb').value = (+data.carbs_g || 0).toFixed(1);
-    document.getElementById('res-fat').value = (+data.fat_g || 0).toFixed(1);
-    document.getElementById('res-fiber').value = (+data.fiber_g || 0).toFixed(1);
-
-    document.getElementById('analysis-loading').style.display = 'none';
-    const hhmm = nowTimeStr();
-    const rtEl = document.getElementById('receipt-time');
-    if (rtEl) rtEl.textContent = hhmm;
-    const timeInput = document.getElementById('res-time');
-    if (timeInput) timeInput.value = hhmm;
-    // Re-trigger stagger animation by forcing reflow
-    const rb = document.getElementById('receipt-body');
-    if (rb) { rb.querySelectorAll('.receipt-entry').forEach(r => { r.style.animation = 'none'; r.offsetHeight; r.style.animation = ''; }); }
-    document.getElementById('analysis-result').style.display = 'block';
-  } catch (e) {
-    _cameraCapyState('sad');
-    document.getElementById('analysis-loading').style.display = 'none';
-    document.getElementById('analysis-error').textContent = analysisMessageFor(e);
+    await runAnalysis('/api/analyze-text', { text }, null);
+  } finally {
+    btn.disabled = false;
   }
-  btn.disabled = false;
 }
 
 export async function analyzeFood() {
   if (!state.capturedImageBase64) return;
-  byId('save-entry-btn').disabled = false;
   state.photoBlob = blobFromBase64(state.capturedImageBase64, state.capturedMime);   // the saved meal's thumbnail is made from it
-  navigate('analysis');
-  _cameraCapyState('thinking');
-  document.getElementById('analysis-img').src = `data:${state.capturedMime};base64,${state.capturedImageBase64}`;
-  document.getElementById('analysis-img').style.display = 'block';
-  document.getElementById('analysis-loading').style.display = 'block';
-  document.getElementById('analysis-result').style.display = 'none';
-  document.getElementById('analysis-error').textContent = '';
-
-  try {
-    const data = await apiFetch('/api/analyze', {
-      method: 'POST',
-      body: JSON.stringify({ imageBase64: state.capturedImageBase64, mimeType: state.capturedMime })
-    });
-    const resName = document.getElementById('res-name');
-    resName.value = data.foodName || '';
-    autoResizeTextarea(resName);
-    document.getElementById('res-cal').value = (+data.calories || 0).toFixed(1);
-    document.getElementById('res-pro').value = (+data.protein_g || 0).toFixed(1);
-    document.getElementById('res-carb').value = (+data.carbs_g || 0).toFixed(1);
-    document.getElementById('res-fat').value = (+data.fat_g || 0).toFixed(1);
-    document.getElementById('res-fiber').value = (+data.fiber_g || 0).toFixed(1);
-
-    document.getElementById('analysis-loading').style.display = 'none';
-    const hhmm = nowTimeStr();
-    const rtEl = document.getElementById('receipt-time');
-    if (rtEl) rtEl.textContent = hhmm;
-    const timeInput = document.getElementById('res-time');
-    if (timeInput) timeInput.value = hhmm;
-    // Re-trigger stagger animation by forcing reflow
-    const rb = document.getElementById('receipt-body');
-    if (rb) { rb.querySelectorAll('.receipt-entry').forEach(r => { r.style.animation = 'none'; r.offsetHeight; r.style.animation = ''; }); }
-    _cameraCapyState('ecstatic');
-    scheduleCameraHappy();
-    document.getElementById('analysis-result').style.display = 'block';
-  } catch (e) {
-    _cameraCapyState('sad');
-    document.getElementById('analysis-loading').style.display = 'none';
-    document.getElementById('analysis-error').textContent = analysisMessageFor(e);
-  }
+  await runAnalysis('/api/analyze', { imageBase64: state.capturedImageBase64, mimeType: state.capturedMime },
+    `data:${state.capturedMime};base64,${state.capturedImageBase64}`);
 }
 
 export const actions = {

@@ -226,60 +226,55 @@
 </div>
 
 <!-- ════════════════ ANALYSIS ════════════════ -->
+<!-- Two states on one ruled page. Waiting (#analysis-loading): the photo as a polaroid (a photo analysis only), the capybara with a
+     magnifier beside her bubble, a progress bar. Result (#analysis-result): the handwritten name, the photo and the circled
+     calories, the printed receipt (js/receipt.js, mounted in #receipt-mount), the macro rows, the meal chips, the time and
+     "שמור ביומן". screens/analysisView.js switches the states; the polaroid is one element that moves between them. -->
 <div id="screen-analysis" class="screen">
-  <div class="topbar">
-    <div>
-      <div class="topbar-title">ניתוח תזונה</div>
-      <div class="topbar-brand-sub" style="margin-top:2px"><a class="topbar-brand-ig" href="https://www.instagram.com/darlindman/" target="_blank" rel="noopener"><svg width="9" height="9" viewBox="0 0 24 24" fill="#E1306C"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>Instagram</a> &middot; By Dar</div>
+  <div class="page"><div class="rules"></div><div class="margin"></div>
+    <div class="content">
+      <div id="analysis-loading" class="wait" hidden>
+        <div class="wait-stage" id="wait-stage">
+          <div class="polaroid res-polaroid" id="analysis-polaroid" hidden><i class="tape"></i><div class="ph"><img id="analysis-img" alt=""></div><div class="cp" id="analysis-caption"></div></div>
+        </div>
+        <div class="wait-row">
+          <div class="bubble wait-bubble" id="wait-bubble">מחשב כמה יש בצלחת…</div>
+          <div class="wait-pet" id="wait-pet">
+            <svg class="wait-magnifier" width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#2b1f16" stroke-width="3.2" stroke-linecap="round" aria-hidden="true" focusable="false"><circle cx="26" cy="26" r="17" fill="rgba(255,255,255,.55)"/><path d="M39 39l18 18" stroke-width="5"/></svg>
+          </div>
+        </div>
+        <div class="wait-bar" id="wait-bar" role="progressbar" aria-hidden="true"><div class="wait-fill"></div></div>
+      </div>
+      <div id="analysis-fail" class="fail" hidden>
+        <div class="fail-pet" id="fail-pet"></div>
+        <div id="analysis-error" class="error-msg"></div>
+      </div>
+      <div id="analysis-result" hidden>
+        <div class="lbl res-lbl">הארוחה שזיהיתי</div>
+        <textarea id="res-name" class="res-name" placeholder="שם המנה" rows="1"></textarea>
+        <div class="res-top" id="res-top">
+          <div class="res-cal"><span class="circ"><input id="res-cal" type="number" step="any" inputmode="decimal" aria-label="קלוריות"></span><span class="res-kcal">קק״ל</span></div>
+        </div>
+        <div id="receipt-mount"></div>
+        <div class="res-rows">
+          <label class="res-row"><span class="res-lbl2">חלבון</span><span class="res-val"><input id="res-pro" type="number" step="any" inputmode="decimal"><i>גר׳</i></span></label>
+          <label class="res-row"><span class="res-lbl2">פחמימות</span><span class="res-val"><input id="res-carb" type="number" step="any" inputmode="decimal"><i>גר׳</i></span></label>
+          <label class="res-row"><span class="res-lbl2">שומן</span><span class="res-val"><input id="res-fat" type="number" step="any" inputmode="decimal"><i>גר׳</i></span></label>
+          <label class="res-row"><span class="res-lbl2">סיבים</span><span class="res-val"><input id="res-fiber" type="number" step="any" inputmode="decimal"><i>גר׳</i></span></label>
+          <label class="res-row"><span class="res-lbl2">שעה</span><span class="res-val"><input id="res-time" type="time"></span></label>
+        </div>
+        <div class="res-meals meal-select">
+          <button type="button" class="chip meal-opt" data-meal="breakfast" data-action="selectMeal">בוקר</button>
+          <button type="button" class="chip meal-opt selected" data-meal="lunch" data-action="selectMeal">צהריים</button>
+          <button type="button" class="chip meal-opt" data-meal="dinner" data-action="selectMeal">ערב</button>
+          <button type="button" class="chip meal-opt" data-meal="snack" data-action="selectMeal">חטיף</button>
+        </div>
+        <div class="res-actions">
+          <button type="button" class="penbtn" id="save-entry-btn" data-action="saveEntry">שמור ביומן</button>
+          <button type="button" class="res-edit hand" data-action="editTotals">ערוך</button>
+        </div>
+      </div>
     </div>
-    <button style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 13px;font-size:14px;cursor:pointer;color:var(--muted);font-family:inherit" data-action="navigate" data-arg="camera">✕</button>
-  </div>
-  <div class="screen-body">
-    <div id="pet-camera-wrap" style="display:flex;justify-content:center;padding:8px 0 4px"></div>
-    <img id="analysis-img" class="analysis-img" alt="">
-    <div id="analysis-loading" class="spinner">🔄</div>
-    <div id="analysis-result" style="display:none">
-  <div class="receipt" id="receipt-body">
-
-    <div class="receipt-header">
-      <span class="receipt-title">── ניתוח ──</span>
-      <span class="receipt-time" id="receipt-time"></span>
-    </div>
-
-    <div class="receipt-row receipt-name-row">
-      <textarea id="res-name" class="receipt-name-input" placeholder="שם המנה" rows="1"></textarea>
-    </div>
-
-    <hr class="receipt-hr">
-
-    <div class="receipt-row receipt-entry"><label class="receipt-lbl">קלוריות</label><input id="res-cal" type="number" class="receipt-val"><span class="receipt-unit">קק״ל</span></div>
-    <div class="receipt-row receipt-entry"><label class="receipt-lbl">חלבון</label><input id="res-pro" type="number" step="0.1" class="receipt-val"><span class="receipt-unit">גר׳</span></div>
-    <div class="receipt-row receipt-entry"><label class="receipt-lbl">פחמימות</label><input id="res-carb" type="number" step="0.1" class="receipt-val"><span class="receipt-unit">גר׳</span></div>
-    <div class="receipt-row receipt-entry"><label class="receipt-lbl">שומן</label><input id="res-fat" type="number" step="0.1" class="receipt-val"><span class="receipt-unit">גר׳</span></div>
-    <div class="receipt-row receipt-entry"><label class="receipt-lbl">סיבים</label><input id="res-fiber" type="number" step="0.1" class="receipt-val"><span class="receipt-unit">גר׳</span></div>
-
-    <hr class="receipt-hr">
-
-    <div class="receipt-row receipt-entry">
-      <label class="receipt-lbl">שעה</label>
-      <input id="res-time" type="time" class="receipt-val" style="direction:ltr;text-align:left">
-      <span class="receipt-unit"></span>
-    </div>
-
-
-  </div><!-- /receipt -->
-
-  <div class="card-title" style="margin-top:14px">סוג ארוחה</div>
-  <div class="meal-select">
-    <button class="meal-opt" data-meal="breakfast" data-action="selectMeal">בוקר</button>
-    <button class="meal-opt selected" data-meal="lunch" data-action="selectMeal">צהריים</button>
-    <button class="meal-opt" data-meal="dinner" data-action="selectMeal">ערב</button>
-    <button class="meal-opt" data-meal="snack" data-action="selectMeal">חטיף</button>
-  </div>
-
-  <button class="btn btn-primary" id="save-entry-btn" data-action="saveEntry" style="margin-top:4px">שמור ביומן</button>
-    </div>
-    <div id="analysis-error" class="error-msg" style="margin-top:16px"></div>
   </div>
 </div>
 

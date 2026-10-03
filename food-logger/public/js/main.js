@@ -1,12 +1,12 @@
 import { actions as modalActions } from './dom.js';
 import { bindActions } from './events.js';
-import { _cameraCapyState } from './pet.js';
 import { installPhotoFallback } from './photos.js';
 import { loadProfile } from './profile.js';
 import { actions as navActions, registerScreen } from './router.js';
 import { actions as analysisActions } from './screens/analysis.js';
+import { leaveAnalysis } from './screens/analysisView.js';
 import { actions as authActions, doLogin, doRegister, enterAuth, leaveAuth } from './screens/auth.js';
-import { actions as cameraActions, autoResizeTextarea, enterCamera } from './screens/camera.js';
+import { actions as cameraActions, autoResizeTextarea, enterCamera, releaseAnalyzeButtons } from './screens/camera.js';
 import { loadDashboard, resetDashboard } from './screens/dashboard.js';
 import { actions as homeActions, loadDiary } from './screens/home.js';
 import { actions as settingsActions, populateProfileSelects } from './screens/settings.js';
@@ -26,7 +26,7 @@ registerScreen('home',      { enter: loadDiary });
 registerScreen('stats',     { enter: () => { loadStats(); }, leave: stopStatsCapyWalk });
 registerScreen('weight',    { enter: loadWeightScreen });
 registerScreen('camera',    { enter: enterCamera });
-registerScreen('analysis',  { enter: () => _cameraCapyState('neutral') });
+registerScreen('analysis',  { leave: () => { leaveAnalysis(); releaseAnalyzeButtons(); } });
 
 installPhotoFallback();
 populateProfileSelects();

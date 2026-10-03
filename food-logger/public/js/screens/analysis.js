@@ -8,6 +8,7 @@ import { navigate } from '../router.js';
 import { messageFor } from '../errors.js';
 import { makeThumbnail, uploadThumbnail } from '../photos.js';
 import { getUsername } from '../session.js';
+import { editTotals } from './analysisView.js';
 import { resetCamera } from './camera.js';
 
 // The thumbnail of a saved photo meal, made and sent in the background. It never rejects and never shows anything: a
@@ -58,8 +59,6 @@ export async function saveEntry() {
       }
       const pw = savePetSlot.querySelector('.pet-wrap');
       if (pw) setPetState(pw, 'ecstatic');
-      const camWrap = document.getElementById('pet-camera-wrap');
-      if (camWrap) camWrap.style.opacity = '0';
       savePopup.classList.add('visible');
       // Bounce after spring lands (~650ms)
       setTimeout(() => {
@@ -86,4 +85,5 @@ export async function saveEntry() {
 export const actions = {
   selectMeal: (el) => selectMeal(el),
   saveEntry: () => saveEntry(),
+  editTotals: () => editTotals(),
 };
