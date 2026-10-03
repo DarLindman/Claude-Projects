@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playpen+Sans+Hebrew:wght@500&family=Gveret+Levin&family=Suez+One&family=Cousine:wght@400;700&family=Heebo:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --leather:#22140c; --page:#f5ecd9; --ink:#2b1f16; --graphite:#6f5d4c; --red:#b3311d; --gold:#d2a95a; --rule:rgba(112,138,170,.30);
+    --noise: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .3  0 0 0 0 .2  0 0 0 0 .1  0 0 0 .7 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    --lift: 0 1px 1px rgba(40,22,8,.28), 0 6px 12px rgba(40,22,8,.20), 0 20px 34px rgba(40,22,8,.26);
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:22px 12px 50px; background:#d6d0c7; font-family:Heebo, system-ui, sans-serif; color:#222; }
+  h2 { font:800 22px Heebo; margin:0 0 4px; text-align:center; } .sub { text-align:center; color:#555; margin:0 0 24px; font-size:14px; }
+  .gal { display:flex; flex-wrap:wrap; gap:34px 28px; justify-content:center; max-width:1560px; margin:0 auto; }
+  .pick { cursor:pointer; text-align:center; } .pick .cap { margin-top:12px; font:800 16px Heebo; } .pick .cap small { display:block; font-weight:400; color:#555; font-size:13px; margin-top:3px; max-width:350px; }
+  .pick.selected .phone { outline:3px solid #2f7bf0; outline-offset:5px; }
+  .phone { width:350px; height:740px; border-radius:46px; overflow:hidden; position:relative; text-align:right; background:var(--leather); box-shadow:0 18px 50px rgba(0,0,0,.4); isolation:isolate; }
+  .phone:before { content:''; position:absolute; inset:0; background:var(--noise); opacity:.55; mix-blend-mode:overlay; z-index:0; }
+  .stitch { position:absolute; inset:9px; border:1.5px dashed rgba(210,169,90,.45); border-radius:38px; z-index:9; pointer-events:none; }
+  .status { position:absolute; top:14px; left:0; right:0; z-index:10; display:flex; justify-content:space-between; padding:0 34px; font:700 13px Heebo; color:#e9d8b8; }
+  .page { position:absolute; z-index:2; inset:30px 16px 96px 12px; background:linear-gradient(to left, rgba(70,40,10,.22), rgba(70,40,10,0) 26px), var(--page); border-radius:8px 4px 4px 8px; box-shadow:0 2px 0 #ddd0b4, 0 4px 0 #cdbf9f, 0 6px 0 #bdae8c, 0 18px 30px rgba(0,0,0,.5); overflow:hidden; color:var(--ink); }
+  .page:before { content:''; position:absolute; inset:0; background:var(--noise); opacity:.13; mix-blend-mode:multiply; pointer-events:none; }
+  .rules { position:absolute; inset:0; background-image:repeating-linear-gradient(transparent 0 29px, var(--rule) 29px 30px); background-position:0 12px; } .margin { position:absolute; top:0; bottom:0; right:46px; width:1.5px; background:rgba(190,55,38,.38); }
+  .content { position:absolute; inset:0; padding:12px 58px 0 16px; } .hand { font-family:'Gveret Levin', 'Playpen Sans Hebrew', cursive; }
+  .lbl { font:400 17px/30px 'Gveret Levin'; letter-spacing:.02em; color:var(--graphite); }
+  .title { font:400 25px/46px 'Gveret Levin'; margin-top:4px; white-space:nowrap; } .title.big { font-size:34px; line-height:50px; }
+  .week { display:flex; height:30px; align-items:center; font:700 12px 'Gveret Levin'; color:var(--graphite); justify-content:space-between; } .week span { width:30px; text-align:center; position:relative; font-size:15px; } .week .today { color:var(--ink); } .week .today:after { content:''; position:absolute; inset:-3px -1px; border:2px solid var(--red); border-radius:46% 54% 50% 50%/55% 45% 55% 45%; transform:rotate(-6deg); }
+  .ink { height:30px; display:flex; align-items:center; gap:10px; } .ink .track { flex:1; height:9px; border-radius:9px; background:rgba(60,40,20,.12); position:relative; overflow:hidden; box-shadow:inset 0 1px 2px rgba(60,40,20,.25); } .ink .fill { position:absolute; inset:0 0 0 auto; width:67%; background:linear-gradient(#c8432a,#a82b17); border-radius:9px; } .ink b { font:700 14px Cousine; } .ink span { font:400 14px 'Gveret Levin'; color:var(--graphite); }
+  .circ { position:relative; display:inline-block; font:400 19px 'Gveret Levin'; padding:0 10px; line-height:26px; color:var(--red); } .circ:after { content:''; position:absolute; inset:0; border:1.8px solid var(--red); border-radius:52% 48% 55% 45%/60% 50% 50% 40%; transform:rotate(-4deg); }
+  .tape { position:absolute; width:58px; height:20px; background:repeating-linear-gradient(115deg, rgba(222,170,92,.62) 0 4px, rgba(236,196,128,.62) 4px 8px); mix-blend-mode:multiply; box-shadow:0 1px 1px rgba(80,50,10,.25); clip-path:polygon(0 8%,4% 0,8% 10%,12% 0,100% 0,96% 14%,100% 28%,96% 42%,100% 56%,96% 70%,100% 84%,96% 100%,12% 100%,8% 88%,4% 100%,0 90%,3% 70%,0 50%,3% 30%); }
+  .polaroid { position:absolute; width:150px; background:#fffdf8; padding:8px 8px 34px; box-shadow:var(--lift); } .polaroid .ph { width:100%; aspect-ratio:1/1; background-size:cover; background-position:center; box-shadow:inset 0 0 0 1px rgba(0,0,0,.08), inset 0 0 18px rgba(0,0,0,.18); filter:saturate(1.06) contrast(1.03); } .polaroid .cp { position:absolute; bottom:6px; left:0; right:0; text-align:center; font:400 15px 'Gveret Levin'; }
+  .receipt { position:absolute; background:#faf6ea; color:#2a2016; font:400 11.5px/1.5 Cousine, monospace; padding:16px 13px 22px; box-shadow:var(--lift); direction:rtl; -webkit-mask: linear-gradient(#000 0 0) top/100% calc(100% - 7px) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom/12px 7px repeat-x; }
+  .receipt:before { content:''; position:absolute; inset:0; background:var(--noise); opacity:.10; mix-blend-mode:multiply; pointer-events:none; } .receipt hr { border:0; border-top:1.5px dashed #9a8766; margin:7px 0; }
+  .receipt .l { display:flex; align-items:baseline; gap:5px; } .receipt .l .d { flex:1; border-bottom:1.5px dotted #b3a283; transform:translateY(-3px); } .receipt .l b { font-weight:700; }
+  .receipt .tt { display:flex; justify-content:space-between; align-items:baseline; font:700 13px Cousine; } .receipt .tt b { font:700 26px Cousine; letter-spacing:-.05em; } .receipt .mac { display:flex; justify-content:space-between; font-size:10px; gap:6px; } .receipt .mac span { white-space:nowrap; }
+  .stamp { position:absolute; border:2.5px solid var(--red); color:var(--red); border-radius:5px; padding:0 9px; font:400 20px 'Suez One'; letter-spacing:.05em; mix-blend-mode:multiply; opacity:.88; transform:rotate(-10deg); }
+  .penbtn { position:absolute; background:var(--red); color:#fff3dc; font:400 20px 'Gveret Levin'; border-radius:14px; padding:6px 22px; box-shadow:0 2px 0 #7f2010, 0 8px 16px rgba(120,30,10,.35); }
+  .dock { position:absolute; z-index:8; bottom:22px; left:50%; transform:translateX(-50%); display:flex; gap:4px; padding:7px; border-radius:30px; background:rgba(18,10,6,.78); backdrop-filter:blur(16px); border:1px solid rgba(255,214,150,.13); box-shadow:0 12px 30px rgba(0,0,0,.6); }
+  .dock i { width:48px; height:44px; border-radius:22px; display:grid; place-items:center; color:#a58560; } .dock i.on { background:rgba(255,196,120,.13); color:#ffd9a0; } .dock i.add { width:60px; background:linear-gradient(#ff9d4d,#d9601c); color:#2a1405; box-shadow:0 4px 14px rgba(255,120,40,.45); }
+  .dock svg { width:22px; height:22px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  .ribbon { position:absolute; z-index:4; top:30px; left:46px; width:14px; height:62px; background:linear-gradient(#a8352a,#8d251c); box-shadow:2px 0 3px rgba(0,0,0,.35); clip-path:polygon(0 0,100% 0,100% 100%,50% 86%,0 100%); }
+  /* שדות כתב יד */
+  .field { margin-top:10px; } .field label { display:block; font:400 15px 'Gveret Levin'; color:var(--graphite); line-height:20px; } .field .u { height:30px; border-bottom:2px solid var(--ink); font:400 22px/30px 'Gveret Levin'; } .field .u.ph { color:rgba(111,93,76,.45); border-bottom-style:dashed; }
+  .chip { display:inline-block; font:400 17px/28px 'Gveret Levin'; padding:0 14px; border:1.8px solid var(--graphite); border-radius:20px 18px 22px 18px; margin:0 0 8px 6px; color:var(--graphite); } .chip.on { color:var(--red); border-color:var(--red); transform:rotate(-2deg); background:rgba(179,49,29,.07); }
+  .row2 { display:flex; justify-content:space-between; align-items:baseline; min-height:30px; line-height:30px; font:400 18px 'Gveret Levin'; } .row2 b { font:400 20px 'Gveret Levin'; } .row2 .v { color:var(--red); }
+  .tab { position:absolute; z-index:3; left:-2px; width:28px; height:74px; border-radius:0 10px 10px 0; font:400 14px 'Gveret Levin'; display:grid; place-items:center; writing-mode:vertical-rl; box-shadow:2px 2px 4px rgba(40,22,8,.3); }
+  .tally { display:inline-flex; gap:6px; align-items:center; height:30px; } .tally i { display:block; width:2.5px; height:22px; background:var(--ink); border-radius:2px; transform:rotate(var(--r,0deg)); } .tally s { display:block; width:34px; height:2.5px; background:var(--ink); transform:rotate(-62deg); margin-inline:-30px -4px; border-radius:2px; }
+  .capy { display:block; animation:breathe 4.2s ease-in-out infinite; transform-origin:50% 100%; } @keyframes breathe { 50% { transform:scale(1.025,1.035); } }
+  .bubble { position:absolute; background:#fffdf6; border:2px solid var(--ink); border-radius:18px 18px 18px 4px; padding:6px 12px; font:400 17px/24px 'Gveret Levin'; box-shadow:2px 3px 0 rgba(43,31,22,.15); }
+  /* כריכה */
+  .cover { position:absolute; inset:0; z-index:2; }
+  .foil { font:400 78px/1 'Suez One'; background:linear-gradient(#fff0c8,#d2a95a 45%,#8a6120 75%,#e8c987); -webkit-background-clip:text; background-clip:text; color:transparent; filter:drop-shadow(0 2px 0 rgba(0,0,0,.6)) drop-shadow(0 0 1px rgba(255,230,170,.5)); letter-spacing:-.02em; }
+  .foilbtn { background:linear-gradient(#e9c987,#b8893c); color:#2a1a08; font:400 22px 'Gveret Levin'; padding:8px 34px; border-radius:26px; box-shadow:0 2px 0 #6e4d16, 0 10px 20px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.5); }
+
+  .pet-wrap { display:inline-block; animation:pet-breathe 4s cubic-bezier(.45,0,.55,1) infinite; transform-origin:center bottom; } .pet-wrap svg { display:block; overflow:visible; filter:drop-shadow(0 3px 2px rgba(43,31,22,.25)); }
+  @keyframes pet-breathe { 0%,100% { transform:scale(1); } 50% { transform:scale(1.04); } }
+  .pet-eyes-arc, .pet-eyes-closed, .pet-eyes-happy, .pet-mouth-grin, .pet-mouth-frown, .pet-mouth-surprised, .pet-blush, .pet-brow-sad, .pet-tear, .pet-zzz { display:none; } .pet-eyes-neutral, .pet-mouth-neutral { display:inline; }
+  .pet--happy .pet-eyes-neutral { display:none; } .pet--happy .pet-eyes-happy { display:inline; } .pet--happy .pet-mouth-neutral { display:none; } .pet--happy .pet-mouth-grin { display:inline; }
+  .pet--ecstatic .pet-eyes-neutral { display:none; } .pet--ecstatic .pet-eyes-arc { display:inline; } .pet--ecstatic .pet-mouth-neutral { display:none; } .pet--ecstatic .pet-mouth-grin { display:inline; } .pet--ecstatic .pet-blush { display:inline; }
+  .pet--sleeping .pet-eyes-neutral { display:none; } .pet--sleeping .pet-eyes-closed { display:inline; } .pet--sleeping .pet-mouth-neutral { display:none; } .pet--sleeping .pet-zzz { display:inline; }
+  .pet--thinking { animation:capy-think 1.2s ease-in-out infinite; } @keyframes capy-think { 0%,100% { transform:rotate(0) translateY(0); } 30% { transform:rotate(-8deg) translateY(-3px); } 60% { transform:rotate(4deg) translateY(-1px); } }
+  .pet--thinking .pet-think-q { animation:capy-think-q 1.2s ease-in-out infinite; } @keyframes capy-think-q { 0%,100% { opacity:0; } 30%,70% { opacity:1; } }
+  .petslot svg { overflow:visible; } .welcome-logo-fix svg { display:inline-block; }
+
+  /* שורות התכונות במסך הפתיחה (היה חסר, ולכן האיקונים התנפחו) */
+  .feat { display:flex; gap:12px; align-items:center; margin:9px 0; color:#e9d7b0; font:400 17px/20px 'Gveret Levin'; }
+  .feat svg { flex:none; width:30px; height:30px; stroke:#d2a95a; fill:none; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
+  /* עיבוד ציורי קל: קו מתאר דק + נדנוד זעיר, אותן צורות ואותם צבעים */
+  .pet-wrap svg, svg.capy-logo { filter:url(#capyink) drop-shadow(0 3px 2px rgba(43,31,22,.22)); }
+  .pet-wrap svg [fill="#C4956A"], .pet-wrap svg [fill="#e8c89a"], .pet-wrap svg [fill="#b07d50"], .pet-wrap svg [fill="#e0a87a"], svg.capy-logo [fill="#C4956A"], svg.capy-logo [fill="#e8c89a"], svg.capy-logo [fill="#b07d50"], svg.capy-logo [fill="#e0a87a"] { stroke:#6b4426; stroke-width:1.15; stroke-opacity:.7; stroke-linejoin:round; stroke-linecap:round; }
+  .pet-wrap svg [fill="#e8c89a"], svg.capy-logo [fill="#e8c89a"] { stroke:none; }
+
+  /* לשוניות אינדקס בתחתית הדף */
+  .btabs { position:absolute; left:14px; right:14px; bottom:0; height:42px; display:flex; gap:8px; align-items:flex-end; z-index:3; }
+  .btab { flex:1; height:32px; display:grid; place-items:center; border-radius:12px 12px 0 0; font:400 17px 'Gveret Levin'; box-shadow:0 -2px 5px rgba(40,22,8,.28); }
+  .btab.on { height:40px; box-shadow:0 -3px 7px rgba(40,22,8,.38); }
+  /* הקפיברה מטיילת על הדף */
+  .walker { direction:ltr; text-align:left; position:absolute; left:20px; width:240px; height:100px; pointer-events:none; z-index:3; }
+  .walk-x { display:inline-block; --span:140px; animation:walkx 15s linear infinite; }
+  .walk-flip { animation:flipx 15s step-end infinite; }
+  .walk-flip .pet-wrap { animation:capy-walk-bob .6s ease-in-out infinite; transform-origin:center bottom; }
+  @keyframes walkx { 0% { transform:translateX(0); } 50% { transform:translateX(var(--span)); } 100% { transform:translateX(0); } }
+  @keyframes flipx { 0% { transform:scaleX(1); } 50% { transform:scaleX(-1); } 100% { transform:scaleX(1); } }
+  @keyframes capy-walk-bob { 0%,100% { transform:rotate(0deg) translateY(0); } 25% { transform:rotate(-3deg) translateY(-3px); } 75% { transform:rotate(3deg) translateY(-3px); } }
+
+  /* 1. הליכה: הקירות הם קצה הדף וקו השוליים; הקפיברה מסתובבת בדיוק כשהגוף נוגע בהם */
+  .walker { left:2px !important; width:271px !important; }
+  /* 3. הסרט האדום נמוך יותר ולא מכסה את הימים */
+  .ribbon { top:50px !important; height:50px !important; }
+  /* 5. מספר הקלוריות שאכלתי: גדול, בכתב יד, באדום דיו */
+  .eat { display:flex; align-items:baseline; gap:8px; height:50px; } .eat .n { font:400 40px/50px 'Gveret Levin'; color:var(--red); } .eat .of { font:400 17px 'Gveret Levin'; color:var(--graphite); }
+  .ink2 { height:30px; display:flex; align-items:center; } .ink2 .track { flex:1; height:10px; border-radius:10px; background:rgba(60,40,20,.12); position:relative; overflow:hidden; box-shadow:inset 0 1px 2px rgba(60,40,20,.25); } .ink2 .fill { position:absolute; inset:0 0 0 auto; width:67%; background:linear-gradient(#c8432a,#a82b17); border-radius:10px; }
+  /* 4. דפדוף בין ימים, ערוך ומחק */
+  .weekrow { display:flex; align-items:center; gap:4px; height:30px; } .weekrow .week { flex:1; } .weekrow .arr { width:22px; height:30px; display:grid; place-items:center; } .weekrow .arr svg { width:16px; height:16px; stroke:var(--graphite); fill:none; stroke-width:2.6; stroke-linecap:round; stroke-linejoin:round; }
+  .acts { display:flex; gap:14px; font:400 16px/24px 'Gveret Levin'; color:var(--graphite); margin-top:2px; } .acts .del { color:var(--red); }
+  /* 10. תפריט תחתון: שישה כפתורים כמו באפליקציה */
+  .dock { gap:2px !important; padding:6px 7px !important; }
+  .dock i { display:flex !important; flex-direction:column; align-items:center; justify-content:center; gap:1px; width:44px !important; height:48px !important; border-radius:20px !important; }
+  .dock i b { font:400 12.5px/1 'Gveret Levin'; } .dock svg { width:21px !important; height:21px !important; }
+  .dock i.add { width:50px !important; height:46px !important; border-radius:23px !important; }
+
+  /* ספרות: גופן כתב יד קריא (Playpen Sans Hebrew), כמו שיוגדר ב-@font-face עם unicode-range לספרות בלבד */
+  .dg { font-family:'Playpen Sans Hebrew', 'Gveret Levin', cursive; font-weight:600; font-size:.88em; letter-spacing:0; font-style:normal; }
+  .circ { font-size:21px !important; } .eat .n { font-size:46px !important; line-height:50px !important; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><filter id="capyink" x="-4%" y="-4%" width="108%" height="108%"><feTurbulence type="fractalNoise" baseFrequency=".07" numOctaves="2" seed="5" result="t"/><feDisplacementMap in="SourceGraphic" in2="t" scale="1.2" result="d"/><feGaussianBlur in="d" stdDeviation=".3"/></filter><radialGradient id="g-body" cx=".5" cy=".28" r=".85"><stop offset="0" stop-color="#ffebcd" stop-opacity=".26"/><stop offset=".55" stop-color="#ffebcd" stop-opacity="0"/><stop offset="1" stop-color="#46280f" stop-opacity=".26"/></radialGradient><radialGradient id="g-head" cx=".34" cy=".22" r=".95"><stop offset="0" stop-color="#fff0d7" stop-opacity=".1"/><stop offset=".55" stop-color="#fff0d7" stop-opacity="0"/><stop offset="1" stop-color="#50290f" stop-opacity=".2"/></radialGradient><filter id="softsh" x="-20%" y="-60%" width="140%" height="220%"><feGaussianBlur stdDeviation="1.7"/></filter></defs></svg>
+<template id="capy-tpl">
+  <svg width="80" height="73" viewBox="0 0 110 100" xmlns="http://www.w3.org/2000/svg">
+    <!-- body -->
+    <ellipse cx="55" cy="68" rx="38" ry="24" fill="#C4956A"/>
+    <ellipse cx="55" cy="72" rx="26" ry="15" fill="#e8c89a"/>
+    <!-- head -->
+    <rect x="25" y="26" width="60" height="46" rx="18" fill="#C4956A"/>
+    <!-- snout -->
+    <rect x="34" y="44" width="42" height="22" rx="12" fill="#b07d50"/>
+    <!-- ears -->
+    <g class="pet-ear-left" style="transform-box:fill-box;transform-origin:center bottom">
+      <circle cx="30" cy="28" r="9" fill="#C4956A"/>
+      <circle cx="30" cy="28" r="5" fill="#e0a87a"/>
+    </g>
+    <g class="pet-ear-right" style="transform-box:fill-box;transform-origin:center bottom">
+      <circle cx="80" cy="28" r="9" fill="#C4956A"/>
+      <circle cx="80" cy="28" r="5" fill="#e0a87a"/>
+    </g>
+    <!-- legs -->
+    <ellipse cx="28" cy="90" rx="10" ry="7" fill="#C4956A"/>
+    <ellipse cx="45" cy="92" rx="10" ry="6" fill="#C4956A"/>
+    <ellipse cx="65" cy="92" rx="10" ry="6" fill="#C4956A"/>
+    <ellipse cx="82" cy="90" rx="10" ry="7" fill="#C4956A"/>
+    <!-- nostrils -->
+    <ellipse cx="47" cy="56" rx="3" ry="2" fill="#8B5E35"/>
+    <ellipse cx="63" cy="56" rx="3" ry="2" fill="#8B5E35"/>
+
+    <!-- NEUTRAL eyes (default) -->
+    <g class="pet-eyes-neutral">
+      <circle cx="32" cy="36" r="5" fill="#2d1a0a"/>
+      <circle cx="32" cy="36" r="3.5" fill="#1a1a1a"/>
+      <circle cx="31" cy="35" r="1" fill="white"/>
+      <circle cx="78" cy="36" r="5" fill="#2d1a0a"/>
+      <circle cx="78" cy="36" r="3.5" fill="#1a1a1a"/>
+      <circle cx="77" cy="35" r="1" fill="white"/>
+    </g>
+
+    <!-- HAPPY eyes (round with shine) -->
+    <g class="pet-eyes-happy">
+      <circle cx="32" cy="36" r="5.5" fill="#2d1a0a"/>
+      <circle cx="32" cy="36" r="4" fill="#1a1a1a"/>
+      <circle cx="30" cy="34" r="1.5" fill="white"/>
+      <circle cx="78" cy="36" r="5.5" fill="#2d1a0a"/>
+      <circle cx="78" cy="36" r="4" fill="#1a1a1a"/>
+      <circle cx="76" cy="34" r="1.5" fill="white"/>
+    </g>
+
+    <!-- ECSTATIC eyes (^_^ arcs upward) -->
+    <g class="pet-eyes-arc">
+      <path d="M 26 36 Q 32 30 38 36" stroke="#2d1a0a" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+      <path d="M 72 36 Q 78 30 84 36" stroke="#2d1a0a" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    </g>
+
+    <!-- SLEEPING eyes (closed — arcs downward, different from ecstatic) -->
+    <g class="pet-eyes-closed">
+      <path d="M 26 34 Q 32 40 38 34" stroke="#2d1a0a" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <path d="M 72 34 Q 78 40 84 34" stroke="#2d1a0a" stroke-width="3" fill="none" stroke-linecap="round"/>
+    </g>
+
+    <!-- blush (ecstatic only) -->
+    <g class="pet-blush">
+      <ellipse cx="32" cy="43" rx="7" ry="4" fill="#E8703A" opacity="0.35"/>
+      <ellipse cx="78" cy="43" rx="7" ry="4" fill="#E8703A" opacity="0.35"/>
+    </g>
+
+    <!-- sad brows -->
+    <g class="pet-brow-sad">
+      <path d="M 26 32 Q 32 35 38 32" stroke="#6a3a10" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      <path d="M 72 32 Q 78 35 84 32" stroke="#6a3a10" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+    </g>
+
+    <!-- teardrop -->
+    <g class="pet-tear">
+      <ellipse cx="26" cy="46" rx="2" ry="3.5" fill="#93c5fd" opacity="0.7"/>
+    </g>
+
+    <!-- NEUTRAL mouth (flat line) -->
+    <line class="pet-mouth-neutral" x1="44" y1="63" x2="66" y2="63" stroke="#8B5E35" stroke-width="2" stroke-linecap="round"/>
+
+    <!-- HAPPY/ECSTATIC mouth (smile) -->
+    <path class="pet-mouth-grin" d="M 40 60 Q 55 70 70 60" stroke="#8B5E35" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+
+    <!-- SAD mouth (frown) -->
+    <path class="pet-mouth-frown" d="M 43 65 Q 55 59 67 65" stroke="#6a3a10" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+    <!-- ZZZ (sleeping) -->
+    <text class="pet-zzz" x="68" y="28" font-size="10" fill="#8B6B4A" opacity="0.8" font-family="sans-serif">z</text>
+    <text class="pet-zzz" x="74" y="20" font-size="13" fill="#8B6B4A" opacity="0.6" font-family="sans-serif">z</text>
+    <text class="pet-zzz" x="82" y="13" font-size="9"  fill="#8B6B4A" opacity="0.4" font-family="sans-serif">z</text>
+
+    <!-- SURPRISED mouth -->
+    <ellipse class="pet-mouth-surprised" cx="55" cy="62" rx="5" ry="4" fill="#8B5E35"/>
+
+    <!-- thinking question mark -->
+    <text class="pet-think-q" x="82" y="18" font-size="14" fill="#E8703A" font-family="sans-serif" font-weight="bold" opacity="0">?</text>
+  </svg>
+</template>
+<h2>הפניית עיצוב: יומן אוכל (הדמיה מאושרת, 3 באוקטובר 2026)</h2>
+<p class="sub">הקפיברה כאן היא בדיוק זו שבאפליקציה היום (אותו איור וכל המצבים שלה: שמחה, ישנה, רגילה), בצורה ובצבעים המקוריים, עם קו מתאר רך, הצללה עדינה כמו צבע, ברק קל על הראש, סומק ופרווה. בפתיחה מופיע הלוגו המקורי עם קערת הסלט. אחד-עשר מסכים.</p>
+<div class="gal">
+<div class="pick" data-choice="welcome2" onclick="toggleSelect(this)"><div class="phone">
+  <div class="status"><span>9:41</span><span>●●● ▮</span></div><div class="stitch"></div>
+  <div class="cover">
+    <div style="position:absolute;top:54px;left:0;right:0;text-align:center"><div class="petslot" data-state="happy" data-w="206" data-bowl="1" style="display:inline-block"></div></div>
+    <div style="position:absolute;top:268px;left:0;right:0;text-align:center"><div class="foil" style="font-size:66px">יומן.</div><div class="hand" style="font-size:21px;color:#d9bf8a;margin-top:4px">יומן האוכל האישי שלך</div></div>
+    <div style="position:absolute;top:416px;left:34px;right:34px">
+      <div class="feat"><svg viewBox="0 0 24 24"><path d="M3 8h4l2-3h6l2 3h4v11H3z"/><circle cx="12" cy="13" r="3.6"/></svg><span>צלם את הצלחת. ה-AI מזהה ומחשב</span></div>
+      <div class="feat"><svg viewBox="0 0 24 24"><path d="M4 20V11M10 20V5M16 20v-7M22 20H2"/></svg><span>קלוריות ומאקרו, הכול במקום אחד</span></div>
+      <div class="feat"><svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 8-9"/><path d="M3 21h18"/></svg><span>גרפים: שבועי, חודשי ושנתי</span></div>
+    </div>
+    <div style="position:absolute;bottom:116px;left:0;right:0;text-align:center"><span class="foilbtn">התחל עכשיו</span></div>
+    <div class="hand" style="position:absolute;bottom:80px;left:0;right:0;text-align:center;font-size:17px;color:#b79a68">כבר יש לי חשבון</div>
+  </div>
+</div><div class="cap">פתיחה<small>הטקסט המקורי של האפליקציה, מקוצר, בשורות עם איקונים בקו זהב</small></div></div>
+
+
+<div class="pick" data-choice="login" onclick="toggleSelect(this)"><div class="phone">
+  <div class="status"><span>9:41</span><span>●●● ▮</span></div><div class="stitch"></div>
+  <div class="page"><div class="rules"></div><div class="margin"></div>
+    <div class="content">
+      <div class="title big" style="margin-top:12px">שלום, מי כותב?</div>
+      <div class="field" style="margin-top:22px"><label>שם משתמש</label><div class="u">dar</div></div>
+      <div class="field"><label>סיסמה</label><div class="u">••••••••</div></div>
+      <div style="margin-top:34px"><span class="penbtn" style="position:static;display:inline-block">כניסה</span></div>
+      <div class="hand" style="margin-top:22px;font-size:18px;color:var(--graphite)">יומן חדש? <span style="color:var(--red);text-decoration:underline">נפתח אחד</span></div>
+    </div>
+    <div class="walker" style="bottom:4px"><div class="walk-x"><div class="walk-flip"><div class="petslot" data-state="neutral" data-w="104"></div></div></div></div>
+  </div>
+  <div class="dock" style="opacity:0"></div>
+</div><div class="cap">2. כניסה והרשמה<small>דף עם שדות בכתב יד וקו תחתון, כפתור בדיו אדום</small></div></div>
+
+
+<div class="pick" data-choice="dash2" onclick="toggleSelect(this)"><div class="phone">
+  <div class="status"><span>9:41</span><span>●●● ▮</span></div><div class="stitch"></div>
+  <div class="page"><div class="rules"></div><div class="margin"></div><div class="ribbon"></div>
+    <div class="content">
+      <div class="title" style="margin-left:50px">שבת, 3 באוקטובר</div>
+      <div class="petslot" data-state="happy" data-w="132" style="position:absolute;left:8px;top:104px"></div>
+      <div class="bubble" style="right:58px;top:100px;width:104px">כל הכבוד, דר! ככה ממשיכים</div>
+      <div style="position:absolute;right:58px;left:16px;top:236px">
+        <div class="eat"><span class="n">1,341</span><span class="of">קק״ל מתוך 2,000</span></div><div class="ink2"><div class="track"><div class="fill"></div></div></div>
+        <div class="row2" style="margin-top:8px"><span>ברצף כבר 7 ימים</span></div>
+        <!-- סימון בעט, כמו שכותבים ביד -->
+        <svg viewBox="0 0 170 40" width="170" height="40" style="display:block;margin-top:-2px" fill="none" stroke="#25304f" stroke-linecap="round" filter="url(#wobS)">
+          <g stroke-width="2.7"><path d="M10 6 C10.8 14 9.2 24 10.6 35"/><path d="M25 5 C25.4 13 25.9 25 24.4 36"/><path d="M40 6.5 C39.6 15 40.8 26 39.8 35"/><path d="M55 5 C55.8 14 54.4 24 55.4 36"/><path d="M2 30 C16 24 42 14 64 7"/><path d="M84 6 C83.4 15 84.9 25 83.8 35"/><path d="M100 5 C100.9 14 99.5 24 100.4 36"/></g>
+          <g stroke-width="1.5" opacity=".5" transform="translate(.7,.5)"><path d="M10 6 C10.8 14 9.2 24 10.6 35"/><path d="M25 5 C25.4 13 25.9 25 24.4 36"/><path d="M40 6.5 C39.6 15 40.8 26 39.8 35"/><path d="M55 5 C55.8 14 54.4 24 55.4 36"/><path d="M2 30 C16 24 42 14 64 7"/><path d="M84 6 C83.4 15 84.9 25 83.8 35"/><path d="M100 5 C100.9 14 99.5 24 100.4 36"/></g>
+        </svg>
+      </div>
+      <div class="polaroid" style="width:120px;right:58px;top:402px;transform:rotate(-3deg)"><i class="tape" style="top:-9px;left:30px;transform:rotate(-6deg)"></i><div class="ph" style="background-image:radial-gradient(circle at 50% 45%, #e6cfa6 0 38%, #b98a58 39% 62%, #8a5a2a 63%)"></div><div class="cp" style="font-size:13px">הארוחה האחרונה</div></div>
+      <div class="hand" style="position:absolute;left:16px;top:424px;width:96px;text-align:center"><span class="circ" style="font-size:20px;line-height:34px">722</span><div style="font-size:15px;color:var(--graphite)">קק״ל</div></div>
+    </div>
+  </div>
+  <div class="dock"><i class="on"><svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9H4z"/></svg><b>בית</b></i><i class=""><svg viewBox="0 0 24 24"><path d="M3 5h6a3 3 0 0 1 3 3v12a3 3 0 0 0-3-3H3z M21 5h-6a3 3 0 0 0-3 3v12a3 3 0 0 1 3-3h6z"/></svg><b>יומן</b></i><i class="add "><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></i><i class=""><svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg><b>נתונים</b></i><i class=""><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 13l3-3"/></svg><b>משקל</b></i><i class=""><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg><b>הגדרות</b></i></div>
+</div><div class="cap">בית<small>הרצף נכתב בעט כחול-שחור, בקווים לא ישרים, ועם קו חוצה אחרי כל חמישה</small></div></div>
+
+
+<div class="pick" data-choice="diary" onclick="toggleSelect(this)"><div class="phone">
+  <div class="status"><span>9:41</span><span>●●● ▮</span></div><div class="stitch"></div>
+  <div class="page"><div class="rules"></div><div class="margin"></div><div class="ribbon"></div>
+    <div class="content">
+      <div class="weekrow"><span class="arr"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></span><div class="week"><span>א׳</span><span>ב׳</span><span>ג׳</span><span>ד׳</span><span>ה׳</span><span>ו׳</span><span class="today">ש׳</span></div><span class="arr"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span></div>
+      <div class="title" style="margin-left:50px">שבת, 3 באוקטובר</div>
+      <div class="eat"><span class="n">1,341</span><span class="of">קק״ל מתוך 2,000</span></div><div class="ink2"><div class="track"><div class="fill"></div></div></div>
+      <div style="position:relative;height:172px;margin-top:2px"><div class="polaroid" style="right:0;top:6px;width:122px;transform:rotate(-3.5deg)"><i class="tape" style="top:-10px;left:42px;transform:rotate(-6deg)"></i><div class="ph" style="background-image:radial-gradient(circle at 50% 45%, #e6cfa6 0 38%, #b98a58 39% 62%, #8a5a2a 63%)"></div><div class="cp">בוקר · 08:20</div></div>
+        <div style="position:absolute;left:0;top:30px;width:112px"><div class="hand" style="font-size:20px;line-height:30px">ביצי עין, טונה<br>ולחם</div><span class="circ">619</span><div class="acts"><span>ערוך</span><span class="del">מחק</span></div></div></div>
+      <div style="position:relative;height:178px;margin-top:6px"><div style="position:absolute;right:0;top:30px;width:112px"><div class="hand" style="font-size:20px;line-height:30px">שניצל עם<br>כוסמת</div><span class="circ">722</span><div class="acts"><span>ערוך</span><span class="del">מחק</span></div></div>
+        <div class="polaroid" style="left:0;top:6px;width:122px;transform:rotate(3deg)"><i class="tape" style="top:-10px;left:46px;transform:rotate(7deg)"></i><div class="ph" style="background-image:radial-gradient(circle at 50% 45%, #e6cfa6 0 38%, #b98a58 39% 62%, #8a5a2a 63%)"></div><div class="cp">צהריים · 13:05</div></div></div>
+    </div>
+  </div>
+  <div class="dock"><i class=""><svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9H4z"/></svg><b>בית</b></i><i class="on"><svg viewBox="0 0 24 24"><path d="M3 5h6a3 3 0 0 1 3 3v12a3 3 0 0 0-3-3H3z M21 5h-6a3 3 0 0 0-3 3v12a3 3 0 0 1 3-3h6z"/></svg><b>יומן</b></i><i class="add "><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></i><i class=""><svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg><b>נתונים</b></i><i class=""><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 13l3-3"/></svg><b>משקל</b></i><i class=""><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg><b>הגדרות</b></i></div>
+</div><div class="cap">4. יומן היום<small>כל ארוחה בעמוד: פולרואיד והקלוריות מוקפות בעט</small></div></div>
+
+
+<div class="pick" data-choice="add-empty" onclick="toggleSelect(this)"><div class="phone">
+  <div class="status"><span>9:41</span><span>●●● ▮</span></div><div class="stitch"></div>
+  <div class="page"><div class="rules"></div><div class="margin"></div>
+    <div class="content">
+      <div class="title big" style="margin-top:6px">מה אכלת?</div>
+      <div style="position:relative;height:250px;margin-top:6px">
+        <div style="position:absolute;inset:2px 0 0 0;border:2.5px dashed rgba(43,31,22,.55);border-radius:12px;display:grid;place-items:center;text-align:center;background:rgba(255,253,246,.55)">
+          <div>
+            <svg width="96" height="82" viewBox="0 0 96 82" fill="none" stroke="#2b1f16" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" filter="url(#wobS)"><path d="M8 24h18l7-11h30l7 11h18v48H8z" fill="#fffdf6"/><circle cx="48" cy="46" r="15"/><circle cx="48" cy="46" r="6" stroke="#b3311d"/><path d="M76 33h6" stroke="#b3311d"/></svg>
+            <div class="hand" style="font-size:30px;line-height:34px;color:var(--ink);margin-top:6px">לחץ לצילום</div>
+            <div class="hand" style="font-size:17px;color:var(--graphite);margin-top:2px">או בחר תמונה מהגלריה</div>
+          </div>
+        </div>
+        <i class="tape" style="top:-8px;right:60px;transform:rotate(-4deg)"></i>
+      </div>
+      <div style="margin-top:14px"><span class="chip">בוקר</span><span class="chip on">צהריים</span><span class="chip">ערב</span><span class="chip">נשנוש</span></div>
+      <div class="field" style="margin-top:2px"><div class="u ph" style="font-size:18px">או כתוב כאן מה אכלת…</div></div>
+    </div>
+  </div>
+  <div class="dock"><i class=""><svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9H4z"/></svg><b>בית</b></i><i class=""><svg viewBox="0 0 24 24"><path d="M3 5h6a3 3 0 0 1 3 3v12a3 3 0 0 0-3-3H3z M21 5h-6a3 3 0 0 0-3 3v12a3 3 0 0 1 3-3h6z"/></svg><b>יומן</b></i><i class="add on"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></i><i class=""><svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg><b>נתונים</b></i><i class=""><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 13l3-3"/></svg><b>משקל</b></i><i class=""><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg><b>הגדרות</b></i></div>
+</div><div class="cap">הוספת ארוחה: לפני צילום<small>כל המסגרת היא כפתור, עם מצלמה גדולה והוראה בכתב יד</small></div></div>
+
+
+<div class="pick" data-choice="add-photo" onclick="toggleSelect(this)"><div class="phone">
+  <div class="status"><span>9:41</span><span>●●● ▮</span></div><div class="stitch"></div>
+  <div class="page"><div class="rules"></div><div class="margin"></div>
+    <div class="content">
+      <div class="title big" style="margin-top:6px">מה אכלת?</div>
+      <div style="position:relative;height:250px;margin-top:6px">
+        <div class="polaroid" style="width:210px;right:20px;top:4px;transform:rotate(-2deg)"><i class="tape" style="top:-10px;left:76px;transform:rotate(-4deg)"></i><div class="ph" style="background-image:radial-gradient(circle at 50% 45%, #e6cfa6 0 38%, #b98a58 39% 62%, #8a5a2a 63%)"></div><div class="cp">צהריים</div></div>
+        <div class="hand" style="position:absolute;left:0;top:210px;font-size:16px;color:var(--graphite);text-decoration:underline">צלם שוב</div>
+      </div>
+      <div style="margin-top:14px"><span class="chip">בוקר</span><span class="chip on">צהריים</span><span class="chip">ערב</span><span class="chip">נשנוש</span></div>
+      <div style="text-align:center;margin-top:12px"><span class="penbtn" style="position:static;display:inline-block;font-size:24px;padding:8px 30px">נתח את הצלחת</span></div>
+    </div>
+  </div>
+  <div class="dock"><i class=""><svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9H4z"/></svg><b>בית</b></i><i class=""><svg viewBox="0 0 24 24"><path d="M3 5h6a3 3 0 0 1 3 3v12a3 3 0 0 0-3-3H3z M21 5h-6a3 3 0 0 0-3 3v12a3 3 0 0 1 3-3h6z"/></svg><b>יומן</b></i><i class="add on"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></i><i class=""><svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg><b>נתונים</b></i><i class=""><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 13l3-3"/></svg><b>משקל</b></i><i class=""><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg><b>הגדרות</b></i></div>
+</div><div class="cap">הוספת ארוחה: אחרי צילום<small>התמונה הופכת לפולרואיד, והכפתור כתוב במפורש: נתח את הצלחת</small></div></div>
+
+<div class="pick" data-choice="thinking" onclick="toggleSelect(this)"><div class="phone">
+  <div class="status"><span>9:41</span><span>●●● ▮</span></div><div class="stitch"></div>
+  <div class="page"><div class="rules"></div><div class="margin"></div>
+    <div class="content">
+      <div class="polaroid" style="width:170px;right:58px;top:46px;transform:rotate(-2.5deg)"><i class="tape" style="top:-10px;left:56px;transform:rotate(-4deg)"></i><div class="ph" style="background-image:radial-gradient(circle at 50% 45%, #e6cfa6 0 38%, #b98a58 39% 62%, #8a5a2a 63%)"></div><div class="cp">רגע, מסתכל…</div></div>
+      <div class="petslot" data-state="happy" data-w="124" style="position:absolute;left:10px;top:300px" data-think="1"></div><svg width="64" height="64" viewBox="0 0 64 64" style="position:absolute;left:100px;top:352px;transform:rotate(-12deg)" fill="none" stroke="#2b1f16" stroke-width="3.2" stroke-linecap="round"><circle cx="26" cy="26" r="17" fill="rgba(255,255,255,.55)"/><path d="M39 39l18 18" stroke-width="5"/></svg>
+      <div class="bubble" style="right:58px;top:300px;width:124px;border-radius:18px 18px 4px 18px">מחשב כמה יש בצלחת…</div>
+      
+      <div style="position:absolute;right:58px;left:16px;top:476px;height:8px;border-radius:8px;background:rgba(60,40,20,.12);overflow:hidden"><div style="width:55%;height:100%;background:linear-gradient(#c8432a,#a82b17);border-radius:8px"></div></div>
+    </div>
+  </div>
+  <div class="dock"><i class=""><svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9H4z"/></svg><b>בית</b></i><i class=""><svg viewBox="0 0 24 24"><path d="M3 5h6a3 3 0 0 1 3 3v12a3 3 0 0 0-3-3H3z M21 5h-6a3 3 0 0 0-3 3v12a3 3 0 0 1 3-3h6z"/></svg><b>יומן</b></i><i class="add on"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></i><i class=""><svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg><b>נתונים</b></i><i class=""><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 13l3-3"/></svg><b>משקל</b></i><i class=""><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg><b>הגדרות</b></i></div>
+</div><div class="cap">6. בזמן הניתוח<small>הקפיברה מחפשת עם זכוכית מגדלת בזמן שמחכים</small></div></div>
+
+
+<div class="pick" data-choice="analysis" onclick="toggleSelect(this)"><div class="phone">
+  <div class="status"><span>9:41</span><span>●●● ▮</span></div><div class="stitch"></div>
+  <div class="page"><div class="rules"></div><div class="margin"></div>
+    <div class="content">
+      <div class="lbl" style="margin-top:2px">הארוחה שזיהיתי</div>
+      <div class="title big" style="margin-top:-6px;font-size:36px;line-height:46px">שניצל עם כוסמת</div>
+      <div style="position:relative;height:150px"><div class="polaroid" style="width:128px;right:0;top:4px;transform:rotate(-3deg)"><i class="tape" style="top:-9px;left:34px;transform:rotate(-5deg)"></i><div class="ph" style="background-image:radial-gradient(circle at 50% 45%, #e6cfa6 0 38%, #b98a58 39% 62%, #8a5a2a 63%)"></div><div class="cp" style="font-size:13px">13:05</div></div>
+        <div style="position:absolute;left:0;top:30px;width:122px;text-align:center"><span class="circ" style="font-size:26px;line-height:44px;padding:0 16px">722</span><div class="hand" style="font-size:17px;color:var(--graphite);margin-top:4px">קק״ל</div></div></div>
+    </div>
+    <div class="receipt" style="left:34px;top:214px;width:228px;transform:rotate(1deg)"><i class="tape" style="top:-9px;right:90px;transform:rotate(3deg)"></i>
+      <div class="l"><span>שניצל</span><span class="d"></span><b>380</b></div><div class="l"><span>כוסמת</span><span class="d"></span><b>272</b></div><div class="l"><span>סלט ירקות</span><span class="d"></span><b>70</b></div><hr>
+      <div class="tt"><span>סה״כ</span><b>722</b></div><div class="mac"><span>חלבון 38ג</span><span>פחמימות 68ג</span><span>שומן 33ג</span></div></div>
+    <div class="stamp" style="left:34px;top:410px">נרשם</div>
+    <div class="penbtn" style="right:60px;top:500px">שמור ביומן</div><div class="hand" style="position:absolute;left:34px;top:508px;font-size:17px;color:var(--graphite)">ערוך</div>
+  </div>
+  <div class="dock"><i class=""><svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9H4z"/></svg><b>בית</b></i><i class=""><svg viewBox="0 0 24 24"><path d="M3 5h6a3 3 0 0 1 3 3v12a3 3 0 0 0-3-3H3z M21 5h-6a3 3 0 0 0-3 3v12a3 3 0 0 1 3-3h6z"/></svg><b>יומן</b></i><i class="add on"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></i><i class=""><svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg><b>נתונים</b></i><i class=""><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 13l3-3"/></svg><b>משקל</b></i><i class=""><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg><b>הגדרות</b></i></div>
+</div><div class="cap">7. תוצאת הניתוח<small>בלי כותרת על הקבלה, רק הפירוט, חותמת ושמירה</small></div></div>
+
+
+<div class="pick" data-choice="stats" onclick="toggleSelect(this)"><div class="phone">
+  <div class="status"><span>9:41</span><span>●●● ▮</span></div><div class="stitch"></div>
+  <div class="page"><div class="rules"></div><div class="margin"></div>
+    <div class="btabs"><span class="btab on" style="background:#c9532f;color:#fff3dc">שבועי</span><span class="btab" style="background:#d9a850;color:#3a2810">חודשי</span><span class="btab" style="background:#7f9a6b;color:#17240f">שנתי</span></div><div class="walker" style="bottom:46px"><div class="walk-x"><div class="walk-flip"><div class="petslot" data-state="happy" data-w="84"></div></div></div></div>
+    <div class="content">
+      <div class="lbl">7 הימים האחרונים</div>
+      <div style="display:flex;align-items:baseline;gap:8px;height:60px"><span style="font:400 46px 'Gveret Levin';letter-spacing:-.05em">1,850</span><span class="hand" style="font-size:20px;color:var(--graphite)">קק״ל ליום, בממוצע</span></div>
+      <svg viewBox="0 0 248 190" width="248" height="190" style="display:block;margin-top:6px" filter="url(#wob)">
+        <line x1="0" y1="52" x2="248" y2="52" stroke="#b3311d" stroke-dasharray="6 5" stroke-width="2"/><text x="100" y="15" text-anchor="middle" font-family="Gveret Levin" font-size="16" fill="#b3311d">יעד <tspan font-family="Playpen Sans Hebrew" font-weight="600" font-size="14">2,000</tspan></text><path d="M100 21 C102 31 99 41 100 48" stroke="#b3311d" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M95 43 L100 50 L105 43" stroke="#b3311d" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <g stroke="#2b1f16" stroke-width="2" stroke-linejoin="round">
+          <rect x="10" y="80" width="22" height="90" fill="#d9a850"/><rect x="44" y="60" width="22" height="110" fill="#d9a850"/><rect x="78" y="90" width="22" height="80" fill="#d9a850"/><rect x="112" y="48" width="22" height="122" fill="#c9532f"/><rect x="146" y="70" width="22" height="100" fill="#d9a850"/><rect x="180" y="40" width="22" height="130" fill="#c9532f"/><rect x="214" y="72" width="22" height="98" fill="#d9a850"/></g>
+        <g font-family="Gveret Levin" font-size="16" fill="#6f5d4c" text-anchor="middle"><text x="21" y="188">ש׳</text><text x="55" y="188">ו׳</text><text x="89" y="188">ה׳</text><text x="123" y="188">ד׳</text><text x="157" y="188">ג׳</text><text x="191" y="188">ב׳</text><text x="225" y="188">א׳</text></g>
+      </svg>
+      <div style="margin-top:6px">
+        <div class="ink" style="height:28px"><span style="width:62px">חלבון</span><div class="track"><div class="fill" style="width:62%;background:linear-gradient(#5aa38f,#3f8472)"></div></div></div>
+        <div class="ink" style="height:28px"><span style="width:62px">פחמימות</span><div class="track"><div class="fill" style="width:78%;background:linear-gradient(#e3b455,#c9912f)"></div></div></div>
+        <div class="ink" style="height:28px"><span style="width:62px">שומן</span><div class="track"><div class="fill" style="width:48%;background:linear-gradient(#e08a6f,#c4573a)"></div></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="dock"><i class=""><svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9H4z"/></svg><b>בית</b></i><i class=""><svg viewBox="0 0 24 24"><path d="M3 5h6a3 3 0 0 1 3 3v12a3 3 0 0 0-3-3H3z M21 5h-6a3 3 0 0 0-3 3v12a3 3 0 0 1 3-3h6z"/></svg><b>יומן</b></i><i class="add "><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></i><i class="on"><svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg><b>נתונים</b></i><i class=""><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 13l3-3"/></svg><b>משקל</b></i><i class=""><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg><b>הגדרות</b></i></div>
+</div><div class="cap">8. נתונים<small>לשוניות אינדקס בתחתית הדף, עמודות כאילו צוירו בעפרון ועט, והקפיברה מטיילת מעליהן</small></div></div>
+
+
+<div class="pick" data-choice="weight" onclick="toggleSelect(this)"><div class="phone">
+  <div class="status"><span>9:41</span><span>●●● ▮</span></div><div class="stitch"></div>
+  <div class="page"><div class="rules"></div><div class="margin"></div>
+    <div class="content">
+      <div class="title big" style="margin-top:6px">המשקל שלי</div>
+      <div style="display:flex;align-items:baseline;gap:8px;height:50px"><span style="font:400 49px 'Gveret Levin';letter-spacing:-.05em">72.4</span><span class="hand" style="font-size:20px;color:var(--graphite)">ק״ג · יעד 70</span></div>
+      <svg viewBox="0 0 248 130" width="248" height="130" style="display:block" filter="url(#wob)"><g stroke="rgba(112,138,170,.45)" stroke-width="1"><path d="M0 26h248M0 52h248M0 78h248M0 104h248M31 0v130M62 0v130M93 0v130M124 0v130M155 0v130M186 0v130M217 0v130"/></g>
+        <line x1="0" y1="96" x2="248" y2="96" stroke="#b3311d" stroke-dasharray="6 5" stroke-width="2"/>
+        <polyline points="10,22 50,30 90,40 130,38 170,52 210,60 238,66" fill="none" stroke="#2b1f16" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+        <g fill="#f5ecd9" stroke="#2b1f16" stroke-width="2.4"><circle cx="10" cy="22" r="4"/><circle cx="50" cy="30" r="4"/><circle cx="90" cy="40" r="4"/><circle cx="130" cy="38" r="4"/><circle cx="170" cy="52" r="4"/><circle cx="210" cy="60" r="4"/><circle cx="238" cy="66" r="5" fill="#b3311d"/></g></svg>
+      <div class="row2" style="margin-top:14px"><span>3 באוק׳</span><b>72.4</b></div><div class="row2"><span>26 בספט׳</span><b>72.9</b></div><div class="row2"><span>19 בספט׳</span><b>73.6</b></div>
+      <div class="walker" style="bottom:4px"><div class="walk-x"><div class="walk-flip"><div class="petslot" data-state="neutral" data-w="96"></div></div></div></div>
+      <div class="penbtn" style="right:58px;bottom:106px;font-size:18px;padding:4px 16px">הוסף שקילה</div>
+    </div>
+  </div>
+  <div class="dock"><i class=""><svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9H4z"/></svg><b>בית</b></i><i class=""><svg viewBox="0 0 24 24"><path d="M3 5h6a3 3 0 0 1 3 3v12a3 3 0 0 0-3-3H3z M21 5h-6a3 3 0 0 0-3 3v12a3 3 0 0 1 3-3h6z"/></svg><b>יומן</b></i><i class="add "><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></i><i class=""><svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg><b>נתונים</b></i><i class="on"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 13l3-3"/></svg><b>משקל</b></i><i class=""><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg><b>הגדרות</b></i></div>
+</div><div class="cap">9. משקל<small>גרף על נייר משובץ, והקפיברה מטיילת לאורך הדף</small></div></div>
+
+
+<div class="pick" data-choice="settings" onclick="toggleSelect(this)"><div class="phone">
+  <div class="status"><span>9:41</span><span>●●● ▮</span></div><div class="stitch"></div>
+  <div class="page"><div class="rules"></div><div class="margin"></div>
+    <div class="content">
+      <div class="title big" style="margin-top:6px">ההגדרות שלי</div>
+      <div class="row2"><span>מחובר בתור</span><b>dar</b></div>
+      <div class="row2"><span>גובה</span><b>175 ס״מ</b></div>
+      <div class="row2"><span>משקל יעד</span><b>70 ק״ג</b></div>
+      <div class="row2"><span>יעד קלוריות</span><b>2,000</b></div>
+      <div class="row2"><span>שינוי סיסמה</span><span class="v">›</span></div>
+      <div class="row2" style="margin-top:14px"><span style="color:var(--red)">התנתקות</span></div>
+      <div class="walker" style="bottom:4px"><div class="walk-x"><div class="walk-flip"><div class="petslot" data-state="neutral" data-w="104"></div></div></div></div>
+    </div>
+  </div>
+  <div class="dock"><i class=""><svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9H4z"/></svg><b>בית</b></i><i class=""><svg viewBox="0 0 24 24"><path d="M3 5h6a3 3 0 0 1 3 3v12a3 3 0 0 0-3-3H3z M21 5h-6a3 3 0 0 0-3 3v12a3 3 0 0 1 3-3h6z"/></svg><b>יומן</b></i><i class="add "><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></i><i class=""><svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg><b>נתונים</b></i><i class=""><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 13l3-3"/></svg><b>משקל</b></i><i class="on"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg><b>הגדרות</b></i></div>
+</div><div class="cap">10. הגדרות<small>רשימה בכתב יד, והקפיברה מטיילת לאורך הדף</small></div></div>
+</div>
+<script>
+  (function () {
+    var tpl = document.getElementById('capy-tpl');
+    var NS = 'http://www.w3.org/2000/svg';
+    function mk(n, a) { var e = document.createElementNS(NS, n); for (var k in a) e.setAttribute(k, a[k]); return e; }
+    function soften(svg, g, withShadow) {
+      var snout = Array.prototype.filter.call(svg.querySelectorAll('rect'), function (r) { return r.getAttribute('fill') === '#b07d50'; })[0];
+      if (!snout) return;
+      var parts = [
+        mk('ellipse', { cx: g.body[0], cy: g.body[1], rx: g.body[2], ry: g.body[3], fill: 'url(#g-body)' }),
+        mk('rect', { x: g.head[0], y: g.head[1], width: g.head[2], height: g.head[3], rx: g.head[4], fill: 'url(#g-head)' }),
+        mk('ellipse', { cx: g.ch[0], cy: g.ch[1], rx: 6.5, ry: 3.6, fill: '#E8703A', opacity: '.16' }),
+        mk('ellipse', { cx: g.ch[2], cy: g.ch[1], rx: 6.5, ry: 3.6, fill: '#E8703A', opacity: '.16' })
+      ];
+      var ref = snout; parts.forEach(function (n) { ref.after(n); ref = n; });
+      if (withShadow) svg.insertBefore(mk('ellipse', { cx: g.sh[0], cy: g.sh[1], rx: g.sh[2], ry: g.sh[3], fill: 'rgba(43,31,22,.26)', filter: 'url(#softsh)' }), svg.firstChild);
+    }
+    function legs(svg, mode) {
+      var olds = [['28', '90'], ['45', '92'], ['65', '92'], ['82', '90']].map(function (c) { return svg.querySelector('ellipse[cx="' + c[0] + '"][cy="' + c[1] + '"]'); }).filter(Boolean);
+      var ref = svg.querySelector('ellipse[cx="47"][cy="56"]');
+      if (olds.length !== 4 || !ref) return;
+      var parent = ref.parentNode; olds.forEach(function (e) { e.remove(); });
+      var body = '#C4956A', foot = '#b07d50';
+      function toes(cx, y, k) { k = k || 1; return mk('path', { d: 'M' + (cx - 3.6 * k) + ' ' + y + ' v' + (2.3 * k) + ' M' + cx + ' ' + (y + .3) + ' v' + (2.6 * k) + ' M' + (cx + 3.6 * k) + ' ' + y + ' v' + (2.3 * k), stroke: '#7a5230', 'stroke-width': '.9', fill: 'none', 'stroke-linecap': 'round', opacity: '.7' }); }
+      function leg(x) { return [mk('rect', { x: x, y: 74, width: 15, height: 19, rx: 7, fill: body }), mk('ellipse', { cx: x + 7.5, cy: 93.2, rx: 9, ry: 3.6, fill: foot })]; }
+      var shapes = [];
+      if (mode === 'A' || mode === 'C') shapes = shapes.concat(leg(37), leg(58), [toes(44.5, 93.2), toes(65.5, 93.2)]);
+      if (mode === 'C') shapes = shapes.concat([mk('ellipse', { cx: 20, cy: 92.6, rx: 9.5, ry: 3.7, fill: foot }), mk('ellipse', { cx: 90, cy: 92.6, rx: 9.5, ry: 3.7, fill: foot }), toes(20, 92.4), toes(90, 92.4)]);
+      var LOAF = { B: [43, 90.2, 8.5, 4.8, 1], B1: [42.5, 90.4, 10.5, 6, 1.3], B2: [41.5, 90.8, 12.2, 7, 1.55] };
+      if (LOAF[mode]) { var P = LOAF[mode], dx = 55 - P[0]; shapes = shapes.concat([mk('ellipse', { cx: P[0], cy: P[1], rx: P[2], ry: P[3], fill: body }), mk('ellipse', { cx: 55 + dx, cy: P[1], rx: P[2], ry: P[3], fill: body }), toes(P[0], P[1] + 0.2, P[4]), toes(55 + dx, P[1] + 0.2, P[4])]); }
+      shapes.forEach(function (n) { parent.insertBefore(n, ref); });
+    }
+    var PET = { body: [55, 68, 38, 24], head: [25, 26, 60, 46, 18], hl: [46, 33, 14, 3.2], ch: [32, 43, 78], sh: [55, 96, 40, 4.5] };
+    var LOGO = { body: [60, 78, 30, 18], head: [32, 38, 56, 38, 14], hl: [50, 43, 12, 2.8], ch: [38, 54, 82] };
+    document.querySelectorAll('.petslot').forEach(function (el) {
+      var svg = tpl.content.querySelector('svg').cloneNode(true), w = +el.dataset.w;
+      svg.setAttribute('width', w); svg.setAttribute('height', Math.round(w * 0.91));
+      var wrap = document.createElement('div'); wrap.className = 'pet-wrap pet--' + el.dataset.state + (el.dataset.think ? ' pet--thinking' : '');
+      var ns="http://www.w3.org/2000/svg", fur=document.createElementNS(ns,"path"); fur.setAttribute("d","M22 62 l4 2 M27 76 l4 1.5 M88 62 l-4 2 M83 76 l-4 1.5 M44 83 l2 3 M64 83 l2 3 M44 31 l2 2.5 M56 30 l2 2.5 M66 31 l2 2.5"); fur.setAttribute("stroke","#7a5230"); fur.setAttribute("stroke-width","1.1"); fur.setAttribute("opacity",".38"); fur.setAttribute("fill","none"); fur.setAttribute("stroke-linecap","round"); var gm = svg.querySelector(".pet-mouth-grin"); if (gm) gm.setAttribute("d", "M 41 59.5 Q 55 66 69 59.5"); svg.appendChild(fur); legs(svg, "B1");
+      if (el.dataset.bowl) { svg.setAttribute('viewBox', '0 -4 110 120'); svg.setAttribute('height', Math.round(w * 120 / 110));
+        var bg = mk('g', {}); bg.appendChild(mk('ellipse', { cx: 55, cy: 109, rx: 46, ry: 4.5, fill: 'rgba(43,31,22,.28)', filter: 'url(#softsh)' }));
+        bg.appendChild(mk('path', { d: 'M13 85 Q13 108 55 108 Q97 108 97 85 Z', fill: '#fffaf0', stroke: '#6b4426', 'stroke-width': '.9', 'stroke-opacity': '.65', 'stroke-linejoin': 'round' }));
+        bg.appendChild(mk('ellipse', { cx: 55, cy: 85, rx: 42, ry: 8, fill: '#fffdf6', stroke: '#6b4426', 'stroke-width': '.9', 'stroke-opacity': '.65' }));
+        [[24, 95, 5, '#2E7D32'], [35, 99, 4.5, '#EF5350'], [48, 101, 4, '#FFD54F'], [61, 102, 4.5, '#A5D6A7'], [74, 100, 4, '#E53935'], [86, 96, 4.5, '#2E7D32'], [92, 91, 3.6, '#A5D6A7'], [30, 89, 3.8, '#FFD54F'], [44, 90, 4.2, '#EF5350'], [68, 90, 3.8, '#2E7D32'], [56, 86, 3.8, '#A5D6A7'], [80, 88, 3.4, '#FFD54F']].forEach(function (c) { bg.appendChild(mk('circle', { cx: c[0], cy: c[1], r: c[2], fill: c[3], stroke: '#4a2f1a', 'stroke-width': '.5', 'stroke-opacity': '.45' })); });
+        svg.appendChild(bg); } soften(svg, PET, true); wrap.appendChild(svg); el.appendChild(wrap);
+    });
+    document.querySelectorAll('.walker').forEach(function (w) { var x = w.querySelector('.walk-x'), sv = x.querySelector('svg'), bb = sv.getBBox(), k = sv.getBoundingClientRect().width / 110; x.style.marginLeft = (-bb.x * k) + 'px'; x.style.setProperty('--span', Math.max(0, w.clientWidth - bb.width * k) + 'px'); });
+    document.querySelectorAll('svg.capy-logo').forEach(function (lg) { soften(lg, LOGO, false); });
+  })();
+
+  (function () {
+    var RUN = /[0-9][0-9,.:/]*[0-9]|[0-9]/g;
+    var w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT), nodes = [], n;
+    while ((n = w.nextNode())) { if (/[0-9]/.test(n.nodeValue) && n.parentElement && !n.parentElement.closest('script,style,svg,.receipt,.status,h2,.sub,.cap,.dg')) nodes.push(n); }
+    nodes.forEach(function (t) {
+      var txt = t.nodeValue, frag = document.createDocumentFragment(), last = 0, m; RUN.lastIndex = 0;
+      while ((m = RUN.exec(txt))) { if (m.index > last) frag.appendChild(document.createTextNode(txt.slice(last, m.index))); var sp = document.createElement('span'); sp.className = 'dg'; sp.textContent = m[0]; frag.appendChild(sp); last = m.index + m[0].length; }
+      if (last < txt.length) frag.appendChild(document.createTextNode(txt.slice(last)));
+      t.parentNode.replaceChild(frag, t);
+    });
+  })();
+</script>
+</body>
+</html>
