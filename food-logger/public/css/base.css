@@ -107,6 +107,28 @@
   #pet-stats-wrap .pet-wrap { animation: none !important; }
 }
 
+/* ── The capybara's drawn style (decorateCapybara adds .pet-inked to the clone) ─────────────
+   A thin soft outline on the tan shapes only (the pale belly fill #e8c89a stays unoutlined), a tiny ink wobble
+   from the shared #capyink filter in index.html, and a soft drop shadow. */
+.pet-wrap svg.pet-inked { filter: url(#capyink) drop-shadow(0 3px 2px rgba(43, 31, 22, .22)); }
+.pet-inked [fill="#C4956A"], .pet-inked [fill="#b07d50"], .pet-inked [fill="#e0a87a"] {
+  stroke: #6b4426; stroke-width: 1.15; stroke-opacity: .7; stroke-linejoin: round; stroke-linecap: round;
+}
+
+/* ── The walking lane (mountWalkingCapybara in js/pet.js) ───────────────────────────────────
+   Inside a .page: left wall = the page edge, right wall = the red margin line. JS sets the lane's width, the
+   negative left margin of .walk-x and --span from the capybara's visible bounding box, so the body touches both
+   walls; the flip at the wall is scaleX(-1) with no pause. */
+.walker { direction: ltr; text-align: left; position: absolute; left: 2px; display: flex; align-items: flex-end; pointer-events: none; z-index: 3; }
+.walk-x { display: block; flex: none; --span: 140px; animation: walkx 15s linear infinite; will-change: transform; }
+.walk-flip { display: block; animation: flipx 15s step-end infinite; }
+.walk-flip .pet-wrap { display: block; animation: capy-walk-bob .6s ease-in-out infinite; transform-origin: center bottom; will-change: transform; }
+@keyframes walkx { 0% { transform: translateX(0); } 50% { transform: translateX(var(--span)); } 100% { transform: translateX(0); } }
+@keyframes flipx { 0% { transform: scaleX(1); } 50% { transform: scaleX(-1); } 100% { transform: scaleX(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .walk-x, .walk-flip, .walk-flip .pet-wrap { animation: none !important; will-change: auto; }
+}
+
 @keyframes pet-tap {
   0%   { transform: scale(1) translateY(0); }
   30%  { transform: scale(1.08) translateY(-6px); }

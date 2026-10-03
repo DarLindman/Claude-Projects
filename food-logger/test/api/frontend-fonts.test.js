@@ -42,6 +42,7 @@ test('every url() in public/css points to an existing file under public/', () =>
     const css = withoutDataUris(read(path.join(CSS_DIR, file)));
     for (const m of css.matchAll(/url\(\s*['"]?([^'")]+)['"]?\s*\)/g)) {
       const u = m[1];
+      if (u.startsWith('#')) continue;   // url(#id): a reference to an element of this same document (an SVG filter), not a request
       assert.ok(u.startsWith('/') && !u.startsWith('//'), `${file}: ${u} is not an absolute path on this origin`);
       assert.ok(fs.existsSync(path.join(PUBLIC, u.split(/[?#]/)[0])), `${file}: ${u} does not exist`);
     }
