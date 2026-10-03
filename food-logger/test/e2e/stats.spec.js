@@ -182,7 +182,7 @@ test('weekly: the headline average is in the digit font, three macro bars, the a
   expect(widths[2]).toBeCloseTo(30 / 65, 1);
   await expect(page.locator('#weekly-macro .stat-note')).toHaveText('ממוצע יומי על בסיס 2 ימים');
   // the distance from the recommended calories is under the headline, signed, and the number keeps its sign on the left
-  await expect(page.locator('#weekly-avg-box .stat-diff')).toHaveText(/^-?\d+ קק״ל מהמומלץ$/);
+  await expect(page.locator('#weekly-avg-box .stat-diff')).toHaveText(/^‎?[+-]?\d{1,3}(,\d{3})* קק״ל מהמומלץ$/);
   expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
 });
 
@@ -194,15 +194,17 @@ test('a huge day and a day-all-over-the-goal week: no bar leaves the plot, the l
   await openStats(page);
   let g = await chartGeometry(page, '#weekly-chart');
   expect(g.bars).toHaveLength(2);
-  const plot = await page.evaluate(() => {
+  // in svg units, from the attributes (client boxes would move with the screen's enter animation between two reads)
+  const inPlot = await page.evaluate(() => {
     const svg = document.querySelector('#weekly-chart svg');
-    const m = svg.getScreenCTM();
-    const frame = svg.querySelector('.chart-frame').getBBox();      // the plot area in svg units
-    const top = m.f + frame.y * m.d;
-    const bottom = m.f + (frame.y + frame.height) * m.d;
-    return { top, bottom };
+    const f = svg.querySelector('.chart-frame');
+    const top = +f.getAttribute('y') + 2;                 // the frame starts 2 units above the plot
+    const bottom = +f.getAttribute('y') + +f.getAttribute('height');
+    return [...svg.querySelectorAll('.bar')].map((b) => ({ top: +b.getAttribute('y') - top, bottom: bottom - (+b.getAttribute('y') + +b.getAttribute('height')) }));
   });
-  for (const bar of g.bars) { expect(bar.t).toBeGreaterThanOrEqual(plot.top - 3); expect(bar.b).toBeLessThanOrEqual(plot.bottom + 3);   }  // the ink stroke adds about a pixel
+  expect(inPlot).toHaveLength(2);
+  for (const b of inPlot) { expect(b.top).toBeGreaterThanOrEqual(-0.1); expect(b.bottom).toBeGreaterThanOrEqual(-0.1); }
+  expect(Math.min(...inPlot.map((b) => b.top))).toBeLessThan(0.6);   // the huge day reaches the top of the plot and stops there
   expect(g.goalLabel).not.toBeNull();
   for (const bar of g.bars) expect(intersects(g.goalLabel, bar)).toBe(false);
   // the tiny day is still visible (at least a few pixels tall)
@@ -461,4 +463,74 @@ test('at 320 px nothing overflows: the page, the chart, the headline and the tab
   }
   await expect(page.locator('#screen-stats .walker')).toHaveCount(1);
   expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+});
+
+// ── The chart renderer on its own (no data, no server): arrow paths and the goal boundary ────────────────────
+// The goal arrow is a curve, so a bounding box is too coarse: it is sampled point by point along its length
+// (getPointAtLength) against every bar rect, in svg units.
+async function renderChart(page, { vals, futureFrom = vals.length, recommended = 2000, labelSize = 16 }) {
+  await page.goto('/');
+  return page.evaluate(async ({ vals, futureFrom, recommended, labelSize }) => {
+    const { renderBarChart } = await import('/js/charts.js');
+    const { setHtml } = await import('/js/dom.js');
+    document.getElementById('t-chart')?.remove();
+    const host = document.createElement('div');
+    host.id = 't-chart';
+    host.style.cssText = 'position:fixed;left:0;top:0;width:300px;z-index:99';
+    document.body.appendChild(host);
+    const rows = vals.map((v, i) => ({ v, i }));
+    setHtml(host, renderBarChart(rows, { getValue: (r) => r.v, getLabel: (r) => String(r.i), isFuture: (r) => r.i >= futureFrom, recommended, labelSize }));
+    const svg = host.querySelector('svg');
+    const bars = [...svg.querySelectorAll('.bar')].map((b) => ({
+      x: +b.getAttribute('x'), y: +b.getAttribute('y'), w: +b.getAttribute('width'), h: +b.getAttribute('height'),
+      over: b.classList.contains('over'), fill: getComputedStyle(b).fill,
+    }));
+    let samples = 0;
+    const hits = [];
+    for (const path of svg.querySelectorAll('.goal-arrow')) {
+      const len = path.getTotalLength();
+      for (let d = 0; d <= len; d += 0.25) {
+        const p = path.getPointAtLength(d);
+        samples += 1;
+        for (const [bi, b] of bars.entries()) {
+          if (p.x > b.x - 0.5 && p.x < b.x + b.w + 0.5 && p.y > b.y - 0.5 && p.y < b.y + b.h + 0.5) hits.push({ bar: bi, x: Math.round(p.x), y: Math.round(p.y) });
+        }
+      }
+    }
+    return { bars, samples, hits, arrows: svg.querySelectorAll('.goal-arrow').length };
+  }, { vals, futureFrom, recommended, labelSize });
+}
+
+const fill = (n, v) => Array.from({ length: n }, () => v);
+const ARROW_CASES = {
+  'yearly: February over the goal, January under, the rest of the year ahead': { vals: [1000, 3000, ...fill(10, 0)], futureFrom: 2 },
+  'yearly: every month over except the first': { vals: [1200, ...fill(11, 3200)] },
+  'monthly: day 3 today, days 2 and 3 over, day 1 under': { vals: [500, 2800, 3100, ...fill(28, 0)], futureFrom: 3 },
+  'monthly: day 3 today, days 2 and 3 over, day 1 empty': { vals: [0, 2800, 3100, ...fill(28, 0)], futureFrom: 3 },
+  'monthly: only day 1 under the goal': { vals: [1500, ...fill(30, 2500)] },
+  'monthly: only the last day under the goal': { vals: [...fill(30, 2500), 1500] },
+  'weekly: mixed': { vals: [4600, 1200, 2000, 900, 3000, 0, 0] },
+  'weekly: every day over': { vals: [9000, 9500, 8800, 9100, 9900, 8700, 9300] },
+};
+for (const [name, c] of Object.entries(ARROW_CASES)) {
+  test(`the goal arrow never touches a bar along its whole path: ${name}`, async ({ page }) => {
+    const r = await renderChart(page, c);
+    expect(r.arrows).toBe(2);
+    expect(r.samples).toBeGreaterThan(100);
+    expect(r.bars.length).toBeGreaterThan(0);
+    expect(r.bars.some((b) => b.over), 'a bar over the goal in this case').toBe(true);
+    expect(r.hits).toEqual([]);
+  });
+}
+
+test('a day exactly at the goal is not over it: no red class, the plain fill; one more is red', async ({ page }) => {
+  const r = await renderChart(page, { vals: [2000, 2001, 1999], recommended: 2000 });
+  expect(r.bars).toHaveLength(3);
+  // columns run right to left: the first value is the rightmost bar
+  const byValue = Object.fromEntries([2000, 2001, 1999].map((v, i) => [v, r.bars[i]]));
+  expect(byValue[2000].over).toBe(false);
+  expect(byValue[2000].fill).toBe('rgb(217, 168, 80)');
+  expect(byValue[1999].over).toBe(false);
+  expect(byValue[2001].over).toBe(true);
+  expect(byValue[2001].fill).toBe('rgb(201, 83, 47)');
 });

@@ -265,17 +265,17 @@
 
 /* the three macro bars, as in the reference's .ink rows */
 .stat-macros { margin-top: 8px; }
-.ink { height: 30px; display: flex; align-items: center; gap: 10px; }
-.ink span { flex: none; width: 58px; font: 400 15px/30px var(--font-text); color: var(--graphite); }
-.ink .track {
+.stat-macros .ink { height: 30px; display: flex; align-items: center; gap: 10px; }
+.stat-macros .ink span { flex: none; width: 58px; font: 400 15px/30px var(--font-text); color: var(--graphite); }
+.stat-macros .ink .track {
   flex: 1; min-width: 24px; height: 9px; border-radius: 9px; background: rgba(60, 40, 20, .12); position: relative; overflow: hidden;
   box-shadow: inset 0 1px 2px rgba(60, 40, 20, .25);
 }
-.ink .fill { position: absolute; inset: 0 0 0 auto; width: 0; max-width: 100%; border-radius: 9px; transition: width var(--dur-slow) var(--ease-out); }
-.ink .fill.pro  { background: linear-gradient(#5aa38f, #3f8472); }
-.ink .fill.carb { background: linear-gradient(#e3b455, #c9912f); }
-.ink .fill.fat  { background: linear-gradient(#e08a6f, #c4573a); }
-.ink b { flex: none; min-width: 50px; font: 400 14px/30px var(--font-text); color: var(--ink); text-align: end; }
+.stat-macros .ink .fill { position: absolute; inset: 0 0 0 auto; width: 0; max-width: 100%; border-radius: 9px; transition: width var(--dur-slow) var(--ease-out); }
+.stat-macros .ink .fill.pro  { background: linear-gradient(#5aa38f, #3f8472); }
+.stat-macros .ink .fill.carb { background: linear-gradient(#e3b455, #c9912f); }
+.stat-macros .ink .fill.fat  { background: linear-gradient(#e08a6f, #c4573a); }
+.stat-macros .ink b { flex: none; min-width: 50px; font: 400 14px/30px var(--font-text); color: var(--ink); text-align: end; }
 .stat-note { font: 400 14px/30px var(--font-text); color: var(--graphite); text-align: center; margin: 0; }
 
 /* ════════════════════════════════════════

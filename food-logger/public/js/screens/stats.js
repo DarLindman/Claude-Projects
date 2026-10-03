@@ -125,7 +125,7 @@ async function loadYearlyStats() {
       isToday: r => String(r.month).slice(0, 7) === currentMonth,
       isFuture: r => String(r.month).slice(0, 7) > currentMonth,
       recommended: rec,
-      labelSize: 10.5,
+      labelSize: 11,
     }));
     renderStatMacros('yearly-macro', rows, averageFootnote(totalDays), totalDays);
   } catch { }

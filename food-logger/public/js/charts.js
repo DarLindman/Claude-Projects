@@ -20,7 +20,7 @@ export function renderStatAvgBox(elId, rows, rec, label, customAvg) {
     const diff = avgCal - rec;
     const cls = diff <= 0 ? 'under' : 'over';
     // the signed number is isolated left-to-right, so its sign stays on its left in the RTL page
-    diffHtml = html`<div class="stat-diff ${cls}"><bdi dir="ltr">${diff > 0 ? '+' : ''}${diff}</bdi> קק״ל מהמומלץ</div>`;
+    diffHtml = html`<div class="stat-diff ${cls}"><bdi dir="ltr">${diff > 0 ? '+' : ''}${formatNumber(diff)}</bdi> קק״ל מהמומלץ</div>`;
   }
   setHtml(el, html`<div class="stat-head"><span class="avg-val">${formatNumber(avgCal)}</span><span class="avg-label">${label}</span></div>${diffHtml}`);
 }
@@ -85,11 +85,13 @@ export function renderBarChart(rows, { getValue, getLabel, isToday = () => false
     const lowTop = k >= 0 && vals[k] > 0 ? yOf(vals[k]) : BASE;
     const endY = r1(Math.min(gy, lowTop) - 3);
     const lx = r1(clamp(ax, 38, W - 38));
-    const y1 = r1(22 + (endY - 22) * 0.4);
-    const y2 = r1(22 + (endY - 22) * 0.75);
+    // the sideways move (label centre to the column) happens ABOVE the plot, where no bar reaches; inside the plot the
+    // shaft is vertical over its own column, and the head is narrower than a column so it never touches a neighbour's bar
+    const hw = r1(Math.min(5, slot / 2 - 1.5));
+    const turnY = r1(Math.min(PLOT_TOP - 8, endY - 4));
     goalInk = html`<line class="goal-line" x1="0" y1="${gy}" x2="${W}" y2="${gy}" stroke-dasharray="6 5"/>
-      <path class="goal-arrow" d="M${lx} 22 C${r1(lx + 2)} ${y1} ${r1(ax - 1)} ${y2} ${r1(ax)} ${r1(endY - 4)}"/>
-      <path class="goal-arrow" d="M${r1(ax - 5)} ${r1(endY - 8)} L${r1(ax)} ${endY} L${r1(ax + 5)} ${r1(endY - 8)}"/>`;
+      <path class="goal-arrow" d="M${lx} 22 Q${r1(ax)} 22 ${r1(ax)} ${turnY} L${r1(ax)} ${r1(endY - 4)}"/>
+      <path class="goal-arrow" d="M${r1(ax - hw)} ${r1(endY - 8)} L${r1(ax)} ${endY} L${r1(ax + hw)} ${r1(endY - 8)}"/>`;
     goalText = html`<text class="goal-label" x="${lx}" y="${GOAL_LABEL_Y}" text-anchor="middle" font-size="16">יעד <tspan>${formatNumber(goal)}</tspan></text>`;
   }
 
