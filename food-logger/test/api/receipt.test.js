@@ -41,26 +41,41 @@ test('names are cut to the server limit of 40 characters', async () => {
   assert.equal(rowName(rows(out)[0]), 'א'.repeat(40));
 });
 
-test('a remainder row ועוד appears with the remainder calories when the items sum below the total', async () => {
+const eight = (each) => Array.from({ length: 8 }, (_, i) => item(`מנה ${i + 1}`, each));
+
+test('a remainder row ועוד appears with the remainder calories when a full 8 items sum clearly below the total', async () => {
   const { receiptHtml } = await load();
-  const out = receiptHtml({ ...base, calories: 900, items: [item('א', 300), item('ב', 200)] });
+  const out = receiptHtml({ ...base, calories: 900, items: eight(100) });
   const r = rows(out);
-  assert.equal(r.length, 3);
-  assert.equal(rowName(r[2]), 'ועוד');
-  assert.equal(rowCal(r[2]), '400');
+  assert.equal(r.length, 9);
+  assert.equal(rowName(r[8]), 'ועוד');
+  assert.equal(rowCal(r[8]), '100');
 });
 
-test('the remainder row appears exactly when the remainder is at least 1', async () => {
+test('the remainder row needs 8 items and a remainder above 4 (rounding drift of 8 items)', async () => {
   const { receiptHtml } = await load();
-  const make = (total, a, b) => rows(receiptHtml({ ...base, calories: total, items: [item('א', a), item('ב', b)] }));
-  assert.equal(make(500, 300, 200).length, 2, 'remainder 0');
-  assert.equal(make(500.4, 300, 200).length, 2, 'remainder rounds to 0');
-  assert.equal(make(499, 300, 200).length, 2, 'negative remainder');
-  assert.equal(make(400, 300, 200).length, 2, 'items above the total');
-  const one = make(501, 300, 200);
-  assert.equal(one.length, 3, 'remainder exactly 1');
-  assert.equal(rowCal(one[2]), '1');
-  assert.equal(rowName(one[2]), 'ועוד');
+  const make = (total, items) => rows(receiptHtml({ ...base, calories: total, items }));
+  assert.equal(make(804, eight(100)).length, 8, 'remainder 4: drift');
+  const five = make(805, eight(100));
+  assert.equal(five.length, 9, 'remainder 5');
+  assert.equal(rowCal(five[8]), '5');
+  assert.equal(make(799, eight(100)).length, 8, 'negative remainder');
+  assert.equal(make(800, eight(100)).length, 8, 'remainder 0');
+});
+
+test('fewer than 8 items never get a remainder row, however large the gap', async () => {
+  const { receiptHtml } = await load();
+  assert.equal(rows(receiptHtml({ ...base, calories: 900, items: [item('א', 300), item('ב', 200)] })).length, 2);
+  assert.equal(rows(receiptHtml({ ...base, calories: 5000, items: Array.from({ length: 7 }, (_, i) => item(`מנה ${i}`, 10)) })).length, 7);
+});
+
+test('ordinary rounding drift never shows a false remainder row', async () => {
+  const { receiptHtml } = await load();
+  // the server rounds each item, the total is a raw float sum
+  assert.equal(rows(receiptHtml({ ...base, calories: 301.2, items: [item('א', 100), item('ב', 100), item('ג', 100)] })).length, 3);
+  assert.equal(rows(receiptHtml({ ...base, calories: 722, items: [item('א', 380.4), item('ב', 341.2)] })).length, 2);
+  const eightDrift = receiptHtml({ ...base, calories: 803.6, items: eight(100) });
+  assert.equal(rows(eightDrift).length, 8);
 });
 
 test('with 12 items only the first 8 rows render, plus a remainder row when the totals require it', async () => {
@@ -141,4 +156,15 @@ test('the receipt has no event handlers, scripts or external references', async 
   const out = markup(receiptHtml({ ...base, items: [item('א', 722)] }));
   assert.equal(/\son\w+\s*=/i.test(out), false);
   assert.equal(/<script|href|src=|https?:/i.test(out), false);
+});
+
+test('numeric strings (a NUMERIC column) count as numbers', async () => {
+  const { receiptHtml } = await load();
+  const out = markup(receiptHtml({ calories: '722', protein_g: '38.4', carbs_g: '68', fat_g: '33.2', items: [item('א', '380.4'), item('ב', '341.6')] }));
+  assert.deepEqual(rowsOf(out).map(rowCal), ['380', '342']);
+  assert.ok(out.includes('<div class="tt"><span>סה״כ</span><b>722</b>'));
+  assert.match(out, /חלבון 38ג/);
+  const junk = markup(receiptHtml({ calories: '', protein_g: ' ', carbs_g: true, fat_g: '12abc', items: [item('א', '')] }));
+  assert.ok(junk.includes('<b>0</b>'));
+  assert.equal(/NaN/.test(junk), false);
 });

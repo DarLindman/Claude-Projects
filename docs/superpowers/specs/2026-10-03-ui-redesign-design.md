@@ -73,7 +73,7 @@ Components (each described and shown in the reference): leather cover and stitch
 
 ### 4.1 Per-item calories in the analysis reply
 
-`analyzeImage` and `analyzeText` additionally return `items: [{ name, calories }]` (names through the existing `cleanDishName`, at most 8 items; the client adds one `ועוד` row with the remainder calories (total minus the sum of the items) when the items do not add up to the total; calories are the sanity-checked values; **never weights**). The reply keeps all existing fields (`foodName`, `calories`, `protein_g`, `carbs_g`, `fat_g`, `fiber_g`), so older clients keep working. The items are shown on the receipt at analysis time only; they are not stored. Tests: the shape, the 8-item cap, no weight field, names cleaned, a reply with unusable names falls back to a neutral item label chosen with the owner's copy review.
+`analyzeImage` and `analyzeText` additionally return `items: [{ name, calories }]` (names through the existing `cleanDishName`, at most 8 items; the client adds one `ועוד` row with the remainder calories (total minus the sum of the items) only when all 8 items arrived and the remainder is more than 4 kcal, the most that rounding 8 items can drift; calories are the sanity-checked values; **never weights**). The reply keeps all existing fields (`foodName`, `calories`, `protein_g`, `carbs_g`, `fat_g`, `fiber_g`), so older clients keep working. The items are shown on the receipt at analysis time only; they are not stored. Tests: the shape, the 8-item cap, no weight field, names cleaned, a reply with unusable names falls back to a neutral item label chosen with the owner's copy review.
 
 ### 4.2 Meal thumbnails
 

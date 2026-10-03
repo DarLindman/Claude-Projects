@@ -1026,7 +1026,7 @@ input::placeholder { color: var(--muted); }
 }
 .receipt-slip hr { border: 0; border-top: 1.5px dashed #9a8766; margin: 7px 0; }
 .receipt-slip .l { display: flex; align-items: baseline; gap: 5px; }
-.receipt-slip .l .nm { min-width: 0; max-width: 72%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.receipt-slip .l .nm { unicode-bidi: plaintext; min-width: 0; max-width: 72%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .receipt-slip .l .d { flex: 1; min-width: 8px; border-bottom: 1.5px dotted #b3a283; transform: translateY(-3px); }
 .receipt-slip .l b { font-weight: 700; }
 .receipt-slip .tt { display: flex; justify-content: space-between; align-items: baseline; font: 700 13px var(--font-receipt); }
