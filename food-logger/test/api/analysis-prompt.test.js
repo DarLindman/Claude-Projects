@@ -9,7 +9,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildTestApp, signedIn } = require('../helpers/app');
-const { IMAGE_ITEMS } = require('../helpers/fakeAnthropic');
+const { IMAGE_ITEMS, IMAGE_REPLY_ITEMS } = require('../helpers/fakeAnthropic');
 const { IMAGE_SYSTEM_PROMPT, IMAGE_USER_MESSAGE } = require('../../src/lib/analysis');
 const { DEFAULT_DISH_NAME } = require('../../src/lib/hebrewName');
 const { IMAGE_SYSTEM_PROMPT_V1, imageUserMessageV1 } = require('../../scripts/eval/imagePromptV1');
@@ -19,7 +19,7 @@ const {
 const portionV2 = require('../../scripts/eval/prompts/portionV2');
 
 const JPEG_BASE64 = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01]).toString('base64');
-const IMAGE_TOTALS = { calories: 450, protein_g: 34, carbs_g: 44, fat_g: 12.5, fiber_g: 1 };
+const IMAGE_TOTALS = { calories: 450, protein_g: 34, carbs_g: 44, fat_g: 12.5, fiber_g: 1, items: IMAGE_REPLY_ITEMS };
 const sha256 = (s) => crypto.createHash('sha256').update(s, 'utf8').digest('hex');
 
 // ─── The frozen old prompt ────────────────────────────────────────────────────
@@ -470,7 +470,7 @@ test('model-only fields are never returned', async () => {
   });
   const res = await analyze();
   assert.equal(res.status, 200, res.text);
-  assert.deepEqual(Object.keys(res.body), ['foodName', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'fiber_g']);
+  assert.deepEqual(Object.keys(res.body), ['foodName', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'fiber_g', 'items']);
   assert.deepEqual(res.body, { foodName: 'עוף עם אורז', ...IMAGE_TOTALS });
   assert.ok(!res.text.includes('scale_reference') && !res.text.includes('SCALE-MARKER'));
   const all = [infoLog, warnLog, errorLog].flatMap((l) => l.mock.calls.map((c) => c.arguments.map(String).join(' '))).join('\n');

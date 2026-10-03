@@ -34,6 +34,7 @@ test('POST /api/analyze sums items, returns the clean dish name, sends model and
     carbs_g: 44,
     fat_g: 12.5,
     fiber_g: 1,
+    items: [{ name: 'עוף', calories: 250 }, { name: 'אורז', calories: 200 }],
   });
   assert.equal(ctx.anthropic.calls.length, 1);
   const call = ctx.anthropic.calls[0];
@@ -70,7 +71,7 @@ test('POST /api/analyze-text repairs a non-Hebrew name with the guard repair cal
   ctx.anthropic.calls.length = 0;
   const res = await c.post('/api/analyze-text', { text: 'salad' });
   assert.equal(res.status, 200);
-  assert.deepEqual(res.body, { foodName: 'סלט', calories: 145, protein_g: 4, carbs_g: 22, fat_g: 5, fiber_g: 4 });
+  assert.deepEqual(res.body, { foodName: 'סלט', calories: 145, protein_g: 4, carbs_g: 22, fat_g: 5, fiber_g: 4, items: [{ name: 'סלט', calories: 80 }, { name: 'לחם', calories: 65 }] });
   assert.equal(ctx.anthropic.calls.length, 2);
   assert.equal(ctx.anthropic.calls[0].model, MODEL);
   assert.equal(ctx.anthropic.calls[0].system, TEXT_SYSTEM_PROMPT);

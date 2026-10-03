@@ -11,7 +11,7 @@ const { IMAGE_ITEMS, TEXT_ITEMS } = require('../helpers/fakeAnthropic');
 const JPEG_BASE64 = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01]).toString('base64');
 const ITEM_NAME = 'פריט-סודי-למבחן';
 const DISH_NAME = 'מנה-סודית-למבחן';
-const KEYS = ['foodName', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'fiber_g'];
+const KEYS = ['foodName', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'fiber_g', 'items'];
 
 // 900 kcal in 100 g with 10 g protein, 10 g carbs, 5 g fat: the macros say 4*10 + 4*10 + 9*5 = 125.
 const BAD_ITEM = { name: ITEM_NAME, weight_g: 100, calories: 900, protein_g: 10, carbs_g: 10, fat_g: 5, fiber_g: 0 };
@@ -45,7 +45,7 @@ test('image: an item whose calories contradict its macros is corrected before th
   ctx.anthropic.imageReply = badImage;
   const res = await analyze();
   assert.equal(res.status, 200, res.text);
-  assert.deepEqual(res.body, { foodName: DISH_NAME, calories: 125, protein_g: 10, carbs_g: 10, fat_g: 5, fiber_g: 0 });
+  assert.deepEqual(res.body, { foodName: DISH_NAME, calories: 125, protein_g: 10, carbs_g: 10, fat_g: 5, fiber_g: 0, items: [{ name: ITEM_NAME, calories: 125 }] });
   assert.deepEqual(Object.keys(res.body), KEYS);
 });
 
@@ -53,7 +53,7 @@ test('text: an item whose calories contradict its macros is corrected before the
   ctx.anthropic.textReply = badText;
   const res = await analyzeText();
   assert.equal(res.status, 200, res.text);
-  assert.deepEqual(res.body, { foodName: 'מנה לבדיקה', calories: 125, protein_g: 10, carbs_g: 10, fat_g: 5, fiber_g: 0 });
+  assert.deepEqual(res.body, { foodName: 'מנה לבדיקה', calories: 125, protein_g: 10, carbs_g: 10, fat_g: 5, fiber_g: 0, items: [{ name: ITEM_NAME, calories: 125 }] });
   assert.deepEqual(Object.keys(res.body), KEYS);
 });
 
