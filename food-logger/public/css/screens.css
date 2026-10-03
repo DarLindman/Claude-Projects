@@ -1,5 +1,4 @@
 /* ════ Diary leather journal ════ */
-#screen-home { background: transparent; }
 #diary-date-label {
   font-family: var(--font-text);
   font-size: 11px;
@@ -90,7 +89,7 @@
 /* ════════════════════════════════════════
    CAMERA SCREEN
 ════════════════════════════════════════ */
-#screen-camera { background: #000; padding-bottom: var(--nav-h); }
+/* #screen-camera: no background or padding of its own any more; it is a legacy cream page like the others (was black, with the dock padding now reserved by the .screen box) */
 
 .camera-area {
   flex: 1;
@@ -258,7 +257,6 @@
 /* ════════════════════════════════════════
    ANALYSIS
 ════════════════════════════════════════ */
-#screen-analysis { background: transparent; position: relative; overflow: hidden; }
 #capy-save-popup {
   position: fixed;
   top: 50%;
@@ -646,7 +644,6 @@
   border: 1px dashed var(--border);
   border-radius: var(--radius-sharp);
   padding: 20px;
-  font-family: 'Cousine', monospace;
   overflow: hidden;
 }
 
@@ -676,7 +673,7 @@
 .receipt-name-row { margin-bottom: 4px; }
 
 .receipt-name-input {
-  font-family: 'Cousine', monospace !important;
+  font-family: var(--font-receipt) !important;
   font-weight: 500 !important;
   font-size: 22px !important;
   background: transparent !important;
@@ -708,7 +705,7 @@
 }
 
 .receipt-val {
-  font-family: 'Cousine', monospace !important;
+  font-family: var(--font-receipt) !important;
   font-size: 13px !important;
   text-align: left;
   background: transparent !important;

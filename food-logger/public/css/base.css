@@ -243,7 +243,21 @@ svg text:not([class]) { font-family: var(--font-text); }
   background-position: 0 12px;
 }
 .margin { position: absolute; top: 0; bottom: 0; right: 46px; width: 1.5px; background: var(--margin-line); }
-.content { position: absolute; inset: 0; padding: 12px 58px 0 16px; overflow-x: hidden; overflow-y: auto; }
+/* Page structure (Tasks 8-14 build every page this way):
+     .page            fixed cream sheet, never scrolls
+       .margin        fixed red margin line
+       .content       fills the page and SCROLLS; it draws the ruled lines itself with
+                      background-attachment: local, so the lines move with the text and
+                      the 30 px grid never drifts. A .rules element (as in the reference
+                      markup) is accepted but hidden when a .content is present. */
+.content {
+  position: absolute; inset: 0; padding: 12px 58px 0 16px; overflow-x: hidden; overflow-y: auto;
+  background-image: linear-gradient(transparent 29px, var(--rule) 29px);   /* one 30 px tile, repeated, so it lines up at any scroll height */
+  background-size: 100% 30px;
+  background-attachment: local;
+  background-position: 0 12px;
+}
+.page:has(> .content) > .rules { display: none; }
 .hand { font-family: var(--font-text); }
 
 /* ── Things pinned to the page ───────────────── */

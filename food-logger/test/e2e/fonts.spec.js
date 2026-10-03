@@ -135,3 +135,43 @@ test('fonts, same-origin requests, digit family and 320 px fit', async ({ page, 
   expect(foreign, 'requests to other origins').toEqual([]);
   expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
 });
+
+// On a short phone (320x568) the welcome cover, the sign-in screen and the tall profile step must
+// scroll inside the frame: the first element is reachable from the top, the last button from the bottom.
+test('welcome, auth and profile step 2 scroll on a 320x568 phone', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto('/');
+  await expect(page.locator('#screen-welcome')).toBeVisible();
+
+  const reach = async (screen, top, bottom, label) => {
+    const r = await page.evaluate(({ screen, top, bottom }) => {
+      const s = document.querySelector(screen);
+      const sr = () => s.getBoundingClientRect();
+      const first = document.querySelector(top);
+      const last = document.querySelector(bottom);
+      s.scrollTop = 0;
+      const topAtTop = first.getBoundingClientRect().top - sr().top;
+      s.scrollTop = s.scrollHeight;
+      const bottomAtEnd = sr().bottom - last.getBoundingClientRect().bottom;
+      return { topAtTop, bottomAtEnd, scrollable: s.scrollHeight > s.clientHeight };
+    }, { screen, top, bottom });
+    expect(r.topAtTop, `${label}: first element reachable from the top`).toBeGreaterThanOrEqual(0);
+    expect(r.bottomAtEnd, `${label}: last button reachable by scrolling`).toBeGreaterThanOrEqual(0);
+    return r;
+  };
+
+  const welcome = await reach('#screen-welcome', '.welcome-icon', '#screen-welcome .btn:last-of-type', 'welcome');
+  expect(welcome.scrollable, 'the welcome cover is taller than a 568 px phone').toBe(true);
+
+  await page.getByRole('button', { name: 'התחל עכשיו' }).click();
+  await expect(page.locator('#screen-auth')).toBeVisible();
+  await reach('#screen-auth', '.auth-wordmark', '#auth-login .btn-primary', 'auth');
+
+  await page.locator('#auth-step1 .tab-btn', { hasText: 'הרשמה' }).click();
+  await page.locator('#reg-user').fill(`user${Date.now()}`);
+  await page.locator('#reg-pass').fill(PASSWORD);
+  await page.locator('#auth-register').getByRole('button', { name: 'הרשמה' }).click();
+  await expect(page.locator('#auth-step2')).toBeVisible();
+  const step2 = await reach('#screen-auth', '#auth-step2 .btn-ghost', '[data-action="skipRegProfile"]', 'profile step 2');
+  expect(step2.scrollable, 'profile step 2 is taller than a 568 px phone').toBe(true);
+});
