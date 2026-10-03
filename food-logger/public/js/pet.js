@@ -122,7 +122,7 @@ function addBowl(svg) {
   const w = parseFloat(svg.getAttribute('width')) || 80;
   svg.setAttribute('viewBox', '0 -4 110 120');
   svg.setAttribute('height', Math.round(w * 120 / 110));
-  const bg = mk('g', {});
+  const bg = mk('g', { class: 'pet-bowl' });
   bg.appendChild(mk('ellipse', { cx: 55, cy: 109, rx: 46, ry: 4.5, fill: 'rgba(43,31,22,.28)', filter: 'url(#softsh)' }));
   bg.appendChild(mk('path', { d: 'M13 85 Q13 108 55 108 Q97 108 97 85 Z', fill: '#fffaf0', stroke: '#6b4426', 'stroke-width': '.9', 'stroke-opacity': '.65', 'stroke-linejoin': 'round' }));
   bg.appendChild(mk('ellipse', { cx: 55, cy: 85, rx: 42, ry: 8, fill: '#fffdf6', stroke: '#6b4426', 'stroke-width': '.9', 'stroke-opacity': '.65' }));

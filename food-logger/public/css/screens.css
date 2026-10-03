@@ -631,12 +631,6 @@
   .topbar-brand-title { font-size: 13px; }
   .topbar-brand-sub { font-size: 11px; }
   .topbar-brand-ig svg { width: 13px !important; height: 13px !important; }
-
-  .welcome-title { font-size: 64px; }
-  .welcome-subtitle { font-size: 14px; }
-  .welcome-feature-icon { font-size: 28px; }
-  .welcome-feature-text h4 { font-size: 16px; }
-  .welcome-feature-text p { font-size: 13px; }
 }
 
 .receipt {
@@ -744,3 +738,91 @@
 .receipt-entry:nth-child(8) { animation-delay: 320ms; }
 .receipt-entry:nth-child(9) { animation-delay: 380ms; }
 .receipt-entry:nth-child(10) { animation-delay: 440ms; }
+
+/* ════ Page typography shared by the redone pages (from the reference) ════ */
+.lbl { font: 400 17px/30px var(--font-text); letter-spacing: .02em; color: var(--graphite); }
+.title { font: 400 25px/46px var(--font-text); margin-top: 4px; white-space: nowrap; }
+.title.big { font-size: 34px; line-height: 50px; }
+
+/* ════ Welcome: the leather cover ════
+   The cover is the leather frame itself (no .page): foil title, the capybara in her salad bowl
+   (screens/welcome.js), three feature lines with gold line icons, a foil button. It scrolls on a short phone. */
+#screen-welcome { overflow-x: hidden; overflow-y: auto; align-items: center; }
+.welcome-wrap {
+  position: relative; z-index: 2; width: min(400px, 100%); margin: auto;   /* centred when short, scrolls from the top when tall */
+  padding: 54px 34px 36px; display: flex; flex-direction: column; align-items: center; text-align: center;
+}
+.welcome-pet { display: inline-block; }
+.foil {
+  font: 400 66px/1 var(--font-display);
+  background: linear-gradient(#fff0c8, #d2a95a 45%, #8a6120 75%, #e8c987);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .6)) drop-shadow(0 0 1px rgba(255, 230, 170, .5));
+  letter-spacing: -.02em;
+}
+.welcome-sub { font-size: 21px; color: #d9bf8a; margin-top: 4px; }
+.welcome-feats { width: 100%; margin-top: 22px; text-align: right; }
+.feat { display: flex; gap: 12px; align-items: center; margin: 9px 0; color: #e9d7b0; font: 400 17px/20px var(--font-text); }
+.feat svg { flex: none; width: 30px; height: 30px; stroke: #d2a95a; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.welcome-actions { margin-top: 18px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.foilbtn {
+  border: 0; cursor: pointer;
+  background: linear-gradient(#e9c987, #b8893c); color: #2a1a08; font: 400 22px var(--font-text); padding: 8px 34px; border-radius: 26px;
+  box-shadow: 0 2px 0 #6e4d16, 0 10px 20px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .5);
+}
+.foilbtn:active { transform: translateY(1px); }
+.welcome-have { border: 0; background: none; cursor: pointer; padding: 2px 8px; font-size: 17px; color: #b79a68; }
+.welcome-footer { margin-top: 20px; font-size: 13px; color: rgba(183, 154, 104, .6); text-align: center; }
+.welcome-footer a { color: #b79a68; }
+
+/* ════ Auth: login, registration and the profile step on one ruled page ════
+   The walking capybara is appended to .page by screens/auth.js. */
+#screen-auth .content { padding-bottom: 20px; }
+.auth-wordmark { margin-top: 0; }
+.auth-sub { margin-top: -6px; }
+.tab-row { display: flex; gap: 22px; height: 30px; margin-top: 6px; }
+.tab-btn {
+  position: relative; border: 0; background: none; cursor: pointer; padding: 0 2px;
+  font: 400 20px/30px var(--font-text); color: var(--graphite);
+}
+.tab-btn.active { color: var(--ink); }
+.tab-btn.active::after {                    /* the red pen underline */
+  content: ''; position: absolute; left: -2px; right: -2px; bottom: 1px; height: 6px;
+  border-bottom: 2.5px solid var(--red); border-radius: 50%; transform: rotate(-1.5deg);
+}
+/* handwritten fields: label above, an ink underline, no box */
+#screen-auth .field { margin-top: 10px; }
+#screen-auth .field label { letter-spacing: 0; text-transform: none; margin: 0; font-weight: 400; }
+#screen-auth .field input, #screen-auth .field select {
+  display: block; width: 100%; height: 30px; padding: 0; border: 0; border-bottom: 2px solid var(--ink); border-radius: 0;
+  background: transparent; color: var(--ink); box-shadow: none; outline: none; font: 400 22px/30px var(--font-text);
+}
+#screen-auth .field input:focus, #screen-auth .field select:focus { border-bottom-color: var(--red); box-shadow: none; }
+#screen-auth .field input::placeholder { color: rgba(111, 93, 76, .45); font-size: 19px; }
+#screen-auth .field select {
+  padding-inline-end: 22px; cursor: pointer;
+  background: no-repeat left 2px center / 14px 14px url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236f5d4c' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><path d='M5 9l7 7 7-7'/></svg>");
+}
+.auth-actions { margin-top: 26px; }
+.auth-actions .penbtn { position: static; display: inline-block; }
+.auth-actions .penbtn:active { transform: translateY(1px); box-shadow: 0 1px 0 #7f2010, 0 4px 10px rgba(120, 30, 10, .35); }
+#screen-auth .error-msg { color: var(--red); font: 400 17px/22px var(--font-text); text-align: start; margin-top: 12px; min-height: 22px; }
+.auth-link { border: 0; background: none; cursor: pointer; padding: 0; font: 400 18px/30px var(--font-text); color: var(--graphite); text-decoration: underline; text-decoration-color: var(--red); text-underline-offset: 4px; }
+#auth-step2 > .auth-link:first-child { display: block; margin-top: 2px; }
+.profile-step-title { margin-top: 0; }
+.profile-step-sub { margin-top: -6px; font-size: 16px; line-height: 22px; white-space: normal; }
+.field-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; }
+/* chips (gender) and handwritten rows (activity); the code toggles .selected */
+.chip-row { margin-top: 4px; }
+#auth-step2 .chip.selected { color: var(--red); border-color: var(--red); transform: rotate(-2deg); background: rgba(179, 49, 29, .07); }
+#reg-activity-list { display: flex; flex-direction: column; gap: 4px; margin: 4px 0 0; }
+#reg-activity-list .activity-opt {
+  display: block; width: 100%; text-align: start; cursor: pointer; padding: 3px 12px; background: transparent;
+  border: 1.8px solid transparent; border-radius: 20px 18px 22px 18px;
+  font: 400 15px/20px var(--font-text); color: var(--graphite);
+}
+#reg-activity-list .activity-opt strong { display: block; font: 400 18px/26px var(--font-text); color: var(--ink); }
+#reg-activity-list .activity-opt.selected { border-color: var(--red); background: rgba(179, 49, 29, .07); transform: rotate(-.6deg); }
+#reg-activity-list .activity-opt.selected strong { color: var(--red); }
+/* the walker would cross the tall profile step: it only walks over the short pages */
+#screen-auth .page:has(#auth-step2:not([style*="none"])) > .walker { display: none; }

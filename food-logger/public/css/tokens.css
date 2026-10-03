@@ -59,17 +59,3 @@
   --fat:         #b91c1c;
   --fiber:       #6d28d9;
 }
-/* the welcome screen still sits on the dark leather cover with its old dark colours */
-#screen-welcome {
-  --bg:          #22140c;
-  --surface:     #1A1209;
-  --surface2:    #231810;
-  --surface3:    #2a2620;
-  --border:      #3D2515;
-  --text:        #F5E8D0;
-  --text2:       #C4956A;
-  --muted:       #a58560;
-  --accent:      #E8703A;
-  --accent-dim:  rgba(232, 112, 58, .12);
-  --accent-glow: rgba(232, 112, 58, .25);
-}

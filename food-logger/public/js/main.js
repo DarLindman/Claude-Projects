@@ -5,14 +5,14 @@ import { _cameraCapyState } from './pet.js';
 import { loadProfile } from './profile.js';
 import { actions as navActions, registerScreen } from './router.js';
 import { actions as analysisActions } from './screens/analysis.js';
-import { actions as authActions, doLogin, doRegister } from './screens/auth.js';
+import { actions as authActions, doLogin, doRegister, enterAuth, leaveAuth } from './screens/auth.js';
 import { actions as cameraActions, animatePlaceholder, autoResizeTextarea } from './screens/camera.js';
 import { animateDashStagger, loadDashboard } from './screens/dashboard.js';
 import { actions as homeActions, loadDiary } from './screens/home.js';
 import { actions as settingsActions, populateProfileSelects } from './screens/settings.js';
 import { actions as statsActions, loadStats, stopStatsCapyWalk } from './screens/stats.js';
 import { actions as weightActions, loadWeightScreen } from './screens/weight.js';
-import { actions as welcomeActions } from './screens/welcome.js';
+import { actions as welcomeActions, mountWelcomePet } from './screens/welcome.js';
 import { bootSession } from './session.js';
 
 // ════════════════════════════════════════════════════
@@ -20,6 +20,7 @@ import { bootSession } from './session.js';
 // ════════════════════════════════════════════════════
 // Screen hooks: the per-screen enter/leave behaviour that navigate() used to hard-code.
 // Registration order matches the order of the original if/else chain in navigate().
+registerScreen('auth',      { enter: enterAuth, leave: leaveAuth });
 registerScreen('dashboard', { enter: () => { loadDashboard(); animateDashStagger(); }, leave: stopFireCanvas });
 registerScreen('home',      { enter: loadDiary });
 registerScreen('stats',     { enter: () => { loadStats(); }, leave: stopStatsCapyWalk });
@@ -28,6 +29,7 @@ registerScreen('camera',    { enter: animatePlaceholder });
 registerScreen('analysis',  { enter: () => _cameraCapyState('neutral') });
 
 populateProfileSelects();
+mountWelcomePet();
 loadProfile();
 
 // The session is an HttpOnly cookie: ask the server whether it is still valid.

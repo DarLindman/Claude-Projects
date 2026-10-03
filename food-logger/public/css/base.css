@@ -398,8 +398,6 @@ svg text:not([class]) { font-family: var(--font-text); }
   overflow-x: hidden;
   overflow-y: auto;
 }
-/* the sign-in screens have no dock */
-#screen-auth { bottom: 22px; }
 
 /* the receipt (both languages and the numbers) is Cousine */
 .receipt { font-family: var(--font-receipt); }

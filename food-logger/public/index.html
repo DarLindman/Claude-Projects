@@ -32,113 +32,37 @@
 <div class="phone-frame" id="phone-frame">
 
 <!-- ════════════════ WELCOME ════════════════ -->
+<!-- The leather cover itself: foil title, the capybara in her salad bowl (mounted by screens/welcome.js), three feature lines. -->
 <div id="screen-welcome" class="screen">
   <div class="welcome-wrap">
-    <div class="welcome-icon fu fu-1">
-      <svg class="capy-logo" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" width="80" height="80" aria-label="לוגו יומן">
-        <!-- background -->
-        <rect class="capy-logo-bg" x="0" y="0" width="120" height="120" rx="24" fill="#E8703A"/>
-        <!-- capybara body group (breathes) -->
-        <g class="capy-logo-body">
-          <!-- body -->
-          <ellipse cx="60" cy="78" rx="30" ry="18" fill="#C4956A"/>
-          <ellipse cx="60" cy="81" rx="20" ry="11" fill="#e8c89a"/>
-          <!-- head -->
-          <rect x="32" y="38" width="56" height="38" rx="14" fill="#C4956A"/>
-          <!-- snout -->
-          <rect x="39" y="52" width="42" height="18" rx="10" fill="#b07d50"/>
-          <!-- ears -->
-          <circle cx="37" cy="40" r="8" fill="#C4956A"/>
-          <circle cx="37" cy="40" r="4.5" fill="#e0a87a"/>
-          <circle cx="83" cy="40" r="8" fill="#C4956A"/>
-          <circle cx="83" cy="40" r="4.5" fill="#e0a87a"/>
-          <!-- eyes (happy) -->
-          <circle cx="44" cy="46" r="4.5" fill="#2d1a0a"/>
-          <circle cx="44" cy="46" r="3" fill="#1a1a1a"/>
-          <circle cx="43" cy="45" r="1" fill="white"/>
-          <circle cx="76" cy="46" r="4.5" fill="#2d1a0a"/>
-          <circle cx="76" cy="46" r="3" fill="#1a1a1a"/>
-          <circle cx="75" cy="45" r="1" fill="white"/>
-          <!-- nostrils -->
-          <ellipse cx="51" cy="62" rx="2.5" ry="1.8" fill="#8B5E35"/>
-          <ellipse cx="69" cy="62" rx="2.5" ry="1.8" fill="#8B5E35"/>
-          <!-- mouth (grin) -->
-          <path d="M 47 68 Q 60 76 73 68" stroke="#8B5E35" stroke-width="2" fill="none" stroke-linecap="round"/>
-          <!-- blush -->
-          <ellipse cx="38" cy="54" rx="6" ry="3.5" fill="#E8703A" opacity="0.3"/>
-          <ellipse cx="82" cy="54" rx="6" ry="3.5" fill="#E8703A" opacity="0.3"/>
-          <!-- arms -->
-          <path d="M 36 74 Q 28 84 28 93" stroke="#b07d50" stroke-width="5" fill="none" stroke-linecap="round"/>
-          <path d="M 84 74 Q 92 84 92 93" stroke="#b07d50" stroke-width="5" fill="none" stroke-linecap="round"/>
-          <!-- paws -->
-          <ellipse cx="28" cy="95" rx="5" ry="3" fill="#b07d50"/>
-          <ellipse cx="92" cy="95" rx="5" ry="3" fill="#b07d50"/>
-        </g>
-        <!-- bowl (animated separately) -->
-        <g class="capy-logo-bowl">
-          <path d="M 20 93 Q 20 113 60 113 Q 100 113 100 93 Z" fill="white" opacity="0.92"/>
-          <ellipse cx="60" cy="93" rx="40" ry="8" fill="white" opacity="0.92"/>
-          <g class="capy-logo-ing" style="--delay:0ms;--ing-rot:25deg"><circle cx="28" cy="104" r="5" fill="#2E7D32"/></g>
-          <g class="capy-logo-ing" style="--delay:120ms;--ing-rot:-20deg"><circle cx="38" cy="107" r="4.5" fill="#EF5350"/></g>
-          <g class="capy-logo-ing" style="--delay:240ms;--ing-rot:30deg"><circle cx="50" cy="108" r="4" fill="#FFD54F"/></g>
-          <g class="capy-logo-ing" style="--delay:360ms;--ing-rot:-15deg"><circle cx="62" cy="109" r="4.5" fill="#A5D6A7"/></g>
-          <g class="capy-logo-ing" style="--delay:480ms;--ing-rot:20deg"><circle cx="74" cy="107" r="4" fill="#E53935"/></g>
-          <g class="capy-logo-ing" style="--delay:600ms;--ing-rot:-25deg"><circle cx="85" cy="104" r="4.5" fill="#2E7D32"/></g>
-          <g class="capy-logo-ing" style="--delay:720ms;--ing-rot:18deg"><circle cx="92" cy="103" r="4" fill="#A5D6A7"/></g>
-          <g class="capy-logo-ing" style="--delay:840ms;--ing-rot:-22deg"><circle cx="35" cy="97" r="4" fill="#FFD54F"/></g>
-          <g class="capy-logo-ing" style="--delay:960ms;--ing-rot:28deg"><circle cx="48" cy="98" r="4.5" fill="#EF5350"/></g>
-          <g class="capy-logo-ing" style="--delay:1080ms;--ing-rot:-18deg"><circle cx="72" cy="98" r="4" fill="#2E7D32"/></g>
-          <g class="capy-logo-ing" style="--delay:1200ms;--ing-rot:15deg"><circle cx="60" cy="90" r="4" fill="#A5D6A7"/></g>
-        </g>
-      </svg>
+    <div class="welcome-pet fu fu-1" id="welcome-pet"></div>
+    <div class="fu fu-2">
+      <div class="foil">יומן.</div>
+      <div class="hand welcome-sub">יומן האוכל האישי שלך</div>
     </div>
-    <div class="welcome-title"><span class="title-word">יומן</span><em>.</em></div>
-    <div class="welcome-subtitle fu fu-3">יומן האוכל האישי שלך</div>
-    <svg class="wavy-divider" viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true">
-      <path d="M0,4 Q25,1 50,4 Q75,7 100,4"/>
-    </svg>
-    <div class="welcome-features">
-      <div class="welcome-feature fu fu-4">
-        <div class="welcome-feature-icon">📸</div>
-        <div class="welcome-feature-text">
-          <h4>ניתוח תמונות AI</h4>
-          <p>צלם את הצלחת — בינה מלאכותית תזהה את האוכל ותחשב ערכים תזונתיים</p>
-        </div>
-      </div>
-      <div class="welcome-feature fu fu-5">
-        <div class="welcome-feature-icon">📊</div>
-        <div class="welcome-feature-text">
-          <h4>מעקב מאקרו מלא</h4>
-          <p>קלוריות, חלבון, פחמימות, שומן וסיבים — הכול במקום אחד</p>
-        </div>
-      </div>
-      <div class="welcome-feature fu fu-6">
-        <div class="welcome-feature-icon">📈</div>
-        <div class="welcome-feature-text">
-          <h4>גרפים וסטטיסטיקות</h4>
-          <p>מעקב שבועי, חודשי ושנתי — ראה את ההתקדמות שלך לאורך זמן</p>
-        </div>
-      </div>
+    <div class="welcome-feats fu fu-3">
+      <div class="feat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h4l2-3h6l2 3h4v11H3z"/><circle cx="12" cy="13" r="3.6"/></svg><span>צלם את הצלחת. ה-AI מזהה ומחשב</span></div>
+      <div class="feat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V11M10 20V5M16 20v-7M22 20H2"/></svg><span>קלוריות ומאקרו, הכול במקום אחד</span></div>
+      <div class="feat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l5-6 4 3 8-9"/><path d="M3 21h18"/></svg><span>גרפים: שבועי, חודשי ושנתי</span></div>
     </div>
-    <div class="welcome-actions fu fu-7">
-      <button class="btn btn-primary" data-action="goToAuth" data-arg="register">התחל עכשיו</button>
-      <button class="btn btn-ghost" data-action="goToAuth" data-arg="login">יש לי חשבון</button>
+    <div class="welcome-actions fu fu-4">
+      <button class="foilbtn" data-action="goToAuth" data-arg="register">התחל עכשיו</button>
+      <button class="welcome-have hand" data-action="goToAuth" data-arg="login">כבר יש לי חשבון</button>
     </div>
-    <div class="welcome-footer fu fu-7">
+    <div class="welcome-footer fu fu-4">
       By Dar &middot; <a href="https://www.instagram.com/darlindman/" target="_blank" rel="noopener">Instagram</a>
     </div>
   </div>
 </div>
 
 <!-- ════════════════ AUTH ════════════════ -->
+<!-- Login, registration and the profile step: one ruled page with handwritten fields; the walking capybara
+     is mounted into .page by the screen's enter hook (screens/auth.js) and removed by its leave hook. -->
 <div id="screen-auth" class="screen">
-  <div class="auth-wrap">
-    <div class="auth-wordmark"><span class="title-word">יומן</span><em>.</em></div>
-    <div class="auth-sub">יומן האוכל האישי שלך</div>
-    <svg class="wavy-divider" viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true">
-      <path d="M0,4 Q25,1 50,4 Q75,7 100,4"/>
-    </svg>
-    <div class="auth-card">
+  <div class="page"><div class="rules"></div><div class="margin"></div>
+    <div class="content">
+      <div class="title big auth-wordmark">יומן.</div>
+      <div class="lbl auth-sub">יומן האוכל האישי שלך</div>
       <!-- Step 1: login/register tabs -->
       <div id="auth-step1">
         <div class="tab-row">
@@ -146,38 +70,40 @@
           <button class="tab-btn" data-action="switchAuthTab" data-arg="register">הרשמה</button>
         </div>
         <div id="auth-login">
-          <div class="form-group"><label>שם משתמש</label><input id="login-user" type="text" placeholder="your_username" autocomplete="username"></div>
-          <div class="form-group"><label>סיסמה</label><input id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password"></div>
-          <button class="btn btn-primary" data-action="doLogin">כניסה</button>
+          <div class="field"><label for="login-user">שם משתמש</label><input id="login-user" type="text" placeholder="your_username" autocomplete="username"></div>
+          <div class="field"><label for="login-pass">סיסמה</label><input id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password"></div>
+          <div class="auth-actions"><button class="penbtn" data-action="doLogin">כניסה</button></div>
           <div id="auth-error" class="error-msg"></div>
         </div>
         <div id="auth-register" style="display:none">
-          <div class="form-group"><label>שם משתמש</label><input id="reg-user" type="text" placeholder="לפחות 3 תווים" autocomplete="username"></div>
-          <div class="form-group"><label>סיסמה</label><input id="reg-pass" type="password" placeholder="לפחות 8 תווים" autocomplete="new-password"></div>
-          <button class="btn btn-primary" data-action="doRegister">הרשמה</button>
+          <div class="field"><label for="reg-user">שם משתמש</label><input id="reg-user" type="text" placeholder="לפחות 3 תווים" autocomplete="username"></div>
+          <div class="field"><label for="reg-pass">סיסמה</label><input id="reg-pass" type="password" placeholder="לפחות 8 תווים" autocomplete="new-password"></div>
+          <div class="auth-actions"><button class="penbtn" data-action="doRegister">הרשמה</button></div>
           <div id="auth-error2" class="error-msg"></div>
         </div>
       </div>
 
       <!-- Step 2: body profile (shown after register) -->
       <div id="auth-step2" style="display:none">
-        <button class="btn btn-ghost" dir="ltr" style="margin-bottom:12px;width:auto;padding:8px 16px;font-size:13px" data-action="regBack">חזור &#8594;</button>
-        <div class="profile-step-title">ספר לנו עליך</div>
-        <div class="profile-step-sub">נחשב עבורך המלצת קלוריות יומית</div>
+        <button class="auth-link" dir="ltr" data-action="regBack">חזור &#8594;</button>
+        <div class="title profile-step-title">ספר לנו עליך</div>
+        <div class="lbl profile-step-sub">נחשב עבורך המלצת קלוריות יומית</div>
 
-        <label style="margin-bottom:8px">מין</label>
-        <div class="toggle-row" style="margin-bottom:16px">
-          <button class="toggle-btn selected" id="reg-male-btn" data-action="setRegGender" data-arg="male">👨 גבר</button>
-          <button class="toggle-btn" id="reg-female-btn" data-action="setRegGender" data-arg="female">👩 אישה</button>
+        <div class="field">
+          <label>מין</label>
+          <div class="chip-row">
+            <button class="chip selected" id="reg-male-btn" data-action="setRegGender" data-arg="male">👨 גבר</button>
+            <button class="chip" id="reg-female-btn" data-action="setRegGender" data-arg="female">👩 אישה</button>
+          </div>
         </div>
 
-        <div class="form-group" style="margin-bottom:10px"><label>תאריך לידה</label><input type="date" id="reg-birthdate" lang="he" style="font-size:14px"></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
-          <div class="form-group" style="margin-bottom:0"><label>גובה (ס״מ)</label><select id="reg-height"></select></div>
-          <div class="form-group" style="margin-bottom:0"><label>משקל (ק״ג)</label><select id="reg-weight"></select></div>
+        <div class="field"><label for="reg-birthdate">תאריך לידה</label><input type="date" id="reg-birthdate" lang="he"></div>
+        <div class="field-pair">
+          <div class="field"><label for="reg-height">גובה (ס״מ)</label><select id="reg-height"></select></div>
+          <div class="field"><label for="reg-weight">משקל (ק״ג)</label><select id="reg-weight"></select></div>
         </div>
-        <div class="form-group" style="margin-bottom:16px">
-          <label>יעד שינוי שבועי (ק״ג)</label>
+        <div class="field">
+          <label for="reg-goal-select">יעד שינוי שבועי (ק״ג)</label>
           <select id="reg-goal-select" data-change="setRegGoal">
             <option value="1">&lrm;+1&lrm; ק״ג (עלייה במשקל)</option>
             <option value="0.75">&lrm;+¾&lrm; ק״ג</option>
@@ -191,22 +117,25 @@
           </select>
         </div>
 
-        <label style="margin-bottom:8px">רמת פעילות</label>
-        <div class="activity-list" id="reg-activity-list">
-          <button class="activity-opt" data-val="sedentary" data-action="setRegActivity" data-arg="sedentary"><strong>יושבני</strong>עבודת משרד, מינימום פעילות</button>
-          <button class="activity-opt selected" data-val="light" data-action="setRegActivity" data-arg="light"><strong>פעילות קלה</strong>1–3 ימים בשבוע</button>
-          <button class="activity-opt" data-val="moderate" data-action="setRegActivity" data-arg="moderate"><strong>פעילות בינונית</strong>3–5 ימים בשבוע</button>
-          <button class="activity-opt" data-val="active" data-action="setRegActivity" data-arg="active"><strong>פעילות גבוהה</strong>6–7 ימים בשבוע</button>
-          <button class="activity-opt" data-val="vactive" data-action="setRegActivity" data-arg="vactive"><strong>ספורטאי</strong>אימון יומי אינטנסיבי</button>
+        <div class="field">
+          <label>רמת פעילות</label>
+          <div class="activity-list" id="reg-activity-list">
+            <button class="activity-opt" data-val="sedentary" data-action="setRegActivity" data-arg="sedentary"><strong>יושבני</strong>עבודת משרד, מינימום פעילות</button>
+            <button class="activity-opt selected" data-val="light" data-action="setRegActivity" data-arg="light"><strong>פעילות קלה</strong>1–3 ימים בשבוע</button>
+            <button class="activity-opt" data-val="moderate" data-action="setRegActivity" data-arg="moderate"><strong>פעילות בינונית</strong>3–5 ימים בשבוע</button>
+            <button class="activity-opt" data-val="active" data-action="setRegActivity" data-arg="active"><strong>פעילות גבוהה</strong>6–7 ימים בשבוע</button>
+            <button class="activity-opt" data-val="vactive" data-action="setRegActivity" data-arg="vactive"><strong>ספורטאי</strong>אימון יומי אינטנסיבי</button>
+          </div>
         </div>
 
-        <button class="btn btn-primary" style="margin-bottom:10px" data-action="saveRegProfile">בוא נתחיל! 🚀</button>
-        <button class="btn btn-ghost" data-action="skipRegProfile">דלג לעת עתה</button>
+        <div class="auth-actions"><button class="penbtn" data-action="saveRegProfile">בוא נתחיל! 🚀</button></div>
+        <div class="auth-actions"><button class="auth-link" data-action="skipRegProfile">דלג לעת עתה</button></div>
         <div id="auth-error3" class="error-msg"></div>
       </div>
     </div>
   </div>
 </div>
+
 
 <!-- ════════════════ DASHBOARD ════════════════ -->
 <div id="screen-dashboard" class="screen">

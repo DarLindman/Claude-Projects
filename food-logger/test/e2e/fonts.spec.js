@@ -143,7 +143,7 @@ test('welcome, auth and profile step 2 scroll on a 320x568 phone', async ({ page
   await page.goto('/');
   await expect(page.locator('#screen-welcome')).toBeVisible();
 
-  const reach = async (screen, top, bottom, label) => {
+  const reach = async (screen, top, bottom, label) => {   // `screen` is the element that scrolls
     const r = await page.evaluate(({ screen, top, bottom }) => {
       const s = document.querySelector(screen);
       const sr = () => s.getBoundingClientRect();
@@ -160,18 +160,18 @@ test('welcome, auth and profile step 2 scroll on a 320x568 phone', async ({ page
     return r;
   };
 
-  const welcome = await reach('#screen-welcome', '.welcome-icon', '#screen-welcome .btn:last-of-type', 'welcome');
+  const welcome = await reach('#screen-welcome', '.welcome-pet', '#screen-welcome [data-arg="login"]', 'welcome');
   expect(welcome.scrollable, 'the welcome cover is taller than a 568 px phone').toBe(true);
 
   await page.getByRole('button', { name: 'התחל עכשיו' }).click();
   await expect(page.locator('#screen-auth')).toBeVisible();
-  await reach('#screen-auth', '.auth-wordmark', '#auth-login .btn-primary', 'auth');
+  await reach('#screen-auth .content', '.auth-wordmark', '#auth-login .penbtn', 'auth');
 
   await page.locator('#auth-step1 .tab-btn', { hasText: 'הרשמה' }).click();
   await page.locator('#reg-user').fill(`user${Date.now()}`);
   await page.locator('#reg-pass').fill(PASSWORD);
   await page.locator('#auth-register').getByRole('button', { name: 'הרשמה' }).click();
   await expect(page.locator('#auth-step2')).toBeVisible();
-  const step2 = await reach('#screen-auth', '#auth-step2 .btn-ghost', '[data-action="skipRegProfile"]', 'profile step 2');
+  const step2 = await reach('#screen-auth .content', '#auth-step2 > .auth-link', '[data-action="skipRegProfile"]', 'profile step 2');
   expect(step2.scrollable, 'profile step 2 is taller than a 568 px phone').toBe(true);
 });
