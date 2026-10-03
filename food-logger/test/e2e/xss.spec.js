@@ -163,10 +163,10 @@ test('the chart, plate and dashboard-preview renderers escape hostile data', asy
     charts.renderStatAvgBox('avg-box', [{ calories: 100 }], 2000, payload);
     charts.renderStatMacros('macro-box', [{ protein_g: 1, carbs_g: 1, fat_g: 1, fiber_g: 1 }], payload);
     document.getElementById('line-box').innerHTML = ''; // not user-facing markup; the chart is rendered below
-    const svg = charts.renderLineChart([{ v: 1, l: payload }, { v: 2, l: payload }], {
+    const svg = charts.renderBarChart([{ v: 1, l: payload }, { v: 2, l: payload }], {
       getValue: (r) => r.v, getLabel: (r) => r.l, isToday: () => false, recommended: 0,
     });
-    // renderLineChart returns a trusted fragment; render it the same way the screens do
+    // renderBarChart returns a trusted fragment; render it the same way the screens do
     const { setHtml } = await import('/js/dom.js');
     setHtml(document.getElementById('line-box'), svg);
   }, { payload });

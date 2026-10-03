@@ -1,105 +1,111 @@
 import { html, setHtml } from './dom.js';
+import { formatNumber } from './format.js';
 
 // ── Shared stat helpers ──────────────────────────────────────────────────────
+const byId = (id) => document.getElementById(id);
+// A value that can be drawn: a finite number above zero, else 0 (never NaN, never negative).
+const positive = (v) => (Number.isFinite(+v) && +v > 0 ? +v : 0);
+const r1 = (n) => Math.round(n * 10) / 10;
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+// The headline of a stats view: the average in handwriting with its unit, and how far it is from the recommended
+// calories. With no rows the view says there is no data.
 export function renderStatAvgBox(elId, rows, rec, label, customAvg) {
-  const el = document.getElementById(elId);
-  if (!rows.length) { el.replaceChildren(); return; }
-  const avgCal = customAvg !== undefined ? customAvg : Math.round(rows.reduce((s, r) => s + (+r.calories || 0), 0) / rows.length);
+  const el = byId(elId);
+  if (!el) return;
+  if (!rows.length) { setHtml(el, html`<div class="stat-empty">אין נתונים</div>`); return; }
+  const avgCal = customAvg !== undefined ? customAvg : Math.round(rows.reduce((s, r) => s + positive(r.calories), 0) / rows.length);
   let diffHtml = '';
   if (rec > 0) {
     const diff = avgCal - rec;
     const cls = diff <= 0 ? 'under' : 'over';
     // the signed number is isolated left-to-right, so its sign stays on its left in the RTL page
-    diffHtml = html`<div class="avg-diff ${cls}"><bdi dir="ltr">${diff > 0 ? '+' : ''}${diff}</bdi> קק״ל</div><div style="font-size:11px;color:var(--muted)">מהמומלץ</div>`;
+    diffHtml = html`<div class="stat-diff ${cls}"><bdi dir="ltr">${diff > 0 ? '+' : ''}${diff}</bdi> קק״ל מהמומלץ</div>`;
   }
-  setHtml(el, html`<div class="avg-box"><div class="avg-box-left"><div class="avg-val">${avgCal}</div><div class="avg-label">${label}</div></div><div class="avg-box-right">${diffHtml}</div></div>`);
+  setHtml(el, html`<div class="stat-head"><span class="avg-val">${formatNumber(avgCal)}</span><span class="avg-label">${label}</span></div>${diffHtml}`);
 }
 
+// The three macro bars (protein, carbs, fat) of the average day, with the footnote under them. No days: nothing.
 export function renderStatMacros(elId, rows, footnote, divisor) {
+  const el = byId(elId);
+  if (!el) return;
   const n = divisor || rows.length;
+  if (!n) { el.replaceChildren(); return; }
   const sum = rows.reduce((a, r) => ({
-    pro: a.pro + (+r.protein_g || 0), carb: a.carb + (+r.carbs_g || 0),
-    fat: a.fat + (+r.fat_g || 0), fiber: a.fiber + (+r.fiber_g || 0),
-  }), { pro: 0, carb: 0, fat: 0, fiber: 0 });
-  const avgt = { protein_g: sum.pro / n, carbs_g: sum.carb / n, fat_g: sum.fat / n, fiber_g: sum.fiber / n };
-  // no footnote (no days to average over): the line is left out
-  setHtml(document.getElementById(elId), html`${renderMacroProgressBars(avgt)}${footnote ? html`<p style="font-size:11px;color:var(--muted);margin-top:10px;text-align:center">${footnote}</p>` : ''}`);
+    pro: a.pro + positive(r.protein_g), carb: a.carb + positive(r.carbs_g), fat: a.fat + positive(r.fat_g),
+  }), { pro: 0, carb: 0, fat: 0 });
+  const items = [
+    { key: 'pro',  label: 'חלבון',    val: Math.round(sum.pro / n),  target: 50 },
+    { key: 'carb', label: 'פחמימות', val: Math.round(sum.carb / n), target: 250 },
+    { key: 'fat',  label: 'שומן',    val: Math.round(sum.fat / n),  target: 65 },
+  ];
+  setHtml(el, html`${items.map(it => html`<div class="ink"><span>${it.label}</span><div class="track"><div class="fill ${it.key}" style="width:${clamp(it.val / it.target * 100, 0, 100)}%"></div></div><b>${it.val} גרם</b></div>`)}${footnote ? html`<p class="stat-note">${footnote}</p>` : ''}`);
 }
 
 // ════════════════════════════════════════════════════
-// SVG line chart with dots and date labels
+// Hand-drawn bar chart (the stats screen)
 // ════════════════════════════════════════════════════
-export function renderLineChart(rows, { getValue, getLabel, isToday, recommended, dayLetters }) {
-  const W = 320, H = 150, BOTTOM = 28, TOP = 16, LEFT = 8, RIGHT = 14;
-  const chartW = W - LEFT - RIGHT;
-  const chartH = H - BOTTOM - TOP;
+// One SVG, viewBox 248 x 194 (it scales with the page). Time runs right to left like the page: the first row is the
+// rightmost column. The goal label and its arrow sit ABOVE the plot (the plot starts at PLOT_TOP, so no bar can
+// reach the label); the scale always includes the goal and the largest value, so no bar leaves the plot. A day over the
+// goal is red; a day without data is a short pencil dash on the baseline; future days draw nothing.
+const W = 248, BASE = 170, PLOT_TOP = 48, LABEL_Y = 188, GOAL_LABEL_Y = 15, VIEW_H = 194;
+
+export function renderBarChart(rows, { getValue, getLabel, isToday = () => false, isFuture = () => false, showLabel = () => true, recommended = 0, labelSize = 16 }) {
   const n = rows.length;
-  const values = rows.map(getValue);
-  const maxVal = Math.max(...values, recommended || 0, 1);
-  const range = maxVal || 1;
+  const slot = W / Math.max(n, 1);
+  const bw = r1(Math.min(22, slot * 0.64));
+  const vals = rows.map(r => positive(getValue(r)));
+  const goal = positive(recommended);
+  const top = Math.max(...vals, goal, 1);
+  const scale = (BASE - PLOT_TOP) / top;
+  const yOf = (v) => BASE - v * scale;
+  const cx = (i) => W - slot * (i + 0.5);
 
-  const pts = rows.map((r, i) => {
-    const x = n === 1 ? W / 2 : LEFT + (i / (n - 1)) * chartW;
-    const y = TOP + chartH - (getValue(r) / range) * chartH;
-    const hasData = getValue(r) > 0;
-    return { x, y, r, hasData };
+  const bars = rows.map((r, i) => {
+    if (isFuture(r)) return '';
+    const v = vals[i];
+    const x = cx(i);
+    if (v <= 0) return html`<path class="tick" d="M${r1(x - bw / 3)} ${BASE - 1} H${r1(x + bw / 3)}"/>`;
+    const h = Math.max(v * scale, 3);
+    const over = goal > 0 && v > goal;
+    return html`<rect class="${over ? 'bar over' : 'bar'}" x="${r1(x - bw / 2)}" y="${r1(BASE - h)}" width="${bw}" height="${r1(h)}"/>`;
   });
 
-  // Polyline only for points that have data
-  const dataPoints = pts.filter(p => p.hasData);
-  const polyline = dataPoints.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-
-  // Estimated total path length for dashoffset animation
-  let pathLen = 0;
-  for (let i = 1; i < dataPoints.length; i++) {
-    const dx = dataPoints[i].x - dataPoints[i-1].x;
-    const dy = dataPoints[i].y - dataPoints[i-1].y;
-    pathLen += Math.sqrt(dx*dx + dy*dy);
+  let goalInk = '';
+  let goalText = '';
+  if (goal > 0) {
+    const gy = r1(yOf(goal));
+    // the arrow comes down over a column whose bar stays below the goal line (the one nearest the middle, so the label is
+    // centred), so it never crosses a bar; with every bar above the line it takes the lowest and stops above that bar
+    let k = -1;
+    rows.forEach((r, i) => { if (!isFuture(r) && vals[i] < goal && (k < 0 || Math.abs(cx(i) - W / 2) < Math.abs(cx(k) - W / 2))) k = i; });
+    if (k < 0) rows.forEach((r, i) => { if (!isFuture(r) && (k < 0 || vals[i] < vals[k])) k = i; });
+    const ax = k < 0 ? W / 2 : clamp(cx(k), 6, W - 6);
+    const lowTop = k >= 0 && vals[k] > 0 ? yOf(vals[k]) : BASE;
+    const endY = r1(Math.min(gy, lowTop) - 3);
+    const lx = r1(clamp(ax, 38, W - 38));
+    const y1 = r1(22 + (endY - 22) * 0.4);
+    const y2 = r1(22 + (endY - 22) * 0.75);
+    goalInk = html`<line class="goal-line" x1="0" y1="${gy}" x2="${W}" y2="${gy}" stroke-dasharray="6 5"/>
+      <path class="goal-arrow" d="M${lx} 22 C${r1(lx + 2)} ${y1} ${r1(ax - 1)} ${y2} ${r1(ax)} ${r1(endY - 4)}"/>
+      <path class="goal-arrow" d="M${r1(ax - 5)} ${r1(endY - 8)} L${r1(ax)} ${endY} L${r1(ax + 5)} ${r1(endY - 8)}"/>`;
+    goalText = html`<text class="goal-label" x="${lx}" y="${GOAL_LABEL_Y}" text-anchor="middle" font-size="16">יעד <tspan>${formatNumber(goal)}</tspan></text>`;
   }
 
-  const dots = pts.map(p => {
-    const isT = isToday(p.r);
-    if (p.hasData) {
-      return html`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${isT ? 4.5 : 3.5}"
-        fill="${isT ? 'var(--accent)' : 'rgba(232,112,58,0.8)'}" stroke="var(--bg)" stroke-width="1.5"/>`;
-    } else {
-      return html`<circle cx="${p.x.toFixed(1)}" cy="${(TOP + chartH).toFixed(1)}" r="2"
-        fill="var(--muted)" opacity="0.5"/>`;
-    }
-  });
+  const labels = rows.map((r, i) => (showLabel(r, i)
+    ? html`<text class="${isToday(r) ? 'chart-day today' : 'chart-day'}" x="${r1(cx(i))}" y="${LABEL_Y}" text-anchor="middle" font-size="${labelSize}">${getLabel(r)}</text>`
+    : ''));
 
-  // Labels: prefer dayLetters if provided, else getLabel
-  const step = n <= 10 ? 1 : n <= 20 ? 2 : 5;
-  const labels = pts.map((p, i) => {
-    if (i % step !== 0 && i !== n - 1) return '';
-    const isT = isToday(p.r);
-    const lbl = (dayLetters && dayLetters[i]) ? dayLetters[i] : getLabel(p.r);
-    return html`<text x="${p.x.toFixed(1)}" y="${H - 6}" text-anchor="middle"
-      font-size="9" fill="${isT ? 'var(--accent)' : 'var(--muted)'}"
-      font-family="IBM Plex Mono,monospace">${lbl}</text>`;
-  });
-
-  let recLine = '';
-  if (recommended > 0) {
-    const ry = TOP + chartH - (recommended / range) * chartH;
-    const labelY = ry < TOP + 12 ? ry + 10 : ry - 3;
-    recLine = html`<line x1="${LEFT}" y1="${ry.toFixed(1)}" x2="${W - RIGHT}" y2="${ry.toFixed(1)}"
-      stroke="var(--gold)" stroke-dasharray="4,3" opacity="0.7" stroke-width="1"/>
-      <text x="${W - RIGHT - 2}" y="${labelY.toFixed(1)}" text-anchor="end"
-      font-size="8" fill="var(--gold)" opacity="0.9" font-family="IBM Plex Mono,monospace">${recommended}</text>`;
-  }
-
-  const polylineId = 'lc-' + Math.random().toString(36).slice(2, 7);
-
-  return html`<svg viewBox="0 0 ${W} ${H}" overflow="visible" xmlns="http://www.w3.org/2000/svg">
-    ${recLine}
-    ${dataPoints.length > 1 ? html`<polyline id="${polylineId}" points="${polyline}" fill="none"
-      stroke="rgba(232,112,58,0.7)" stroke-width="1.8"
-      stroke-linejoin="round" stroke-linecap="round"
-      stroke-dasharray="${pathLen.toFixed(0)}"
-      stroke-dashoffset="${pathLen.toFixed(0)}"
-      style="transition: stroke-dashoffset 0.6s var(--ease-out, cubic-bezier(0.22,1,0.36,1))"/>` : ''}
-    ${dots}
+  // the invisible frame keeps the filtered group's box from collapsing to a line (an empty chart is only dashes)
+  return html`<svg viewBox="0 0 ${W} ${VIEW_H}" overflow="visible" xmlns="http://www.w3.org/2000/svg">
+    <g class="chart-ink" filter="url(#wobS)" stroke-width="${n > 12 ? 1.4 : 2}" stroke-linejoin="round" stroke-linecap="round">
+      <rect class="chart-frame" x="0" y="${PLOT_TOP - 2}" width="${W}" height="${BASE - PLOT_TOP + 2}" fill="none" stroke="none"/>
+      ${goalInk}
+      <line class="base-line" x1="0" y1="${BASE}" x2="${W}" y2="${BASE}"/>
+      ${bars}
+    </g>
+    ${goalText}
     ${labels}
   </svg>`;
 }
@@ -198,19 +204,4 @@ export function renderPlate(svgId, legendId, tooltipId, totals) {
         <span>${m.label} ${m.grams}גר׳</span>
       </div>`)}`);
   }
-}
-
-function renderMacroProgressBars(t) {
-  const items = [
-    { label: 'חלבון',    val: Math.round(t.protein_g || 0), target: 50,  color: '#5eead4' },
-    { label: 'פחמימות', val: Math.round(t.carbs_g || 0),   target: 250, color: '#93c5fd' },
-    { label: 'שומן',    val: Math.round(t.fat_g || 0),     target: 65,  color: '#fca5a5' },
-    { label: 'סיבים',   val: Math.round(t.fiber_g || 0),   target: 25,  color: '#c4b5fd' },
-  ];
-  return html`${items.map(item => html`
-    <div class="prog-row">
-      <div class="prog-label"><span>${item.label}</span><span style="font-family:var(--font-text)">${item.val} גרם</span></div>
-      <div class="prog-track"><div class="prog-fill" style="width:${Math.min(item.val / item.target * 100, 100)}%;background:${item.color}"></div></div>
-    </div>
-  `)}`;
 }

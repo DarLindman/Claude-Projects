@@ -69,3 +69,22 @@ export function formatDateShort(str) {
   const [y, m, d] = str.split('-').map(Number);
   return `${d}/${m}`;
 }
+
+// The Hebrew letter of the weekday of `str` (YYYY-MM-DD) with a geresh: "א׳" is Sunday. Date.UTC keeps any time zone out of it.
+const DAY_LETTERS = ['א','ב','ג','ד','ה','ו','ש'];
+export function weekdayLetter(str) {
+  const [y, m, d] = str.split('-').map(Number);
+  return `${DAY_LETTERS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]}׳`;
+}
+
+// Every day of the month `ym` (YYYY-MM) as YYYY-MM-DD, in calendar order.
+export function monthDays(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  const n = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return Array.from({ length: n }, (_, i) => `${ym}-${String(i + 1).padStart(2, '0')}`);
+}
+
+// The twelve months of `year` as YYYY-MM.
+export function yearMonths(year) {
+  return Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
+}

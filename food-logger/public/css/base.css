@@ -49,33 +49,10 @@
   0%, 100% { opacity: 0; transform: translateY(0); }
   30%, 70%  { opacity: 1; transform: translateY(-3px); }
 }
-/* ── Walking capybara on stats ──────────────────── */
-#pet-stats-wrap {
-  position: relative;
-  height: 72px;
-  overflow: hidden;
-  padding: 0;
-  text-align: left;
-}
-.capy-walk-stage {
-  position: absolute;
-  bottom: 4px;
-  left: 0;
-  will-change: transform;
-}
-/* Override breathe with a walking body-bob */
-#pet-stats-wrap .pet-wrap {
-  animation: capy-walk-bob 0.45s cubic-bezier(0.25, 1, 0.5, 1) infinite !important;
-  transform-origin: center bottom;
-}
 @keyframes capy-walk-bob {
   0%, 100% { transform: rotate(0deg) translateY(0); }
   25%       { transform: rotate(-3deg) translateY(-3px); }
   75%       { transform: rotate(3deg) translateY(-3px); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .capy-walk-stage { animation: none !important; will-change: auto; }
-  #pet-stats-wrap .pet-wrap { animation: none !important; }
 }
 
 /* ── The capybara's drawn style (decorateCapybara adds .pet-inked to the clone) ─────────────
