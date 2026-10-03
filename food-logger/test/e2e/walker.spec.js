@@ -217,3 +217,62 @@ test('decorateCapybara: loaf legs, drawn style, corrected smile, bowl only on re
   expect(info.nostrilStroke).toBe('none');
   expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
 });
+
+test('a walker mounted on a hidden page is measured when the page becomes visible', async ({ page }) => {
+  const guards = await openApp(page);
+  await page.evaluate(async () => {
+    const { mountWalkingCapybara } = await import('/js/pet.js');
+    const host = document.createElement('div');          // like a display:none .screen around a .page
+    host.id = 't-host';
+    host.style.cssText = 'position:absolute;inset:0;z-index:50;display:none';
+    const p = document.createElement('div');
+    p.className = 'page';
+    p.id = 't-page';
+    const margin = document.createElement('div');
+    margin.className = 'margin';
+    p.appendChild(margin);
+    host.appendChild(p);
+    document.getElementById('phone-frame').appendChild(host);
+    window.__walker = mountWalkingCapybara(p, { state: 'neutral', size: 104, bottom: 4 });
+  });
+  // Shown later: the ResizeObserver re-runs the measurement.
+  await page.evaluate(() => { document.getElementById('t-host').style.display = 'block'; });
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  expectWithinWalls(await sweepCycle(page), 'hidden, then shown');
+
+  // Hidden again and resized while hidden, shown again: still right.
+  await page.evaluate(() => { document.getElementById('t-host').style.display = 'none'; });
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.evaluate(() => { document.getElementById('t-host').style.display = 'block'; });
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  expectWithinWalls(await sweepCycle(page), 'hidden, resized, shown');
+
+  await page.evaluate(() => window.__walker.stop());
+  await expect(page.locator('#t-page .walker')).toHaveCount(0);
+  expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+});
+
+test('mounting the same page twice returns the one walker; stop() leaves nothing behind', async ({ page }) => {
+  await openApp(page);
+  await mountOnTestPage(page, { width: 322 });
+  const result = await page.evaluate(async () => {
+    const { mountWalkingCapybara } = await import('/js/pet.js');
+    const p = document.getElementById('t-page');
+    const again = mountWalkingCapybara(p, { state: 'happy', size: 80, bottom: 2 });
+    return { same: again === window.__walker, lanes: p.querySelectorAll('.walker').length };
+  });
+  expect(result).toEqual({ same: true, lanes: 1 });
+  await page.evaluate(() => window.__walker.stop());
+  await expect(page.locator('#t-page .walker')).toHaveCount(0);
+  await page.evaluate(() => window.__walker.stop());     // stop twice is harmless
+  // After stop the page can host a fresh walker (no stale registration).
+  const lanes = await page.evaluate(async () => {
+    const { mountWalkingCapybara } = await import('/js/pet.js');
+    const p = document.getElementById('t-page');
+    const w = mountWalkingCapybara(p, { state: 'neutral', size: 104, bottom: 4 });
+    const n = p.querySelectorAll('.walker').length;
+    w.stop();
+    return [n, p.querySelectorAll('.walker').length];
+  });
+  expect(lanes).toEqual([1, 0]);
+});

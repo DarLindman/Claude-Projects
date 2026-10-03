@@ -154,11 +154,19 @@ export function decorateCapybara(svg, opts = {}) {
 // line. The travel distance comes from the VISIBLE bounding box of the capybara (getBBox in viewBox units,
 // scaled to pixels), not from the SVG box, so the body touches both walls; the direction flips with
 // scaleX(-1) at the wall (CSS keyframes walkx/flipx in base.css). Under prefers-reduced-motion the CSS stops
-// every animation and she stands at the left wall.
+// every animation and she stands at the left wall. The page is observed with a ResizeObserver, so the lane is
+// (re)measured when the page first gets a size (a hidden screen shown later) and whenever it resizes.
 const WALK_LEFT = 2;                  // the lane's left offset in the page, px
-const WALK_RIGHT_RESERVED = 49;       // from the page's right edge: the margin line (46 px) + a little air
+const WALK_MARGIN_PX = 46;            // the red margin line's distance from the page's right edge when the page has no .margin element
+const WALK_AIR = 3;                   // the body stops this far before the margin line
+
+// One walker per page: mounting the same page again returns the existing mount (no stacked lanes).
+const _walkers = new WeakMap();
 
 export function mountWalkingCapybara(pageEl, { state = 'neutral', size = 104, bottom = 4 } = {}) {
+  const existing = _walkers.get(pageEl);
+  if (existing && existing.lane.isConnected) return existing.handle;
+
   const lane = document.createElement('div');
   lane.className = 'walker';
   lane.style.bottom = `${bottom}px`;
@@ -175,29 +183,43 @@ export function mountWalkingCapybara(pageEl, { state = 'neutral', size = 104, bo
   pageEl.appendChild(lane);
 
   const svg = pet.querySelector('svg');
+  let ro = null;
+  let stopped = false;
+  function stop() {
+    if (stopped) return;
+    stopped = true;
+    if (ro) ro.disconnect(); else window.removeEventListener('resize', layout);
+    lane.remove();
+    if (_walkers.get(pageEl)?.lane === lane) _walkers.delete(pageEl);
+  }
+  // Measures the lane. While the page has no width (a display:none screen, or before the first layout) it does
+  // nothing and waits for the next observation: the ResizeObserver fires when the page becomes visible.
   function layout() {
-    const laneW = Math.max(0, pageEl.clientWidth - WALK_LEFT - WALK_RIGHT_RESERVED);
-    lane.style.width = `${laneW}px`;
+    if (!lane.isConnected) { stop(); return; }
+    const pageW = pageEl.clientWidth;
+    if (!pageW) return;
+    const margin = pageEl.querySelector(':scope > .margin');
+    const wall = margin && margin.offsetWidth ? margin.offsetLeft + margin.offsetWidth : pageW - WALK_MARGIN_PX;
     let bb;
-    try { bb = svg.getBBox(); } catch { bb = null; }     // a hidden (display: none) page has no geometry
-    const vbW = svg.viewBox.baseVal.width || 110;
-    const k = (parseFloat(svg.getAttribute('width')) || size) / vbW;
-    if (!bb || !bb.width) { x.style.marginLeft = '0px'; x.style.setProperty('--span', '0px'); return; }
+    try { bb = svg.getBBox(); } catch { bb = null; }
+    if (!bb || !bb.width) return;
+    const laneW = Math.max(0, wall - WALK_AIR - WALK_LEFT);
+    const k = (parseFloat(svg.getAttribute('width')) || size) / (svg.viewBox.baseVal.width || 110);
+    lane.style.width = `${laneW}px`;
     x.style.marginLeft = `${-bb.x * k}px`;
     x.style.setProperty('--span', `${Math.max(0, laneW - bb.width * k)}px`);
   }
+  if (typeof ResizeObserver === 'function') {
+    ro = new ResizeObserver(layout);
+    ro.observe(pageEl);
+  } else {
+    window.addEventListener('resize', layout);
+  }
   layout();
-  window.addEventListener('resize', layout);
 
-  let stopped = false;
-  return {
-    stop() {
-      if (stopped) return;
-      stopped = true;
-      window.removeEventListener('resize', layout);
-      lane.remove();
-    },
-  };
+  const handle = { stop };
+  _walkers.set(pageEl, { lane, handle });
+  return handle;
 }
 
 export function cloneCapybara(size, opts) {
