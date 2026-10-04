@@ -67,7 +67,7 @@ export function updateSettingsProfileSub() {
   const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
   const height = p ? +p.height : 0;
   set('settings-height', height > 0 ? `${height} ס״מ` : NOT_SET);
-  set('settings-goalkg', p && p.height ? formatWeeklyGoal(p.goalKg) : NOT_SET);
+  set('settings-goalkg', p && p.goalKg != null ? formatWeeklyGoal(p.goalKg) : NOT_SET);
   const rec = calcRecommendedCal();
   set('settings-profile-sub', rec > 0 ? `${formatNumber(rec)} קק״ל` : NOT_SET);
 }

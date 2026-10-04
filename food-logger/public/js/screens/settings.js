@@ -2,6 +2,7 @@ import { state } from '../state.js';
 import { apiFetch } from '../api.js';
 import { closeModal, html, openModal, setHtml, showToast } from '../dom.js';
 import { mountWalkingCapybara } from '../pet.js';
+import { formatNumber } from '../format.js';
 import { calcRecommendedCal, updateSettingsProfileSub } from '../profile.js';
 import { messageFor } from '../errors.js';
 import { todayStr } from '../dates.js';
@@ -68,6 +69,9 @@ function clearChangePassModal() {
 
 // Sign-out: both slips are emptied (they are closed by closeAllModals), so the next person finds nothing of this one.
 export function resetSettingsModals() {
+  _cpGen += 1;
+  _cpBusy = false;
+  document.querySelector('#modal-change-pass [data-action="doChangePassword"]').disabled = false;
   clearChangePassModal();
   document.getElementById('mp-birthdate').value = '';
   document.getElementById('mp-height').value = '';
@@ -78,15 +82,29 @@ export function resetSettingsModals() {
   state.mpGoalKg = 0;
 }
 
+// One request at a time (the button is disabled while it is in flight); _cpGen is bumped by a sign-out, and a reply that was in
+// flight at that moment is dropped: no toast and no error text on the next person's screen.
+let _cpGen = 0;
+let _cpBusy = false;
 export async function doChangePassword() {
+  if (_cpBusy) return;
   const cur = document.getElementById('cp-current').value;
   const nw = document.getElementById('cp-new').value;
+  const btn = document.querySelector('#modal-change-pass [data-action="doChangePassword"]');
   document.getElementById('cp-error').textContent = '';
+  const gen = _cpGen;
+  _cpBusy = true;
+  btn.disabled = true;
   try {
     await apiFetch('/auth/change-password', { method: 'POST', body: JSON.stringify({ currentPassword: cur, newPassword: nw }) });
+    if (gen !== _cpGen) return;
     closeModal('modal-change-pass');
     showToast('הסיסמה שונתה בהצלחה');
-  } catch (e) { document.getElementById('cp-error').textContent = messageFor(e); }
+  } catch (e) {
+    if (gen === _cpGen) document.getElementById('cp-error').textContent = messageFor(e);
+  } finally {
+    if (gen === _cpGen) { _cpBusy = false; btn.disabled = false; }
+  }
 }
 
 // ════════════════════════════════════════════════════
@@ -156,7 +174,7 @@ export function updateMpPreview() {
     goalKg: state.mpGoalKg,
   };
   const rec = calcRecommendedCal(profile);
-  document.getElementById('mp-cal-preview').textContent = rec > 0 ? `${rec} קק״ל` : '—';
+  document.getElementById('mp-cal-preview').textContent = rec > 0 ? `${formatNumber(rec)} קק״ל` : '—';
 }
 
 export async function saveMpProfile() {

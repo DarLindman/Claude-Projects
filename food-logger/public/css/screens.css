@@ -302,7 +302,7 @@
 .set-title { margin-top: 10px; }
 .row2 { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0 12px; min-height: 30px; font: 400 18px/30px var(--font-text); color: var(--ink); }
 .row2 > span { flex: none; }
-.row2 b { flex: 0 1 auto; min-width: 0; margin-left: auto;   /* a value too long for the line drops below its label, to the left, and wraps there */
+.row2 b { flex: 0 1 auto; min-width: 0; margin-inline-start: auto;   /* in the RTL row the value goes to the left edge; one too long for the line drops below its label, to the left, and wraps there */
   font: 400 20px/30px var(--font-text); overflow-wrap: anywhere; }
 #settings-username { unicode-bidi: plaintext; }   /* a Latin name reads left to right inside the Hebrew row */
 .row2 .v { color: var(--red); }
@@ -531,18 +531,6 @@
 
 .toast.show { opacity: 1; }
 
-
-/* ════════════════════════════════════════
-   DESKTOP (min-width: 768px)
-════════════════════════════════════════ */
-@media (min-width: 768px) {
-  .topbar-title { font-size: 20px; }
-  .topbar-sub { font-size: 14px; }
-
-  .topbar-brand-title { font-size: 13px; }
-  .topbar-brand-sub { font-size: 11px; }
-  .topbar-brand-ig svg { width: 13px !important; height: 13px !important; }
-}
 
 /* ════ Page typography shared by the redone pages (from the reference) ════ */
 .lbl { font: 400 17px/30px var(--font-text); letter-spacing: .02em; color: var(--graphite); }

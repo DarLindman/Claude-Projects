@@ -67,12 +67,12 @@ export function closeModal(id) {
 }
 // Closes every open modal at once (a sign-out must not leave one over the next person's screen).
 export function closeAllModals() {
+  _openers.clear();   // first: nothing is given the focus back (the opener may be on a screen that is about to be hidden)
   document.querySelectorAll('.modal-overlay.open').forEach(o => closeModal(o.id));
-  _openers.clear();
 }
 // Escape closes the top slip through its own cross, so every rule of that close (the edit slip stays while it recalculates) applies.
 export function closeTopModalOnEscape(event) {
-  if (event.key !== 'Escape') return;
+  if (event.key !== 'Escape' || event.isComposing) return;   // Escape that ends an IME composition is not a close
   const open = document.querySelectorAll('.modal-overlay.open');
   if (open.length) open[open.length - 1].querySelector('.modal-close')?.click();
 }

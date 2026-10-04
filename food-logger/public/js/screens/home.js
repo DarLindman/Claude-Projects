@@ -279,8 +279,12 @@ export async function editSave() {
   try {
     await apiFetch(`/api/food/${_editEntryId}`, { method: 'PUT', body: JSON.stringify(body) });
     if (gen !== _editGen) return;   // signed out meanwhile: nothing of this meal is shown to the next person
+    const savedId = _editEntryId;
     closeModal('edit-modal');
-    loadDiary();
+    await loadDiary();
+    if (gen !== _editGen) return;
+    // the list was redrawn, so the "ערוך" that opened the slip is gone: the focus goes to the same meal's button (or the list)
+    (document.querySelector(`#entry-${savedId} [data-action="openEditModal"]`) || byId('meal-list'))?.focus();
     showToast('✅ המנה עודכנה');
   } catch (e) {
     showToast(messageFor(e));

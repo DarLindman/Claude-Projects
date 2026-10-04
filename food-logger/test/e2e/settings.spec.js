@@ -521,3 +521,189 @@ test('a 50-character username stays inside the page at 320 px, on the 30 px grid
   expect(Math.round(m.rowHeight) % 30, 'the row stays on the 30 px grid').toBe(0);
   expect(m.rowHeight, 'a long name wraps onto more rules').toBeGreaterThan(30);
 });
+
+// ── review round 1 ───────────────────────────────────────────────────────────────────────────────
+
+for (const [width, height] of [[390, 844], [320, 640]]) {
+  test(`the values of the profile rows sit at the left edge of their row (${width} px)`, async ({ page }) => {
+    await register(page);
+    await page.setViewportSize({ width, height });
+    await openSettings(page);
+    const gaps = await page.evaluate(() => [...document.querySelectorAll('#screen-settings .row2:has(> b)')].map((row) => {
+      const r = row.getBoundingClientRect();
+      const b = row.querySelector('b').getBoundingClientRect();
+      const label = row.querySelector('span').getBoundingClientRect();
+      return { id: row.querySelector('b').id, leftGap: b.left - r.left, rightOfLabelGap: label.left - b.right };
+    }));
+    expect(gaps.map((g) => g.id)).toEqual(['settings-username', 'settings-height', 'settings-goalkg', 'settings-profile-sub']);
+    for (const g of gaps) {
+      expect(g.leftGap, `${g.id}: the value starts at the row left edge`).toBeLessThanOrEqual(1);
+    }
+    // the short values leave a clear gap before their labels (they are not glued to them)
+    for (const g of gaps.slice(1)) expect(g.rightOfLabelGap, `${g.id}: free space between label and value`).toBeGreaterThan(20);
+  });
+}
+
+test('a long username drops below its label, at the left edge', async ({ page }) => {
+  await register(page, { username: 'q'.repeat(50) });
+  await page.setViewportSize({ width: 320, height: 640 });
+  await openSettings(page);
+  const m = await page.evaluate(() => {
+    const row = document.getElementById('settings-user').getBoundingClientRect();
+    const label = document.querySelector('#settings-user > span').getBoundingClientRect();
+    const b = document.getElementById('settings-username').getBoundingClientRect();
+    return { belowLabel: b.top >= label.bottom - 1, leftGap: b.left - row.left };
+  });
+  expect(m.belowLabel).toBe(true);
+  expect(m.leftGap).toBeLessThanOrEqual(1);
+});
+
+test('the change-password slip reopens empty after typing and an error', async ({ page }) => {
+  await register(page);
+  await openSettings(page);
+  await openChangePass(page);
+  await page.locator('#cp-current').fill('wrong-current-1');
+  await page.locator('#cp-new').fill('some-new-pass-1');
+  await page.locator('#modal-change-pass').getByRole('button', { name: 'שמור', exact: true }).click();
+  await expect(page.locator('#cp-error')).not.toBeEmpty();
+  await page.locator('#modal-change-pass .modal-close').click();
+  await expect(page.locator('#modal-change-pass')).not.toHaveClass(/open/);
+  await openChangePass(page);
+  await expect(page.locator('#cp-current')).toHaveValue('');
+  await expect(page.locator('#cp-new')).toHaveValue('');
+  await expect(page.locator('#cp-error')).toBeEmpty();
+});
+
+test('a recalculation in flight at the sign-out lands nowhere: the edit slip stays closed and empty', async ({ page }) => {
+  await register(page);
+  await meal(page, { name: 'ארוחה בדרך', calories: 321 });
+  await page.goto('/');
+  await expect(page.locator('#screen-dashboard')).toBeVisible();
+  let release;
+  const held = new Promise((r) => { release = r; });
+  await page.route('**/api/analyze-text', async (route) => {
+    await held;
+    await route.fulfill({ json: { foodName: 'שם מהשרת', calories: 999, protein_g: 11, carbs_g: 22, fat_g: 33, fiber_g: 4, items: [] } });
+  });
+  await page.locator('#nav-home').click();
+  await page.locator('#meal-list .meal-item-row').first().getByRole('button', { name: 'ערוך' }).click();
+  await page.locator('#edit-name').fill('שם חדש לחישוב');
+  await page.locator('#edit-modal').getByRole('button', { name: 'חשב מחדש', exact: true }).click();
+  await expect(page.locator('#edit-btn-row').getByRole('button', { name: /מחשב/ })).toBeVisible();
+  await page.evaluate(async () => { await (await import('/js/session.js')).doLogout(); });
+  await expect(page.locator('#screen-auth')).toBeVisible();
+  release();
+  await page.evaluate(() => new Promise((r) => setTimeout(r, 400)));   // let the late reply arrive
+  await expect(page.locator('#edit-modal')).not.toHaveClass(/open/);
+  for (const id of ['edit-name', 'edit-cal', 'edit-pro', 'edit-carb', 'edit-fat', 'edit-fiber', 'edit-time']) {
+    await expect(page.locator(`#${id}`), id).toHaveValue('');
+  }
+  await expect(page.locator('#edit-btn-row')).toBeEmpty();
+});
+
+test('Escape that ends an IME composition does not close the slip', async ({ page }) => {
+  await register(page);
+  await openSettings(page);
+  await openChangePass(page);
+  await page.evaluate(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', isComposing: true, bubbles: true })));
+  await expect(page.locator('#modal-change-pass')).toHaveClass(/open/);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#modal-change-pass')).not.toHaveClass(/open/);
+});
+
+test('change password: one request at a time, and a reply that arrives after the sign-out is dropped', async ({ page }) => {
+  await register(page);
+  await openSettings(page);
+  await openChangePass(page);
+  let calls = 0;
+  let release;
+  const held = new Promise((r) => { release = r; });
+  await page.route('**/auth/change-password', async (route) => {
+    calls += 1;
+    await held;
+    await route.fulfill({ json: { ok: true } });
+  });
+  await page.locator('#cp-current').fill(PASSWORD);
+  await page.locator('#cp-new').fill('brand-new-pass-1');
+  const save = page.locator('#modal-change-pass').getByRole('button', { name: 'שמור', exact: true });
+  await save.click();
+  await expect(save).toBeDisabled();
+  await page.evaluate(async () => { await (await import('/js/screens/settings.js')).doChangePassword(); });   // a second submit while the first is in flight sends nothing
+  await page.evaluate(() => new Promise((r) => setTimeout(r, 200)));
+  expect(calls).toBe(1);
+  await page.evaluate(async () => { await (await import('/js/session.js')).doLogout(); });
+  await expect(page.locator('#screen-auth')).toBeVisible();
+  release();
+  await page.evaluate(() => new Promise((r) => setTimeout(r, 400)));
+  // read at once (an auto-retrying assertion would wait out the toast's 2.5 s and pass)
+  expect(await page.evaluate(() => document.getElementById('toast').classList.contains('show')), 'no success toast for the next person').toBe(false);
+  await expect(page.locator('#cp-error')).toBeEmpty();
+  await expect(page.locator('#modal-change-pass [data-action="doChangePassword"]')).toBeEnabled();    // usable again for the next person
+});
+
+test('change password: a failure that arrives after the sign-out writes no error text', async ({ page }) => {
+  await register(page);
+  await openSettings(page);
+  await openChangePass(page);
+  let release;
+  const held = new Promise((r) => { release = r; });
+  await page.route('**/auth/change-password', async (route) => {
+    await held;
+    await route.fulfill({ status: 400, json: { error: { code: 'VALIDATION', fields: { newPassword: 'TOO_SHORT' } } } });
+  });
+  await page.locator('#cp-current').fill(PASSWORD);
+  await page.locator('#cp-new').fill('x');
+  await page.locator('#modal-change-pass').getByRole('button', { name: 'שמור', exact: true }).click();
+  await page.evaluate(async () => { await (await import('/js/session.js')).doLogout(); });
+  release();
+  await page.evaluate(() => new Promise((r) => setTimeout(r, 400)));
+  await expect(page.locator('#cp-error')).toBeEmpty();
+});
+
+test('after an edit is saved the focus is on that meal edit button, not on the page body', async ({ page }) => {
+  await register(page);
+  await meal(page, { name: 'ארוחה לשמירה', calories: 250 });
+  await page.goto('/');
+  await expect(page.locator('#screen-dashboard')).toBeVisible();
+  await page.locator('#nav-home').click();
+  const row = page.locator('#meal-list .meal-item-row').first();
+  await row.getByRole('button', { name: 'ערוך' }).click();
+  await page.locator('#edit-cal').fill('260');
+  await page.locator('#edit-btn-row').getByRole('button', { name: 'שמור', exact: true }).click();
+  await expect(page.locator('#edit-modal')).not.toHaveClass(/open/);
+  await expect(row).toContainText('260');
+  await expect.poll(() => page.evaluate(() => {
+    const a = document.activeElement;
+    return !!a && a.getAttribute('data-action') === 'openEditModal' && !!a.closest('.meal-item-row');
+  })).toBe(true);
+});
+
+test('a sign-out gives the focus to nothing: closing the slips does not focus the hidden settings row', async ({ page }) => {
+  await register(page);
+  await openSettings(page);
+  await openChangePass(page);
+  const focused = await page.evaluate(async () => {
+    const calls = [];
+    const original = HTMLElement.prototype.focus;
+    HTMLElement.prototype.focus = function (...args) { calls.push(!!this.closest('#screen-settings')); return original.apply(this, args); };
+    try { await (await import('/js/session.js')).doLogout(); } finally { HTMLElement.prototype.focus = original; }
+    return calls;
+  });
+  expect(focused.includes(true), 'no focus() call on an element of the settings screen').toBe(false);
+});
+
+test('the profile slip shows the recommended calories with the thousands separator, like the settings row', async ({ page }) => {
+  await register(page);
+  await openSettings(page);
+  const row = await page.locator('#settings-profile-sub').innerText();
+  await openProfile(page);
+  const preview = await page.locator('#mp-cal-preview').innerText();
+  expect(row).toMatch(/^\d,\d{3} קק״ל$/);
+  expect(preview).toBe(row);
+});
+
+test('the weekly-goal row shows the goal of a profile that has one even without a height', async ({ page }) => {
+  await register(page, { profile: { gender: 'male', birthDate: '1990-05-15', height: 0, weight: 70, activity: 'light', goalKg: 0.25 } });
+  await openSettings(page);
+  await expect(page.locator('#settings-goalkg')).toContainText('¼');
+});
