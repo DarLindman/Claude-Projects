@@ -140,7 +140,7 @@ npm run test:e2e     # Playwright browser tests against the real app on port 310
 - `npm test` runs files one at a time (`--test-concurrency=1`) because they share the one test database. Do not run it at the same time as `npm run test:e2e`.
 - Playwright needs its Chromium once: `npx playwright install chromium`.
 - `test/e2e/midnight.spec.js` runs the diary, an edit-and-save and the streak with a fake browser clock at 23:30 and then 00:30 (`page.clock.install` / `setFixedTime`); the whole e2e suite passes at any hour and in any database time zone (try `PGOPTIONS='-c timezone=America/New_York' npm run test:e2e`).
-- Tests of the diary redesign. API (`test/api/`): `analysis-items` (the `items` shape and the 8-item cap), `food-photos` and `jpegSize` (thumbnails), `receipt` and `tally` (the pure renderers), `frontend-dates`, `frontend-weight`, `frontend-fonts` (font budget, families, licences), `frontend-assets` (no unreferenced static file, no video), `icon` (the manifest lists real 192 / 512 / maskable PNGs, fetched from the test app). Playwright (`test/e2e/`): one spec per screen (`welcome-auth`, `dashboard`, `diary`, `add-meal`, `receipt-flow`, `stats`, `weight`, `settings`, `target-weight`), `fonts` (the digit font on every screen and modal), `walker` (the walking capybara's bounds), plus the older `smoke`, `handlers`, `hardening`, `xss`, `midnight` and `hebrew-baseline`. Seed meals through the API with a wall-clock `logged_at` built from the browser's local date (`localNow()` in `test/e2e/helpers.js`), like the real client.
+- The diary redesign added one Playwright spec per screen plus `fonts` (the digit font on every screen, stats view and modal), `walker` (the walking capybara's bounds) and the `hebrew-baseline` snapshot; API tests guard the `items` shape, thumbnails, the font budget and families (`frontend-fonts`), no unreferenced static file or video (`frontend-assets`) and the manifest icons (`icon`). Seed meals through the API with a wall-clock `logged_at` built from the browser's local date (`localNow()` in `test/e2e/helpers.js`), like the real client.
 
 ### Hebrew copy and AI naming
 
@@ -182,11 +182,11 @@ node scripts/eval-naming.js --also-model claude-sonnet-5-5 --only-extra --prompt
 
 ### Remotion logo (food-logger/remotion/)
 
-A standalone Remotion project (the animated salad logo). **The app no longer uses its output**: the welcome cover draws the capybara in SVG, and `salad-logo.mp4`, `salad-logo.webm` and `fire-loop.mp4` were removed from `public/`. The source stays here for the owner; rendering it writes a file into `public/` that nothing references, and `test/api/frontend-assets.test.js` fails on any unreferenced static file or any video, so render elsewhere (`--output <path outside public/>`) or reference the file first.
+A standalone Remotion project (the animated salad logo). **The app no longer uses its output**: the welcome cover draws the capybara in SVG, and `salad-logo.mp4`, `salad-logo.webm` and `fire-loop.mp4` were removed from `public/`. The source stays here for the owner; rendering it writes a file into `public/` that nothing references, and `test/api/frontend-assets.test.js` fails on any unreferenced static file or any video, so render to a path outside `public/`.
 
 ```bash
 cd food-logger/remotion
-npm run render    # writes ../public/salad-logo.webm (see the note above)
+npx remotion render SaladLogo --output <path outside public/> --codec vp9 --transparent   # not `npm run render`: its script already fixes --output to ../public/salad-logo.webm
 npm run studio    # opens Remotion Studio for preview
 ```
 

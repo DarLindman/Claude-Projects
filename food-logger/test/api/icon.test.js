@@ -125,3 +125,17 @@ test('buildIcon renders every icon of the manifest into the given dir, the maska
     throw e;
   }
 });
+
+test('the committed icons in public/ are exactly what buildIcon renders', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'icon-'));
+  try {
+    buildIcon(dir);
+    const files = fs.readdirSync(dir).filter((f) => f.endsWith('.png'));
+    assert.deepEqual(files.sort(), ['apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png']);
+    for (const f of files) {
+      assert.ok(fs.readFileSync(path.join(dir, f)).equals(fs.readFileSync(path.join(PUBLIC, f))), `public/${f} is stale: run buildIcon and commit the result`);
+    }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

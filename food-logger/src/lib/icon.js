@@ -38,7 +38,7 @@ function drawIcon(createCanvas, size, maskable) {
   if (maskable) {
     // The safe zone is the central circle of 40 % radius. The picture spans y 11..44, so its
     // middle (22, 27.5) is moved to the centre and it is scaled to 82 %: its farthest points
-    // (the ears, the bowl rim) end up about 15.8 units from the centre, inside the 17.6 limit.
+    // (the ears, the bowl rim) end up about 16.9 units from the centre, inside the 17.6 limit.
     ctx.translate(22, 22); ctx.scale(0.82, 0.82); ctx.translate(-22, -27.5);
   }
 
