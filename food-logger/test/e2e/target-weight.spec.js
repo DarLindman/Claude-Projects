@@ -215,3 +215,88 @@ for (const [width, height] of [[390, 844], [320, 640]]) {
     expect(f.width).toBeGreaterThan(60);
   });
 }
+
+// ── review round 1 ───────────────────────────────────────────────────────────────────────────────
+
+test('garbled text in the number field is an invalid value, not "empty": error, slip stays open, the stored goal is kept', async ({ page }) => {
+  const guards = attachGuards(page);
+  await register(page, { profile: { ...PROFILE, goalWeight: 66 } });
+  await openSettings(page);
+  await openProfile(page);
+  await page.locator('#mp-goal-weight').fill('');
+  await page.locator('#mp-goal-weight').focus();
+  await page.keyboard.type('68.5.1');
+  expect(await page.locator('#mp-goal-weight').evaluate((el) => ({ value: el.value, bad: el.validity.badInput }))).toEqual({ value: '', bad: true });
+  await saveProfile(page);
+  await expect(page.locator('#mp-error')).toHaveText('הזן משקל תקין');
+  await expect(page.locator('#modal-profile')).toHaveClass(/open/);
+  expect((await apiProfile(page)).goalWeight).toBe(66);
+  await expect(goalRow(page)).toHaveText(/^יעד משקל\s*66 ק״ג$/);
+  // really empty still unsets
+  await page.locator('#mp-goal-weight').fill('');
+  await saveProfile(page);
+  await expect(page.locator('#modal-profile')).not.toHaveClass(/open/);
+  expect((await apiProfile(page)).goalWeight).toBe(0);
+  expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+});
+
+test('adding a weight on the weight screen keeps the stored target weight (the profile write-back sends the whole profile)', async ({ page }) => {
+  await register(page, { profile: { ...PROFILE, goalWeight: 68.5 } });
+  await openSettings(page);
+  await weightHead(page);
+  await page.locator('#weight-val').fill('71.3');
+  await page.locator('#screen-weight').getByRole('button', { name: 'הוסף שקילה', exact: true }).click();
+  await expect(page.locator('#weight-head .wt-big')).toHaveText('71.3');
+  await expect.poll(async () => (await apiProfile(page)).weight, 'the profile follows the newest weight').toBe(71.3);
+  expect(await apiProfile(page)).toMatchObject({ goalWeight: 68.5, height: 175, goalKg: -0.5 });
+  await expect(page.locator('#weight-head')).toContainText('ק״ג · יעד 68.5');
+});
+
+test('double submit: a second save while the first is in flight sends nothing; the button is disabled meanwhile and free again after', async ({ page }) => {
+  await register(page);
+  await openSettings(page);
+  await openProfile(page);
+  const puts = [];
+  await page.route('**/api/profile', async (route) => {
+    if (route.request().method() !== 'PUT') return route.continue();
+    puts.push(route.request().postData());
+    await new Promise((r) => setTimeout(r, 700));
+    await route.continue();
+  });
+  await page.locator('#mp-goal-weight').fill('64');
+  const btn = page.locator('#modal-profile [data-action="saveMpProfile"]');
+  await btn.click();
+  await expect(btn).toBeDisabled();
+  await btn.dispatchEvent('click');   // a click that still reaches the handler (a disabled button gets none from a real tap)
+  await page.evaluate(async () => { await (await import('/js/screens/settings.js')).saveMpProfile(); });
+  await expect(page.locator('#modal-profile')).not.toHaveClass(/open/);
+  expect(puts).toHaveLength(1);
+  await expect(page.locator('#toast')).toHaveText('הפרופיל נשמר');
+  await openProfile(page);
+  await expect(btn).toBeEnabled();
+  expect((await apiProfile(page)).goalWeight).toBe(64);
+});
+
+test('a sign-out during a save frees the button, and the late reply shows nothing to the next person', async ({ page }) => {
+  const userB = `${uniqueName()}b`;
+  await registerElsewhere(userB);
+  await register(page);
+  await openSettings(page);
+  await openProfile(page);
+  await page.route('**/api/profile', async (route) => {
+    if (route.request().method() !== 'PUT') return route.continue();
+    await new Promise((r) => setTimeout(r, 800));
+    await route.continue();
+  });
+  await page.locator('#mp-goal-weight').fill('64');
+  const btn = page.locator('#modal-profile [data-action="saveMpProfile"]');
+  await btn.click();
+  await expect(btn).toBeDisabled();
+  await page.evaluate(async () => { await (await import('/js/session.js')).doLogout(); });
+  await expect(page.locator('#screen-auth')).toBeVisible();
+  await expect(btn).toBeEnabled();
+  await page.waitForTimeout(1200);   // the late reply arrives
+  await expect(page.locator('#toast')).not.toHaveClass(/show/);
+  await expect(page.locator('#screen-auth')).toBeVisible();
+  await expect(goalRow(page)).toHaveText(/^יעד משקל\s*לא הוגדר$/);
+});

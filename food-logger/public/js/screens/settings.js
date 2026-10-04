@@ -81,6 +81,9 @@ export function resetSettingsModals() {
   state.mpGender = 'male';
   state.mpActivity = 'light';
   state.mpGoalKg = 0;
+  _mpGen += 1;
+  _mpBusy = false;
+  document.querySelector('#modal-profile [data-action="saveMpProfile"]').disabled = false;
 }
 
 // One request at a time (the button is disabled while it is in flight); _cpGen is bumped by a sign-out, and a reply that was in
@@ -183,15 +186,23 @@ export function updateMpPreview() {
 }
 
 // The target-weight field as the profile stores it: empty is 0 (not set), else a number of 20..400 kg with at most one decimal;
-// null when the text is not that (the caller shows the error).
+// null when the text is not that (the caller shows the error). A number input reports garbled text (68.5.1) as an empty value
+// with validity.badInput: that is invalid, never "empty", or it would silently erase the stored goal.
 function readGoalWeight() {
-  const text = document.getElementById('mp-goal-weight').value.trim();
+  const el = document.getElementById('mp-goal-weight');
+  if (el.validity && el.validity.badInput) return null;
+  const text = el.value.trim();
   if (text === '') return 0;
   const n = Math.round(+text * 10) / 10;
   return Number.isFinite(n) && n >= 20 && n <= 400 ? n : null;
 }
 
+// Saving the profile is one request at a time too: the button is disabled while it is in flight; _mpGen is bumped by a sign-out
+// and a reply that was in flight at that moment is dropped (no toast, no rows written for the next person).
+let _mpGen = 0;
+let _mpBusy = false;
 export async function saveMpProfile() {
+  if (_mpBusy) return;
   document.getElementById('mp-error').textContent = '';
   const goalWeight = readGoalWeight();
   if (goalWeight === null) { document.getElementById('mp-error').textContent = 'הזן משקל תקין'; return; }
@@ -205,12 +216,21 @@ export async function saveMpProfile() {
     goalKg: state.mpGoalKg,
     goalWeight,
   };
+  const btn = document.querySelector('#modal-profile [data-action="saveMpProfile"]');
+  const gen = _mpGen;
+  _mpBusy = true;
+  btn.disabled = true;
   localStorage.setItem('fl_profile', JSON.stringify(profile));
   state.userProfile = profile;
-  try { await apiFetch('/api/profile', { method: 'PUT', body: JSON.stringify(profile) }); } catch {}
-  updateSettingsProfileSub();
-  closeModal('modal-profile');
-  showToast('הפרופיל נשמר');
+  try {
+    try { await apiFetch('/api/profile', { method: 'PUT', body: JSON.stringify(profile) }); } catch {}
+    if (gen !== _mpGen) return;
+    updateSettingsProfileSub();
+    closeModal('modal-profile');
+    showToast('הפרופיל נשמר');
+  } finally {
+    if (gen === _mpGen) { _mpBusy = false; btn.disabled = false; }
+  }
 }
 
 // Actions for the settings screen and the profile / change-password modals (doLogout lives in session.js).
