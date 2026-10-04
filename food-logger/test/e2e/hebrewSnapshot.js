@@ -13,6 +13,10 @@
 // lines are dropped, database ids in element ids (#entry-12) become #entry-N. Everything else
 // that could vary (clock, time zone, locale, username, entry time, typed placeholder, count-up
 // animation) is pinned or awaited by the spec itself, not filtered here.
+//
+// The one thing that IS skipped: the <text> glyphs inside the capybara's SVG (.pet-wrap). Her "z z z" (asleep)
+// and "?" (thinking) are part of the drawing, not copy, and which of them is in the text depends on her state.
+// Chart labels (the days, the goal "יעד N") are copy and stay.
 
 const fs = require('node:fs');
 const path = require('node:path');
@@ -32,11 +36,17 @@ function collectInPage({ selector, all, attrs }) {
     for (let n = walker.nextNode(); n; n = walker.nextNode()) {
       const tag = n.parentElement && n.parentElement.tagName;
       if (tag === 'SCRIPT' || tag === 'STYLE') continue;
+      if (n.parentElement && n.parentElement.closest('.pet-wrap text')) continue;   // part of the capybara's drawing
       const t = clean(n.nodeValue);
       if (t) lines.push(t);
     }
   } else {
+    // innerText only sees what is rendered: the capybara's glyphs are taken out of the rendering while it is read
+    const glyphs = [...root.querySelectorAll('.pet-wrap text')];
+    const shown = glyphs.map((g) => g.style.display);
+    glyphs.forEach((g) => { g.style.display = 'none'; });
     lines = root.innerText.split('\n').map(clean).filter(Boolean);
+    glyphs.forEach((g, i) => { g.style.display = shown[i]; });
   }
   // A stable address: the nearest id, else tag:nth-child steps up to the container.
   const pathOf = (el) => {
@@ -63,7 +73,7 @@ const normaliseKey = (s) => s.replace(/#entry-\d+/g, '#entry-N');
 
 function createCollector(page) {
   const data = {};
-  // In-flight API calls (fetch/xhr only: the welcome video may stream for ever).
+  // In-flight API calls (fetch/xhr only: images and fonts are not waited for).
   let pending = 0;
   const isApi = (r) => ['fetch', 'xhr'].includes(r.resourceType());
   page.on('request', (r) => { if (isApi(r)) pending++; });

@@ -159,7 +159,7 @@ test('an old profile without the field loads: "לא הוגדר" and the weight s
 
 test('the goal of one user does not reach the next after logout: row, slip, cache and weight screen', async ({ page }) => {
   const guards = attachGuards(page);
-  const userB = `${uniqueName()}b`;
+  const userB = `other${Date.now()}`;   // never a superstring of userA
   await registerElsewhere(userB);
   await register(page, { profile: { ...PROFILE, goalWeight: 68.5 } });
   await openSettings(page);
@@ -278,7 +278,7 @@ test('double submit: a second save while the first is in flight sends nothing; t
 });
 
 test('a sign-out during a save frees the button, and the late reply shows nothing to the next person', async ({ page }) => {
-  const userB = `${uniqueName()}b`;
+  const userB = `other${Date.now()}`;   // never a superstring of userA
   await registerElsewhere(userB);
   await register(page);
   await openSettings(page);

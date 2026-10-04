@@ -159,3 +159,26 @@ test('registration step 2 is reachable on a 320x568 phone (the page scrolls)', a
   });
   expect(r).toEqual({ scrollable: true, heightVisible: true, skipVisible: true, sideways: true });
 });
+
+test('registration: a range of digits in the activity list keeps its order ("1–3", not "3–1")', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'התחל עכשיו' }).click();
+  await page.locator('#reg-user').fill(`user${Date.now()}`);
+  await page.locator('#reg-pass').fill(PASSWORD);
+  await page.locator('#auth-register').getByRole('button', { name: 'הרשמה' }).click();
+  await expect(page.locator('#auth-step2')).toBeVisible();
+
+  // the same measurement as the profile modal's: the first digit sits left of the last one
+  const order = await page.evaluate(() => {
+    const out = {};
+    for (const bdi of document.querySelectorAll('#reg-activity-list bdi')) {
+      const t = bdi.firstChild;
+      const at = (i) => { const r = document.createRange(); r.setStart(t, i); r.setEnd(t, i + 1); return r.getBoundingClientRect().left; };
+      out[t.nodeValue] = at(0) < at(2);
+    }
+    return out;
+  });
+  expect(order).toEqual({ '1–3': true, '3–5': true, '6–7': true });
+  // the text of the rows is unchanged
+  await expect(page.locator('#reg-activity-list .activity-opt[data-val="light"]')).toHaveText('פעילות קלה1–3 ימים בשבוע');
+});

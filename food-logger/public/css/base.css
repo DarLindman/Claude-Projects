@@ -28,12 +28,6 @@
   100% { transform: scale(1); }
 }
 .pet-state-pop { animation: pet-state-pop 0.25s cubic-bezier(0.22,1,0.36,1) both; }
-/* Walk hop (used on direction turn) */
-@keyframes pet-hop {
-  0%,100% { transform: translateY(0); }
-  50%      { transform: translateY(-6px); }
-}
-.pet-hopping { animation: pet-hop 150ms cubic-bezier(0.25,1,0.5,1); }
 /* Thinking modifier */
 .pet--thinking {
   animation: capy-think 1.2s ease-in-out infinite !important;
@@ -150,9 +144,6 @@ body {
 }
 /* Form controls do not inherit the font by default; digits typed or listed in them must use the stack too. */
 button, input, select, textarea, option { font-family: inherit; }
-/* Chart labels carry an old font-family attribute (a presentation attribute loses to any CSS rule), so the old screens'
-   charts get the stack here instead of one edit per chart; the capybara's own <text> elements carry a class and stay. */
-svg text:not([class]) { font-family: var(--font-text); }
 
 /* Motion: every animation and transition collapses; new animations need no extra rule here. */
 @media (prefers-reduced-motion: reduce) {
@@ -330,20 +321,6 @@ svg text:not([class]) { font-family: var(--font-text); }
 }
 .screen-enter-left {
   animation: screenSlideInLeft 250ms var(--ease-out) both;
-}
-
-/* ── legacy screens (removed in Task 15) ─────────
-   A screen that has no .page of its own yet (every one except the welcome cover) is
-   drawn as the cream page itself, so its old components sit on paper, not on leather.
-   It stops matching as soon as its task puts a real .page inside it. */
-.screen:not(:has(> .page)):not([id="screen-welcome"]) {
-  inset: var(--page-top) 16px var(--nav-h) 12px;
-  background: linear-gradient(to left, rgba(70, 40, 10, .22), rgba(70, 40, 10, 0) 26px), var(--page);
-  border-radius: 8px 4px 4px 8px;
-  box-shadow: 0 2px 0 #ddd0b4, 0 4px 0 #cdbf9f, 0 6px 0 #bdae8c, 0 18px 30px rgba(0, 0, 0, .5);
-  color: var(--ink);
-  overflow-x: hidden;
-  overflow-y: auto;
 }
 
 /* the receipt (both languages and the numbers) is Cousine */

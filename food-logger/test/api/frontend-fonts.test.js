@@ -1,7 +1,7 @@
 'use strict';
 
-// Self-hosted fonts: everything the CSS loads comes from the app's own origin, the new
-// families of the redesign are declared, and their files stay within the size budget.
+// Self-hosted fonts: everything the CSS loads comes from the app's own origin, the families of the
+// diary are declared (and only those), and their files stay within the size budget.
 
 const fs = require('node:fs');
 const path = require('node:path');
@@ -30,6 +30,8 @@ function faces(css) {
 }
 
 const NEW_FAMILIES = ['Gveret Levin', 'Suez One', 'Cousine', 'Digits', 'Playpen Sans Hebrew'];
+// The Latin-only families of the old dark theme; their files and licences are gone.
+const REMOVED_FAMILIES = ['Fraunces', 'DM Sans', 'IBM Plex Mono'];
 const BUDGET = 300 * 1024;
 
 // A data: URI is inline (the xmlns attribute inside an SVG is a name, not a request), so it is
@@ -96,15 +98,41 @@ test('Digits only claims the digits and the separators of numbers', () => {
   }
 });
 
-test('the files of the new families total at most 300 KB', () => {
+test('every font file the CSS references totals at most 300 KB', () => {
   const files = new Set();
-  for (const f of faces(fontsCss).filter((x) => NEW_FAMILIES.includes(x.family))) {
-    for (const u of f.urls) files.add(u);
+  for (const file of cssFiles) {
+    for (const f of faces(read(path.join(CSS_DIR, file)))) for (const u of f.urls) files.add(u);
   }
   assert.ok(files.size > 0);
   let total = 0;
   for (const u of files) total += fs.statSync(path.join(PUBLIC, u)).size;
-  assert.ok(total <= BUDGET, `new font files total ${total} bytes, budget ${BUDGET}`);
+  assert.ok(total <= BUDGET, `font files total ${total} bytes, budget ${BUDGET}`);
+});
+
+test('only the families of the diary are declared, and no font file is left unreferenced', () => {
+  const referenced = new Set();
+  for (const file of cssFiles) {
+    for (const f of faces(read(path.join(CSS_DIR, file)))) {
+      assert.ok(NEW_FAMILIES.includes(f.family), `${file} declares the unexpected family ${f.family}`);
+      for (const u of f.urls) referenced.add(path.basename(u));
+    }
+  }
+  const onDisk = fs.readdirSync(path.join(PUBLIC, 'fonts')).filter((n) => n.endsWith('.woff2'));
+  assert.deepEqual(onDisk.sort(), [...referenced].sort(), 'public/fonts holds exactly the referenced woff2 files');
+});
+
+test('no CSS rule, inline style or script names a removed font family, and their files and licences are gone', () => {
+  const sources = cssFiles.map((f) => [`css/${f}`, read(path.join(CSS_DIR, f))]);
+  sources.push(['index.html', read(path.join(PUBLIC, 'index.html'))]);
+  const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(dir, e.name)) : [path.join(dir, e.name)]));
+  for (const f of walk(path.join(PUBLIC, 'js'))) sources.push([path.relative(PUBLIC, f), read(f)]);
+  for (const family of REMOVED_FAMILIES) {
+    const pattern = new RegExp(family.replace(/ /g, '[ -]?'), 'i');
+    for (const [name, text] of sources) assert.doesNotMatch(text, pattern, `${name} still mentions ${family}`);
+    const stem = family.replace(/ /g, '');
+    const left = fs.readdirSync(path.join(PUBLIC, 'fonts')).filter((n) => n.replace(/-/g, '').toLowerCase().includes(stem.toLowerCase()));
+    assert.deepEqual(left, [], `files of ${family} are still in public/fonts`);
+  }
 });
 
 test('each new family has its licence text next to its files', () => {

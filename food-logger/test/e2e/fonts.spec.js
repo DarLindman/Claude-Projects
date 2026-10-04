@@ -1,7 +1,7 @@
 'use strict';
 
 const { test, expect } = require('@playwright/test');
-const { attachGuards, expectNoGuardEvents, SIGNED_OUT_ME } = require('./helpers');
+const { attachGuards, expectNoGuardEvents, SIGNED_OUT_ME, localNow } = require('./helpers');
 
 // Foundation of the diary look (Task 2): the self-hosted handwriting fonts load, nothing is
 // fetched from another origin, every number on a visible screen is drawn with the `Digits`
@@ -34,6 +34,16 @@ async function digitOffenders(page) {
       const family = getComputedStyle(el).fontFamily;
       const first = family.split(',')[0].trim().replace(/^["']|["']$/g, '');
       if (first !== 'Digits') offenders.push(`${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}.${el.className && el.className.baseVal === undefined ? el.className : ''} "${n.nodeValue.trim().slice(0, 30)}" -> ${family}`);
+    }
+    // A number typed in a field (a value, not a text node) is drawn by the field's own font.
+    for (const el of document.body.querySelectorAll('input, select, textarea')) {
+      if (!visible(el) || el.closest('.receipt')) continue;
+      const text = el.tagName === 'SELECT' ? (el.selectedOptions[0] ? el.selectedOptions[0].textContent : '') : el.value;
+      if (!/[0-9]/.test(text)) continue;
+      seen += 1;
+      const family = getComputedStyle(el).fontFamily;
+      const first = family.split(',')[0].trim().replace(/^["']|["']$/g, '');
+      if (first !== 'Digits') offenders.push(`${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''} value "${String(text).trim().slice(0, 30)}" -> ${family}`);
     }
     return { seen, offenders };
   });
@@ -133,6 +143,82 @@ test('fonts, same-origin requests, digit family and 320 px fit', async ({ page, 
 
   // ── nothing left the origin ───────────────────────────────────────────
   expect(foreign, 'requests to other origins').toEqual([]);
+  expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+});
+
+// Every screen again, this time WITH data (meals, weights, a target weight, an analysis result), every
+// view of the stats and every modal: each digit, in a text or typed in a field, must be drawn in the digit family.
+test('every digit on every screen with data, every stats view and every modal is drawn in the digit font', async ({ page }) => {
+  const guards = attachGuards(page);
+  const CSRF = { Origin: 'http://localhost:3100', 'X-FL-Client': '1' };
+  const send = async (method, url, data) => { const r = await page.request[method](url, { headers: CSRF, data }); expect(r.status(), await r.text()).toBe(200); return r; };
+  const dayOffset = (n) => { const d = new Date(); d.setDate(d.getDate() - n); const p = (x) => String(x).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+
+  await send('post', '/auth/register', { username: `digits${Date.now()}`, password: PASSWORD });
+  await send('put', '/api/profile', { gender: 'female', birthDate: '1990-05-15', height: 168, weight: 64.5, activity: 'moderate', goalKg: -0.5, goalWeight: 60.5 });
+  for (const [n, kcal] of [[0, 1341], [1, 1980], [2, 2230], [5, 1500]]) {
+    await send('post', '/api/food', { meal_type: 'lunch', food_name: 'סלט ולחם', calories: kcal, protein_g: 31, carbs_g: 120, fat_g: 44, fiber_g: 9, logged_at: `${dayOffset(n)}T12:30:00` });
+  }
+  for (const [n, kg] of [[0, 64.5], [3, 65.1], [9, 66]]) await send('post', '/api/weight', { weight_kg: kg, logged_at: dayOffset(n) });
+
+  const check = async (label, { hasDigits = true } = {}) => {   // the add-meal page has no number before a photo is analysed
+    const { seen, offenders } = await digitOffenders(page);
+    if (hasDigits) expect(seen, `${label}: there are digits to look at`).toBeGreaterThan(0);
+    expect(offenders, `${label}: digit font`).toEqual([]);
+  };
+  const go = async (nav, screen) => { await page.locator(nav).click(); await expect(page.locator(screen)).toBeVisible(); };
+
+  await page.goto('/');
+  await expect(page.locator('#screen-dashboard')).toBeVisible();
+  await expect(page.locator('#dash-last .dash-meal .circ')).toContainText('1,341');
+  await check('dashboard');
+
+  await go('#nav-home', '#screen-home');
+  await expect(page.locator('#meal-list .meal-item-row')).toHaveCount(1);
+  await check('diary');
+  await page.locator('#meal-list .meal-item-row').first().getByRole('button', { name: 'ערוך' }).click();
+  await expect(page.locator('#edit-modal')).toHaveClass(/open/);
+  await expect(page.locator('#edit-cal')).toHaveValue('1341');
+  await check('edit modal');
+  await page.locator('#edit-modal-close').click();
+  await expect(page.locator('#edit-modal')).not.toHaveClass(/open/);
+
+  await go('#nav-camera', '#screen-camera');
+  await check('add meal', { hasDigits: false });
+  await page.locator('#food-text-input').fill('סלט');
+  await page.locator('#text-analyze-btn').click();
+  await expect(page.locator('#analysis-result')).toBeVisible();
+  await expect(page.locator('#res-cal')).not.toHaveValue('');
+  await check('analysis result');
+
+  await go('#nav-stats', '#screen-stats');
+  await expect(page.locator('#weekly-chart svg')).toBeVisible();
+  await check('stats weekly');
+  await page.locator('.stats-tab', { hasText: 'חודשי' }).click();
+  await expect(page.locator('#monthly-chart svg')).toBeVisible();
+  await check('stats monthly');
+  await page.locator('.stats-tab', { hasText: 'שנתי' }).click();
+  await expect(page.locator('#yearly-chart svg')).toBeVisible();
+  await check('stats yearly');
+
+  await go('#nav-weight', '#screen-weight');
+  await expect(page.locator('#weight-list .weight-entry')).toHaveCount(3);
+  await expect(page.locator('#weight-chart svg')).toBeVisible();
+  await check('weight');
+
+  await go('#nav-settings', '#screen-settings');
+  await check('settings');
+  await page.locator('#screen-settings').getByRole('button', { name: 'פרופיל גוף ויעד' }).click();
+  await expect(page.locator('#modal-profile')).toHaveClass(/open/);
+  await expect(page.locator('#mp-goal-weight')).toHaveValue('60.5');
+  await check('profile modal');
+  await page.locator('#modal-profile .modal-close').click();
+  await expect(page.locator('#modal-profile')).not.toHaveClass(/open/);
+  await page.locator('#screen-settings').getByRole('button', { name: 'שינוי סיסמה' }).click();
+  await expect(page.locator('#modal-change-pass')).toHaveClass(/open/);
+  await page.locator('#cp-new').fill('12345678');
+  await check('change password modal');
+
   expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
 });
 

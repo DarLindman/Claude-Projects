@@ -25,8 +25,6 @@
   --page-top:    calc(30px + env(safe-area-inset-top, 0px));
   --nav-h:       96px;   /* space under the page for the dock */
 
-  --radius-sharp: 4px;
-  --radius-pill:  99px;
   --radius-input: 8px;
 
   /* motion */
@@ -35,27 +33,4 @@
   --dur-fast:    150ms;
   --dur-mid:     250ms;
   --dur-slow:    400ms;
-}
-
-/* ── legacy aliases (removed in Task 15) ────────────────────────────────
-   The screens that are not redone yet still use the names of the old dark
-   theme. They now sit on the cream page, so each name maps to a value that
-   reads on cream. Each screen task deletes the aliases it no longer needs. */
-:root {
-  --bg:          var(--page);
-  --surface:     #fffdf6;
-  --surface2:    #efe4cc;
-  --surface3:    #e6d9bd;
-  --border:      rgba(43, 31, 22, .22);
-  --text:        var(--ink);
-  --text2:       var(--graphite);
-  --muted:       var(--graphite);
-  --accent:      var(--red);
-  --accent-dim:  rgba(179, 49, 29, .10);
-  --accent-glow: rgba(179, 49, 29, .20);
-  /* macro colours, darkened to read on cream */
-  --protein:     #0f766e;
-  --carb:        #1d4ed8;
-  --fat:         #b91c1c;
-  --fiber:       #6d28d9;
 }

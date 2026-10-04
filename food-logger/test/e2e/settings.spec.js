@@ -428,7 +428,7 @@ test('the edit modal keeps its buttons by name and works: edit, recalculate, sav
 test('a modal opened by one user does not leak into the next user after logout', async ({ page }) => {
   const guards = attachGuards(page);
   const userA = uniqueName();
-  const userB = `${uniqueName()}b`;
+  const userB = `other${Date.now()}`;   // never a superstring of userA (two uniqueName() calls in one millisecond can collide)
   await registerElsewhere(userB);
   await register(page, { username: userA });
   await meal(page, { name: 'ארוחה סודית של א', calories: 777 });

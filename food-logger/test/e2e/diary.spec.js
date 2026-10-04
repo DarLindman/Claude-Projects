@@ -467,6 +467,31 @@ test('a slow answer for an earlier tap never overwrites the day shown last (stal
   expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
 });
 
+test('a failing answer for an earlier tap shows no error; a failing answer for the day shown still does', async ({ page }) => {
+  const guards = attachGuards(page);
+  await register(page);
+  await page.clock.install({ time: new Date(2026, 9, 7, 12, 0) });          // Wednesday 2026-10-07
+  await meal(page, { name: 'מנה של יום שלישי', calories: 222, day: '2026-10-06', time: '09:00' });
+  await openDiary(page);
+  const fail = (route) => route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: { code: 'INTERNAL' } }) });
+  // A (Monday) fails slowly, B (Tuesday) answers at once
+  await page.route(/\/api\/food\?date=2026-10-05$/, async (route) => { await new Promise((r) => setTimeout(r, 1200)); await fail(route); });
+
+  await page.locator('#screen-home .week button[data-arg="2026-10-05"]').click();   // A
+  await page.locator('#screen-home .week button[data-arg="2026-10-06"]').click();   // B, before A has failed
+  await expect(rows(page).first().locator('.mir-name')).toHaveText('מנה של יום שלישי');
+  await page.waitForTimeout(1900);                                          // A's failure arrives now
+  // read at once, not polled: a polling `not.toHaveClass` would also pass once the toast has faded
+  expect(await page.locator('#toast').evaluate((el) => el.classList.contains('show')), 'no error toast for a stale answer').toBe(false);
+
+  // the day that is shown when its own answer fails still gets the error toast
+  await page.route(/\/api\/food\?date=2026-10-05$/, fail);
+  await page.locator('#screen-home .week button[data-arg="2026-10-05"]').click();
+  await expect(page.locator('#toast')).toHaveClass(/show/);
+  await expect(page.locator('#toast')).toHaveText('שגיאה בטעינת היומן');
+  expectNoGuardEvents(guards, [SIGNED_OUT_ME, /status of 500/]);
+});
+
 test('after a delete keyboard focus moves to the next meal ערוך button, or to the list when none is left', async ({ page }) => {
   const guards = attachGuards(page);
   await register(page);

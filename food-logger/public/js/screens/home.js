@@ -33,8 +33,8 @@ export function pickDay(day) {
 }
 
 export async function loadDiary() {
+  const day = state.diaryDate ?? todayStr();
   try {
-    const day = state.diaryDate ?? todayStr();
     renderWeek(day);
     const label = byId('diary-date-label');
     if (label) label.textContent = formatDate(day);
@@ -42,7 +42,9 @@ export async function loadDiary() {
     if (day !== state.diaryDate) return;   // the user moved to another day while this one loaded: its answer is stale
     renderMealList(entries);
     renderDailySummary(entries);
-  } catch (e) { showToast('שגיאה בטעינת היומן'); }
+  } catch (e) {
+    if (day === state.diaryDate) showToast('שגיאה בטעינת היומן');   // a failure of a day the user has already left is not worth an error
+  }
 }
 
 // The seven days of the displayed week: the shown day is circled in red pen, a future day is dimmed and disabled.
