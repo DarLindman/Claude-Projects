@@ -184,13 +184,13 @@
 .res-val input:focus { border-bottom-color: var(--red); box-shadow: none; }
 .res-val input[type="time"] { width: auto; direction: ltr; }
 
-/* the meal chips of this page (the edit modal keeps the old .meal-opt) */
-#screen-analysis .meal-select { margin: 12px 0 0; gap: 0; }
-#screen-analysis .meal-opt {
+/* the meal chips of this page and of the edit slip */
+#screen-analysis .meal-select, #edit-modal .meal-select { margin: 12px 0 0; gap: 0; }
+#screen-analysis .meal-opt, #edit-modal .meal-opt {
   font: 400 17px/28px var(--font-text); padding: 0 11px; margin: 0 0 8px 4px; background: transparent; color: var(--graphite);
   border: 1.8px solid var(--graphite); border-radius: 20px 18px 22px 18px; transition: none;
 }
-#screen-analysis .meal-opt.selected { color: var(--red); border-color: var(--red); transform: rotate(-2deg); background: rgba(179, 49, 29, .07); }
+#screen-analysis .meal-opt.selected, #edit-modal .meal-opt.selected { color: var(--red); border-color: var(--red); transform: rotate(-2deg); background: rgba(179, 49, 29, .07); }
 .res-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
 .res-actions .penbtn { position: static; font-size: 24px; line-height: 30px; padding: 8px 30px; }
 .res-actions .penbtn:active { transform: translateY(1px); box-shadow: 0 1px 0 #7f2010, 0 4px 10px rgba(120, 30, 10, .35); }
@@ -292,89 +292,125 @@
 }
 
 /* ════════════════════════════════════════
-   SETTINGS
+   SETTINGS (#screen-settings)
+   A ruled page: the title, the handwritten rows (who is signed in and the profile as it is today: height, weekly goal,
+   calorie goal), the three tappable rows (profile, password, the red logout), the about lines. The capybara walks along
+   the page bottom (.walker, appended by screens/settings.js with bottom: 4px); the content ends 96 px above it, so she
+   never walks over text, and scrolls when it is taller.
 ════════════════════════════════════════ */
-.settings-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 0;
-  border-bottom: 1px solid var(--border);
-  cursor: pointer;
-}
-.settings-item:last-child { border-bottom: none; }
-.settings-label { font-size: 14px; font-weight: 500; color: var(--text); }
-.settings-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
-.settings-arrow { color: var(--muted); font-size: 16px; }
+#screen-settings .content { bottom: 96px; padding-bottom: 12px; }
+.set-title { margin-top: 10px; }
+.row2 { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0 12px; min-height: 30px; font: 400 18px/30px var(--font-text); color: var(--ink); }
+.row2 > span { flex: none; }
+.row2 b { flex: 0 1 auto; min-width: 0; margin-left: auto;   /* a value too long for the line drops below its label, to the left, and wraps there */
+  font: 400 20px/30px var(--font-text); overflow-wrap: anywhere; }
+#settings-username { unicode-bidi: plaintext; }   /* a Latin name reads left to right inside the Hebrew row */
+.row2 .v { color: var(--red); }
+.row-btn { width: 100%; padding: 0; border: 0; border-radius: 0; background: none; cursor: pointer; text-align: start; }
+.row-btn:active > span:first-child { color: var(--red); }
+.row-btn.logout { margin-top: 30px; color: var(--red); }
+.set-about { margin: 30px 0 0; font: 400 15px/30px var(--font-text); color: var(--graphite); overflow-wrap: anywhere; }
+.set-brand { margin: 0; font: 400 13px/30px var(--font-text); color: var(--graphite); direction: ltr; text-align: start; overflow-wrap: anywhere; }
+.set-ig { color: var(--graphite); text-decoration: underline; text-decoration-color: var(--red); text-underline-offset: 3px; }
+.set-ig svg { vertical-align: -2px; margin-inline-end: 2px; }
 
 /* ════════════════════════════════════════
-   MODALS
+   MODALS: taped paper slips on a dimmed page
+   .modal-overlay is the dimming (a click on it closes the slip); .modal-sheet is the slip (cream paper with grain, a lift
+   shadow, a slight tilt, washi tape on its top edge); .slip-body inside it scrolls when the content is taller than the
+   phone, so the tape (a child of the sheet) never scrolls away or gets clipped. The fields are handwritten: a label, an
+   ink underline, no box; the buttons are red ink (.penbtn).
 ════════════════════════════════════════ */
 .modal-overlay {
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.75);
   z-index: 100;
-  align-items: flex-end;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-}
-.modal-overlay.open { display: flex; }
-
-.modal-sheet {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-bottom: none;
-  border-radius: 22px 22px 0 0;
-  padding: 24px;
-  width: 100%;
-  max-height: 88dvh;
-  overflow-y: auto;
-}
-
-.modal-title {
-  font-family: var(--font-text);
-  font-style: italic;
-  font-weight: 300;
-  font-size: 22px;
-  color: var(--text);
-  margin-bottom: 20px;
-}
-
-.modal-close {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  font-size: 16px;
-  cursor: pointer;
-  color: var(--muted);
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-inline-start: auto;
+  padding: 20px 14px;
+  background: rgba(18, 10, 5, .68);
+}
+.modal-overlay.open { display: flex; animation: slipDim var(--dur-mid) var(--ease-out) both; }
+@keyframes slipDim { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slipDrop {
+  from { opacity: 0; transform: translateY(-16px) rotate(-3deg); }
+  to   { opacity: 1; transform: translateY(0) rotate(-.5deg); }
 }
 
-/* Profile modal cal preview */
-.cal-preview {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-input);
-  padding: 12px 16px;
-  margin-bottom: 16px;
+.modal-sheet {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  max-height: calc(100dvh - 40px);
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  background: #fbf7ea;
+  color: var(--ink);
+  border-radius: 3px;
+  box-shadow: var(--lift);
+  transform: rotate(-.5deg);
+  outline: none;
 }
-.cal-preview-label { font-size: 12px; color: var(--muted); }
-.cal-preview-val {
-  font-family: var(--font-text);
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--accent);
+.modal-overlay.open .modal-sheet { animation: slipDrop var(--dur-slow) var(--ease-spring) both; }
+.modal-sheet::before {            /* paper grain */
+  content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--noise); opacity: .10; mix-blend-mode: multiply; pointer-events: none;
 }
+.modal-sheet > .tape { top: -11px; left: calc(50% - 29px); transform: rotate(-3deg); z-index: 2; }
+.slip-body { position: relative; flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto; padding: 24px 20px 20px; }
+
+.slip-head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+.modal-title { flex: 1 1 auto; min-width: 0; font: 400 28px/36px var(--font-text); color: var(--ink); overflow-wrap: anywhere; }
+.modal-close {
+  flex: none; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; padding: 0;
+  background: none; border: 1.8px solid var(--graphite); border-radius: 52% 48% 55% 45% / 60% 50% 50% 40%;
+  color: var(--graphite); font: 400 15px/1 var(--font-text); cursor: pointer;
+}
+.modal-close:active { color: var(--red); border-color: var(--red); }
+.modal-close:disabled { cursor: default; }
+
+/* handwritten fields */
+.modal-sheet .field { margin-top: 8px; }
+.modal-sheet .field label { display: block; margin: 0; font: 400 16px/24px var(--font-text); letter-spacing: 0; text-transform: none; color: var(--graphite); }
+.modal-sheet .field input, .modal-sheet .field select {
+  display: block; width: 100%; height: 32px; padding: 0; border: 0; border-bottom: 2px solid var(--ink); border-radius: 0;
+  background: transparent; color: var(--ink); box-shadow: none; outline: none; font: 400 21px/30px var(--font-text);
+}
+.modal-sheet .field input[type="date"] { font-size: 19px; }
+.modal-sheet .field input:focus, .modal-sheet .field select:focus { border-bottom-color: var(--red); box-shadow: none; }
+.modal-sheet .field select {
+  padding-inline-end: 22px; cursor: pointer;
+  background: no-repeat left 2px center / 14px 14px url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236f5d4c' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><path d='M5 9l7 7 7-7'/></svg>");
+}
+.slip-lbl { margin-top: 8px; font: 400 16px/24px var(--font-text); color: var(--graphite); }
+
+/* red ink buttons */
+.modal-sheet .penbtn { position: static; display: inline-block; font-size: 22px; line-height: 30px; padding: 6px 26px; }
+.modal-sheet .penbtn:active { transform: translateY(1px); box-shadow: 0 1px 0 #7f2010, 0 4px 10px rgba(120, 30, 10, .35); }
+.modal-sheet .penbtn:disabled { opacity: .6; cursor: default; }
+.modal-sheet .penbtn.alt { background: transparent; color: var(--graphite); box-shadow: none; border: 1.8px solid var(--graphite); border-radius: 20px 18px 22px 18px; padding: 4px 18px; font-size: 19px; line-height: 24px; }
+.slip-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 18px; }
+.slip-actions:empty { margin-top: 0; }
+.modal-sheet .error-msg { margin: 8px 0 0; min-height: 24px; color: var(--red); font: 400 17px/24px var(--font-text); text-align: start; }
+
+/* profile slip: the recommended calories as a red-pen circle, gender chips */
+.cal-preview { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0 10px; min-height: 40px; }
+.cal-preview-label { font: 400 17px/24px var(--font-text); color: var(--graphite); }
+.toggle-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 6px; }
+.toggle-btn {
+  font: 400 17px/28px var(--font-text); padding: 0 14px; background: transparent; cursor: pointer;
+  border: 1.8px solid var(--graphite); border-radius: 20px 18px 22px 18px; color: var(--graphite);
+}
+.toggle-btn.selected { color: var(--red); border-color: var(--red); transform: rotate(-2deg); background: rgba(179, 49, 29, .07); }
+
+/* edit slip: a handwritten name and the handwritten rows of the analysis page */
+.modal-sheet .edit-name {
+  display: block; width: 100%; height: 40px; margin: 4px 0 0; padding: 0; border: 0; border-bottom: 2px solid var(--ink); border-radius: 0;
+  background: transparent; color: var(--ink); box-shadow: none; outline: none; font: 400 28px/38px var(--font-text);
+}
+.modal-sheet .edit-name:focus { border-bottom-color: var(--red); box-shadow: none; }
+.modal-sheet .edit-name::placeholder { color: rgba(111, 93, 76, .45); }
+.edit-rows { margin-top: 8px; }
 
 /* ════════════════════════════════════════
    WEIGHT (#screen-weight)
@@ -508,112 +544,6 @@
   .topbar-brand-ig svg { width: 13px !important; height: 13px !important; }
 }
 
-.receipt {
-  background: var(--surface);
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-sharp);
-  padding: 20px;
-  overflow: hidden;
-}
-
-.receipt-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  font-size: 11px;
-  color: var(--muted);
-  letter-spacing: 1px;
-}
-
-.receipt-hr {
-  border: none;
-  border-top: 1px dashed var(--border);
-  margin: 10px 0;
-}
-
-.receipt-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 0;
-}
-
-.receipt-name-row { margin-bottom: 4px; }
-
-.receipt-name-input {
-  font-family: var(--font-receipt) !important;
-  font-weight: 500 !important;
-  font-size: 22px !important;
-  background: transparent !important;
-  border: none !important;
-  border-bottom: 1px solid transparent !important;
-  color: var(--text) !important;
-  padding: 0 !important;
-  width: 100%;
-  resize: none;
-  overflow: hidden;
-  line-height: 1.3;
-  display: block;
-  min-height: 1.4em;
-}
-.receipt-name-input:focus {
-  border-bottom-color: var(--border) !important;
-  outline: none !important;
-  box-shadow: none !important;
-}
-
-.receipt-lbl {
-  font-size: 12px;
-  color: var(--text2);
-  flex: 1;
-  text-transform: none;
-  letter-spacing: 0;
-  font-weight: 400;
-  margin-bottom: 0;
-}
-
-.receipt-val {
-  font-family: var(--font-receipt) !important;
-  font-size: 13px !important;
-  text-align: left;
-  background: transparent !important;
-  border: none !important;
-  border-bottom: 1px solid transparent !important;
-  width: 64px;
-  color: var(--text) !important;
-  padding: 2px 0 !important;
-}
-.receipt-val:focus {
-  border-bottom-color: var(--border) !important;
-  outline: none !important;
-  box-shadow: none !important;
-}
-
-.receipt-unit {
-  font-size: 11px;
-  color: var(--muted);
-  width: 28px;
-  text-align: left;
-}
-
-/* Stagger animation */
-@keyframes receiptRow {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.receipt-entry {
-  opacity: 0;
-  animation: receiptRow var(--dur-mid) var(--ease-out) both;
-}
-.receipt-entry:nth-child(4) { animation-delay: 80ms; }
-.receipt-entry:nth-child(5) { animation-delay: 140ms; }
-.receipt-entry:nth-child(6) { animation-delay: 200ms; }
-.receipt-entry:nth-child(7) { animation-delay: 260ms; }
-.receipt-entry:nth-child(8) { animation-delay: 320ms; }
-.receipt-entry:nth-child(9) { animation-delay: 380ms; }
-.receipt-entry:nth-child(10) { animation-delay: 440ms; }
-
 /* ════ Page typography shared by the redone pages (from the reference) ════ */
 .lbl { font: 400 17px/30px var(--font-text); letter-spacing: .02em; color: var(--graphite); }
 .title { font: 400 25px/46px var(--font-text); margin-top: 4px; white-space: nowrap; }
@@ -692,15 +622,15 @@
 /* chips (gender) and handwritten rows (activity); the code toggles .selected */
 .chip-row { margin-top: 4px; }
 #auth-step2 .chip.selected { color: var(--red); border-color: var(--red); transform: rotate(-2deg); background: rgba(179, 49, 29, .07); }
-#reg-activity-list { display: flex; flex-direction: column; gap: 4px; margin: 4px 0 0; }
-#reg-activity-list .activity-opt {
+#reg-activity-list, #mp-activity-list { display: flex; flex-direction: column; gap: 4px; margin: 4px 0 0; }
+#reg-activity-list .activity-opt, #mp-activity-list .activity-opt {
   display: block; width: 100%; text-align: start; cursor: pointer; padding: 3px 12px; background: transparent;
   border: 1.8px solid transparent; border-radius: 20px 18px 22px 18px;
   font: 400 15px/20px var(--font-text); color: var(--graphite);
 }
-#reg-activity-list .activity-opt strong { display: block; font: 400 18px/26px var(--font-text); color: var(--ink); }
-#reg-activity-list .activity-opt.selected { border-color: var(--red); background: rgba(179, 49, 29, .07); transform: rotate(-.6deg); }
-#reg-activity-list .activity-opt.selected strong { color: var(--red); }
+#reg-activity-list .activity-opt strong, #mp-activity-list .activity-opt strong { display: block; font: 400 18px/26px var(--font-text); color: var(--ink); }
+#reg-activity-list .activity-opt.selected, #mp-activity-list .activity-opt.selected { border-color: var(--red); background: rgba(179, 49, 29, .07); transform: rotate(-.6deg); }
+#reg-activity-list .activity-opt.selected strong, #mp-activity-list .activity-opt.selected strong { color: var(--red); }
 /* the walker would cross the tall profile step: it only walks over the short pages */
 #screen-auth .page:has(#auth-step2:not([style*="none"])) > .walker { display: none; }
 

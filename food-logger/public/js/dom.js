@@ -46,8 +46,36 @@ export function setHtml(el, fragment) {
   el.innerHTML = fragment.__raw;
 }
 
-export function openModal(id) { document.getElementById(id).classList.add('open'); }
-export function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+// A modal is a paper slip on a dimmed page. Opening it moves the focus into the slip (the slip itself, not a field, so no
+// keyboard pops up on a phone) and remembers what had the focus; closing gives it back, unless the user already moved on.
+const _openers = new Map();   // modal id -> the element that had the focus when it opened
+export function openModal(id) {
+  const overlay = document.getElementById(id);
+  if (!overlay.classList.contains('open')) _openers.set(id, document.activeElement);
+  overlay.classList.add('open');
+  overlay.querySelector('.modal-sheet')?.focus({ preventScroll: true });
+}
+export function closeModal(id) {
+  const overlay = document.getElementById(id);
+  const wasOpen = overlay.classList.contains('open');
+  overlay.classList.remove('open');
+  const opener = _openers.get(id);
+  _openers.delete(id);
+  const focus = document.activeElement;
+  const focusLost = !focus || focus === document.body || overlay.contains(focus);
+  if (wasOpen && focusLost && opener && opener !== document.body && opener.isConnected) opener.focus({ preventScroll: true });
+}
+// Closes every open modal at once (a sign-out must not leave one over the next person's screen).
+export function closeAllModals() {
+  document.querySelectorAll('.modal-overlay.open').forEach(o => closeModal(o.id));
+  _openers.clear();
+}
+// Escape closes the top slip through its own cross, so every rule of that close (the edit slip stays while it recalculates) applies.
+export function closeTopModalOnEscape(event) {
+  if (event.key !== 'Escape') return;
+  const open = document.querySelectorAll('.modal-overlay.open');
+  if (open.length) open[open.length - 1].querySelector('.modal-close')?.click();
+}
 
 let toastTimer;
 export function showToast(msg) {

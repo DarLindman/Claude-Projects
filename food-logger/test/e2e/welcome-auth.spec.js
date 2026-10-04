@@ -127,7 +127,7 @@ test('the walker comes back when the auth screen is shown again (logout)', async
   await expect(page.locator('.walker')).toHaveCount(0);
 
   await page.locator('#nav-settings').click();
-  await page.locator('#screen-settings .settings-item', { hasText: 'יציאה' }).click();
+  await page.locator('#screen-settings .settings-item', { hasText: 'התנתקות' }).click();
   await expect(page.locator('#screen-auth')).toBeVisible();
   await expect(page.locator('#screen-auth .page > .walker')).toHaveCount(1);
   expectNoGuardEvents(guards, [SIGNED_OUT_ME]);

@@ -140,6 +140,26 @@ let _editOriginalName = '';
 let _editOriginalDate = '';
 let _editNotes        = null;
 let _editAnalyzing    = false;
+let _editGen          = 0;   // bumped by resetEditModal: a reply that was in flight at a sign-out is dropped
+
+// Sign-out: the slip is closed (by closeAllModals) and emptied, so the next person finds nothing of this meal.
+export function resetEditModal() {
+  _editGen += 1;
+  _editEntryId = null;
+  _editOriginalName = '';
+  _editOriginalDate = '';
+  _editNotes = null;
+  _editAnalyzing = false;
+  _mealEntries.clear();
+  for (const id of ['edit-name', 'edit-cal', 'edit-pro', 'edit-carb', 'edit-fat', 'edit-fiber', 'edit-time']) {
+    document.getElementById(id).value = '';
+  }
+  document.querySelectorAll('#edit-modal .meal-opt').forEach(b => b.classList.remove('selected'));
+  document.getElementById('edit-btn-row').replaceChildren();
+  const closeBtn = document.getElementById('edit-modal-close');
+  closeBtn.disabled = false;
+  closeBtn.style.opacity = '';
+}
 
 export function openEditModal(id) {
   const entry = _mealEntries.get(id);
@@ -192,10 +212,10 @@ function updateEditButtons() {
   const row = document.getElementById('edit-btn-row');
   if (nameChanged) {
     setHtml(row, html`
-      <button class="btn btn-primary" style="flex:1" data-action="editRecalculate">חשב מחדש</button>
-      <button class="btn" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text2)" data-action="editSave">שמור מבלי לחשב מחדש</button>`);
+      <button class="penbtn" data-action="editRecalculate">חשב מחדש</button>
+      <button class="penbtn alt" data-action="editSave">שמור מבלי לחשב מחדש</button>`);
   } else {
-    setHtml(row, html`<button class="btn btn-primary" style="width:100%" data-action="editSave">שמור</button>`);
+    setHtml(row, html`<button class="penbtn" data-action="editSave">שמור</button>`);
   }
 }
 
@@ -207,14 +227,16 @@ export async function editRecalculate() {
   closeBtn.disabled = true;
   closeBtn.style.opacity = '0.4';
   setHtml(document.getElementById('edit-btn-row'),
-    html`<button class="btn btn-primary" style="width:100%" disabled>מחשב... 🔄</button>`);
+    html`<button class="penbtn" disabled>מחשב... 🔄</button>`);
 
   const foodName = document.getElementById('edit-name').value.trim();
+  const gen = _editGen;
   try {
     const data = await apiFetch('/api/analyze-text', {
       method: 'POST',
       body: JSON.stringify({ text: foodName }),
     });
+    if (gen !== _editGen) return;   // signed out meanwhile: the reply belongs to the previous person
     document.getElementById('edit-name').value  = data.foodName || foodName;
     document.getElementById('edit-cal').value   = (+data.calories  || 0).toFixed(1);
     document.getElementById('edit-pro').value   = (+data.protein_g || 0).toFixed(1);
@@ -222,14 +244,16 @@ export async function editRecalculate() {
     document.getElementById('edit-fat').value   = (+data.fat_g     || 0).toFixed(1);
     document.getElementById('edit-fiber').value = (+data.fiber_g   || 0).toFixed(1);
     setHtml(document.getElementById('edit-btn-row'),
-      html`<button class="btn btn-primary" style="width:100%" data-action="editSave">שמור</button>`);
+      html`<button class="penbtn" data-action="editSave">שמור</button>`);
   } catch (e) {
     showToast(analysisMessageFor(e));
-    updateEditButtons();
+    if (gen === _editGen) updateEditButtons();
   } finally {
-    _editAnalyzing = false;
-    closeBtn.disabled = false;
-    closeBtn.style.opacity = '';
+    if (gen === _editGen) {
+      _editAnalyzing = false;
+      closeBtn.disabled = false;
+      closeBtn.style.opacity = '';
+    }
   }
 }
 
@@ -251,8 +275,10 @@ export async function editSave() {
                   : null,
     notes:      _editNotes,
   };
+  const gen = _editGen;
   try {
     await apiFetch(`/api/food/${_editEntryId}`, { method: 'PUT', body: JSON.stringify(body) });
+    if (gen !== _editGen) return;   // signed out meanwhile: nothing of this meal is shown to the next person
     closeModal('edit-modal');
     loadDiary();
     showToast('✅ המנה עודכנה');

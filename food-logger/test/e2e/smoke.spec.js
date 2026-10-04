@@ -108,7 +108,7 @@ test('full user journey', async ({ page }) => {
   await expect(page.locator('#cp-error')).toBeEmpty();
 
   // ── logout ─────────────────────────────────────────────────────────────
-  await page.locator('#screen-settings .settings-item', { hasText: 'יציאה' }).click();
+  await page.locator('#screen-settings .settings-item', { hasText: 'התנתקות' }).click();
   await expect(page.locator('#screen-auth')).toBeVisible();
   await expect(page.locator('#bottom-nav')).toBeHidden();
   // the session is a cookie now: nothing in storage, and the server no longer knows us

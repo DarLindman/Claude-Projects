@@ -330,9 +330,9 @@ test('the walking capybara is mounted on entering the screen, never stacked, and
     await expect(page.locator('#screen-stats')).toBeHidden();
     w = await walkerState();
     expect(w.inStats, `after ${nav}`).toBe(0);
-    // the animations belong to the lanes that remain (the weight screen has its own walker): none of them is the stats lane's
+    // the animations belong to the lanes that remain (the weight and settings screens have their own walker): none of them is the stats lane's
     expect(w.walkAnims, `animations after ${nav}`).toBe(2 * w.lanes);
-    expect(w.lanes, `lanes after ${nav}`).toBe(nav === '#nav-weight' ? 1 : 0);
+    expect(w.lanes, `lanes after ${nav}`).toBe(nav === '#nav-weight' || nav === '#nav-settings' ? 1 : 0);
   }
   // and back again
   await page.locator('#nav-stats').click();

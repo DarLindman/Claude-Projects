@@ -1,4 +1,4 @@
-import { actions as modalActions } from './dom.js';
+import { actions as modalActions, closeTopModalOnEscape } from './dom.js';
 import { bindActions } from './events.js';
 import { installPhotoFallback } from './photos.js';
 import { loadProfile } from './profile.js';
@@ -9,7 +9,7 @@ import { actions as authActions, doLogin, doRegister, enterAuth, leaveAuth } fro
 import { actions as cameraActions, autoResizeTextarea, enterCamera, releaseAnalyzeButtons } from './screens/camera.js';
 import { loadDashboard, resetDashboard } from './screens/dashboard.js';
 import { actions as homeActions, loadDiary } from './screens/home.js';
-import { actions as settingsActions, populateProfileSelects } from './screens/settings.js';
+import { actions as settingsActions, enterSettings, leaveSettings, populateProfileSelects } from './screens/settings.js';
 import { actions as statsActions, enterStats, leaveStats } from './screens/stats.js';
 import { actions as weightActions, enterWeight, leaveWeight } from './screens/weight.js';
 import { actions as welcomeActions, mountWelcomePet } from './screens/welcome.js';
@@ -25,6 +25,7 @@ registerScreen('dashboard', { enter: loadDashboard, leave: resetDashboard });
 registerScreen('home',      { enter: loadDiary });
 registerScreen('stats',     { enter: enterStats, leave: leaveStats });
 registerScreen('weight',    { enter: enterWeight, leave: leaveWeight });
+registerScreen('settings',  { enter: enterSettings, leave: leaveSettings });
 registerScreen('camera',    { enter: enterCamera });
 registerScreen('analysis',  { leave: () => { leaveAnalysis(); releaseAnalyzeButtons(); } });
 
@@ -36,6 +37,7 @@ loadProfile();
 // The session is an HttpOnly cookie: ask the server whether it is still valid.
 bootSession();
 
+document.addEventListener('keydown', closeTopModalOnEscape);
 document.getElementById('login-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 document.getElementById('reg-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
 document.getElementById('res-cal').addEventListener('input', fitCalories);

@@ -1,4 +1,5 @@
 import { state } from './state.js';
+import { formatNumber } from './format.js';
 
 export function loadProfile() {
   try { state.userProfile = JSON.parse(localStorage.getItem('fl_profile')); } catch {}
@@ -46,9 +47,27 @@ export function calcRecommendedCal(profile) {
   return Math.max(Math.round(tdee + adj), 1000);
 }
 
+// The weekly change goal as the profile modal's list shows it: a sign (marked left-to-right so it stays in front in RTL), a
+// whole number or a fraction glyph, and the unit; 0 is "keeping the weight". A value off the list snaps to the closest option
+// (the modal does the same when it opens).
+const GOAL_STEPS = [-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1];
+const GOAL_GLYPH = { 0.25: '¼', 0.5: '½', 0.75: '¾', 1: '1' };
+export function formatWeeklyGoal(goalKg) {
+  const g = +goalKg || 0;
+  const step = GOAL_STEPS.reduce((a, b) => (Math.abs(b - g) < Math.abs(a - g) ? b : a));
+  if (step === 0) return 'שמירה על משקל';
+  return `\u200e${step > 0 ? '+' : '-'}${GOAL_GLYPH[Math.abs(step)]}\u200e ק״ג`;
+}
+
+// The profile rows of the settings page (height, weekly goal, calorie goal); "לא הוגדר" for whatever the profile lacks.
+// The elements are plain text targets: nothing here is markup.
 export function updateSettingsProfileSub() {
-  const sub = document.getElementById('settings-profile-sub');
-  if (!sub) return;
+  const NOT_SET = 'לא הוגדר';
+  const p = state.userProfile;
+  const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+  const height = p ? +p.height : 0;
+  set('settings-height', height > 0 ? `${height} ס״מ` : NOT_SET);
+  set('settings-goalkg', p && p.height ? formatWeeklyGoal(p.goalKg) : NOT_SET);
   const rec = calcRecommendedCal();
-  sub.textContent = rec > 0 ? `${rec} קלוריות מומלצות ביום` : 'לא הוגדר';
+  set('settings-profile-sub', rec > 0 ? `${formatNumber(rec)} קק״ל` : NOT_SET);
 }

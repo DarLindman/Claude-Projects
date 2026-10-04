@@ -308,8 +308,6 @@ svg text:not([class]) { font-family: var(--font-text); }
 /* ── Screens ─────────────────────────────────────
    A screen fills the frame; a redone screen puts a .page inside it (the dock stays below the page). */
 .screen { display: none; position: absolute; inset: 0; z-index: 2; flex-direction: column; }
-#screen-settings { overflow-x: hidden; }
-#screen-settings .screen-body { overflow-y: auto; }
 
 @keyframes screenEnter {
   from { opacity: 0; transform: translateY(12px); }

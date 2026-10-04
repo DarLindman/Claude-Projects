@@ -291,7 +291,7 @@ test('inline handlers are gone and every delegated action still works', async ({
   await expect(page.locator('#modal-change-pass')).not.toHaveClass(/open/);
 
   // ── logout ─────────────────────────────────────────────────────────────
-  await page.locator('#screen-settings .settings-item', { hasText: 'יציאה' }).click();
+  await page.locator('#screen-settings .settings-item', { hasText: 'התנתקות' }).click();
   await expect(page.locator('#screen-auth')).toBeVisible();
 
   await expectNoInline(page, 'end of journey');

@@ -1,10 +1,24 @@
 import { state } from '../state.js';
 import { apiFetch } from '../api.js';
 import { closeModal, html, openModal, setHtml, showToast } from '../dom.js';
+import { mountWalkingCapybara } from '../pet.js';
 import { calcRecommendedCal, updateSettingsProfileSub } from '../profile.js';
 import { messageFor } from '../errors.js';
 import { todayStr } from '../dates.js';
 import { doLogout } from '../session.js';
+
+// ════════════════════════════════════════════════════
+// The walking capybara (along the bottom of the page): mounted when the screen is entered, stopped when it is left
+// (router hooks registered in main.js). Mounting the same page twice returns the same walker.
+// ════════════════════════════════════════════════════
+let _walker = null;
+export function enterSettings() {
+  const page = document.querySelector('#screen-settings .page');
+  if (page) _walker = mountWalkingCapybara(page, { state: 'neutral', size: 96, bottom: 4 });
+}
+export function leaveSettings() {
+  if (_walker) { _walker.stop(); _walker = null; }
+}
 
 // Populate dropdown selects for profile fields
 export function populateProfileSelects() {
@@ -39,6 +53,29 @@ export function populateProfileSelects() {
   document.getElementById('reg-birthdate').value = todayISO;
   document.getElementById('reg-height').value = '175';
   document.getElementById('reg-weight').value = '70.0';
+}
+
+// Opens the change-password slip empty: what was typed before (and the last error) never comes back.
+export function openChangePassModal() {
+  clearChangePassModal();
+  openModal('modal-change-pass');
+}
+function clearChangePassModal() {
+  document.getElementById('cp-current').value = '';
+  document.getElementById('cp-new').value = '';
+  document.getElementById('cp-error').textContent = '';
+}
+
+// Sign-out: both slips are emptied (they are closed by closeAllModals), so the next person finds nothing of this one.
+export function resetSettingsModals() {
+  clearChangePassModal();
+  document.getElementById('mp-birthdate').value = '';
+  document.getElementById('mp-height').value = '';
+  document.getElementById('mp-error').textContent = '';
+  document.getElementById('mp-cal-preview').textContent = '—';
+  state.mpGender = 'male';
+  state.mpActivity = 'light';
+  state.mpGoalKg = 0;
 }
 
 export async function doChangePassword() {
@@ -143,6 +180,7 @@ export async function saveMpProfile() {
 // Actions for the settings screen and the profile / change-password modals (doLogout lives in session.js).
 export const actions = {
   openProfileModal: () => openProfileModal(),
+  openChangePassModal: () => openChangePassModal(),
   doLogout: () => doLogout(),
   doChangePassword: () => doChangePassword(),
   setMpGender: (el) => setMpGender(el.dataset.arg),

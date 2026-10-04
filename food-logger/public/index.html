@@ -344,28 +344,18 @@
 
 <!-- ════════════════ SETTINGS ════════════════ -->
 <div id="screen-settings" class="screen">
-  <div class="topbar"><div class="topbar-title">הגדרות</div><div class="topbar-brand"><div class="topbar-brand-title">Your Personal Food Logger</div><div class="topbar-brand-sub"><a class="topbar-brand-ig" href="https://www.instagram.com/darlindman/" target="_blank" rel="noopener"><svg width="9" height="9" viewBox="0 0 24 24" fill="#E1306C"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>Instagram</a> &middot; By Dar</div></div></div>
-  <div class="screen-body">
-    <div class="card">
-      <div class="settings-item" data-action="openProfileModal">
-        <div>
-          <div class="settings-label">פרופיל גוף ויעד</div>
-          <div class="settings-sub" id="settings-profile-sub">לא הוגדר</div>
-        </div>
-        <div class="settings-arrow">›</div>
-      </div>
-      <div class="settings-item" data-action="openModal" data-arg="modal-change-pass">
-        <div><div class="settings-label">שינוי סיסמה</div></div>
-        <div class="settings-arrow">›</div>
-      </div>
-      <div class="settings-item" data-action="doLogout">
-        <div><div class="settings-label" style="color:#f87171">יציאה</div><div class="settings-sub" id="settings-user"></div></div>
-        <div class="settings-arrow">›</div>
-      </div>
-    </div>
-    <div class="card" style="margin-top:4px">
-      <div class="card-title">אודות</div>
-      <p style="font-size:12px;color:var(--muted);line-height:1.75">יומן האוכל האישי שלך — מנוע זיהוי האוכל מאחורי האפליקציה הוא Claude AI של Anthropic. הערכות תזונתיות הן קירוב בלבד ואינן תחליף לייעוץ דיאטטי.</p>
+  <div class="page"><div class="rules"></div><div class="margin"></div>
+    <div class="content">
+      <div class="title big set-title">ההגדרות שלי</div>
+      <div class="row2" id="settings-user"><span>מחובר בתור</span> <b id="settings-username"></b></div>
+      <div class="row2"><span>גובה</span> <b id="settings-height">לא הוגדר</b></div>
+      <div class="row2"><span>יעד שינוי שבועי</span> <b id="settings-goalkg">לא הוגדר</b></div>
+      <div class="row2"><span>יעד קלוריות</span> <b id="settings-profile-sub">לא הוגדר</b></div>
+      <button class="row2 row-btn settings-item" data-action="openProfileModal"><span>פרופיל גוף ויעד</span><span class="v">›</span></button>
+      <button class="row2 row-btn settings-item" data-action="openChangePassModal"><span>שינוי סיסמה</span><span class="v">›</span></button>
+      <button class="row2 row-btn settings-item logout" data-action="doLogout"><span>התנתקות</span></button>
+      <p class="set-about">יומן האוכל האישי שלך — מנוע זיהוי האוכל מאחורי האפליקציה הוא Claude AI של Anthropic. הערכות תזונתיות הן קירוב בלבד ואינן תחליף לייעוץ דיאטטי.</p>
+      <div class="set-brand">Your Personal Food Logger &middot; <a class="set-ig" href="https://www.instagram.com/darlindman/" target="_blank" rel="noopener"><svg width="14" height="14" viewBox="0 0 24 24" fill="#E1306C"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg> Instagram</a> &middot; By Dar</div>
     </div>
   </div>
 </div>
@@ -382,63 +372,75 @@
 
 </div><!-- /phone-frame -->
 
-<!-- ════════════════ MODALS ════════════════ -->
+<!-- ════════════════ MODALS ════════════════
+     Taped paper slips on a dimmed page: .modal-overlay (the dimming, a click on it closes) > .modal-sheet (the slip; the tape
+     sits on it, outside the scrolling .slip-body). -->
 <div class="modal-overlay" id="modal-change-pass" data-action="closeModalBackdrop" data-arg="modal-change-pass">
-  <div class="modal-sheet">
-    <button class="modal-close" data-action="closeModal" data-arg="modal-change-pass">✕</button>
-    <div class="modal-title">שינוי סיסמה</div>
-    <div class="form-group"><label>סיסמה נוכחית</label><input id="cp-current" type="password"></div>
-    <div class="form-group"><label>סיסמה חדשה</label><input id="cp-new" type="password"></div>
-    <button class="btn btn-primary" data-action="doChangePassword">שמור</button>
-    <div id="cp-error" class="error-msg"></div>
+  <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="cp-title" tabindex="-1">
+    <i class="tape"></i>
+    <div class="slip-body">
+      <div class="slip-head">
+        <div class="modal-title" id="cp-title">שינוי סיסמה</div>
+        <button class="modal-close" data-action="closeModal" data-arg="modal-change-pass">✕</button>
+      </div>
+      <div class="field"><label for="cp-current">סיסמה נוכחית</label><input id="cp-current" type="password" autocomplete="current-password"></div>
+      <div class="field"><label for="cp-new">סיסמה חדשה</label><input id="cp-new" type="password" autocomplete="new-password"></div>
+      <div class="slip-actions"><button class="penbtn" data-action="doChangePassword">שמור</button></div>
+      <div id="cp-error" class="error-msg"></div>
+    </div>
   </div>
 </div>
 
 <!-- Profile modal -->
 <div class="modal-overlay" id="modal-profile" data-action="closeModalBackdrop" data-arg="modal-profile">
-  <div class="modal-sheet">
-    <button class="modal-close" data-action="closeModal" data-arg="modal-profile">✕</button>
-    <div class="modal-title">פרופיל גוף ויעד</div>
+  <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="mp-title" tabindex="-1">
+    <i class="tape"></i>
+    <div class="slip-body">
+      <div class="slip-head">
+        <div class="modal-title" id="mp-title">פרופיל גוף ויעד</div>
+        <button class="modal-close" data-action="closeModal" data-arg="modal-profile">✕</button>
+      </div>
 
-    <div class="cal-preview">
-      <span class="cal-preview-label">קלוריות מומלצות ביום</span>
-      <span class="cal-preview-val" id="mp-cal-preview">—</span>
+      <div class="cal-preview">
+        <span class="cal-preview-label">קלוריות מומלצות ביום</span>
+        <span class="cal-preview-val circ" id="mp-cal-preview">—</span>
+      </div>
+
+      <div class="slip-lbl">מין</div>
+      <div class="toggle-row">
+        <button class="toggle-btn selected" id="mp-male-btn" data-action="setMpGender" data-arg="male">👨 גבר</button>
+        <button class="toggle-btn" id="mp-female-btn" data-action="setMpGender" data-arg="female">👩 אישה</button>
+      </div>
+
+      <div class="field"><label for="mp-birthdate">תאריך לידה</label><input type="date" id="mp-birthdate" lang="he" data-change="updateMpPreview"></div>
+      <div class="field"><label for="mp-height">גובה (ס״מ)</label><select id="mp-height" data-change="updateMpPreview"></select></div>
+      <div class="field">
+        <label for="mp-goal-select">יעד שינוי שבועי (ק״ג)</label>
+        <select id="mp-goal-select" data-change="setMpGoal">
+          <option value="1">&lrm;+1&lrm; ק״ג (עלייה במשקל)</option>
+          <option value="0.75">&lrm;+¾&lrm; ק״ג</option>
+          <option value="0.5">&lrm;+½&lrm; ק״ג</option>
+          <option value="0.25">&lrm;+¼&lrm; ק״ג</option>
+          <option value="0">0 (שמירה על משקל)</option>
+          <option value="-0.25">&lrm;-¼&lrm; ק״ג</option>
+          <option value="-0.5">&lrm;-½&lrm; ק״ג</option>
+          <option value="-0.75">&lrm;-¾&lrm; ק״ג</option>
+          <option value="-1">&lrm;-1&lrm; ק״ג (הרזיה מהירה)</option>
+        </select>
+      </div>
+
+      <div class="slip-lbl">רמת פעילות</div>
+      <div class="activity-list" id="mp-activity-list">
+        <button class="activity-opt" data-val="sedentary" data-action="setMpActivity" data-arg="sedentary"><strong>יושבני</strong>עבודת משרד, מינימום פעילות</button>
+        <button class="activity-opt selected" data-val="light" data-action="setMpActivity" data-arg="light"><strong>פעילות קלה</strong><bdi>1–3</bdi> ימים בשבוע</button>
+        <button class="activity-opt" data-val="moderate" data-action="setMpActivity" data-arg="moderate"><strong>פעילות בינונית</strong><bdi>3–5</bdi> ימים בשבוע</button>
+        <button class="activity-opt" data-val="active" data-action="setMpActivity" data-arg="active"><strong>פעילות גבוהה</strong><bdi>6–7</bdi> ימים בשבוע</button>
+        <button class="activity-opt" data-val="vactive" data-action="setMpActivity" data-arg="vactive"><strong>ספורטאי</strong>אימון יומי אינטנסיבי</button>
+      </div>
+
+      <div class="slip-actions"><button class="penbtn" data-action="saveMpProfile">שמור פרופיל</button></div>
+      <div id="mp-error" class="error-msg"></div>
     </div>
-
-    <label style="margin-bottom:8px">מין</label>
-    <div class="toggle-row">
-      <button class="toggle-btn selected" id="mp-male-btn" data-action="setMpGender" data-arg="male">👨 גבר</button>
-      <button class="toggle-btn" id="mp-female-btn" data-action="setMpGender" data-arg="female">👩 אישה</button>
-    </div>
-
-    <div class="form-group" style="margin-bottom:10px"><label>תאריך לידה</label><input type="date" id="mp-birthdate" lang="he" data-change="updateMpPreview" style="font-size:14px"></div>
-    <div class="form-group" style="margin-bottom:16px"><label>גובה (ס״מ)</label><select id="mp-height" data-change="updateMpPreview"></select></div>
-    <div class="form-group" style="margin-bottom:16px">
-      <label>יעד שינוי שבועי (ק״ג)</label>
-      <select id="mp-goal-select" data-change="setMpGoal">
-        <option value="1">&lrm;+1&lrm; ק״ג (עלייה במשקל)</option>
-        <option value="0.75">&lrm;+¾&lrm; ק״ג</option>
-        <option value="0.5">&lrm;+½&lrm; ק״ג</option>
-        <option value="0.25">&lrm;+¼&lrm; ק״ג</option>
-        <option value="0">0 (שמירה על משקל)</option>
-        <option value="-0.25">&lrm;-¼&lrm; ק״ג</option>
-        <option value="-0.5">&lrm;-½&lrm; ק״ג</option>
-        <option value="-0.75">&lrm;-¾&lrm; ק״ג</option>
-        <option value="-1">&lrm;-1&lrm; ק״ג (הרזיה מהירה)</option>
-      </select>
-    </div>
-
-    <label style="margin-bottom:8px">רמת פעילות</label>
-    <div class="activity-list" id="mp-activity-list">
-      <button class="activity-opt" data-val="sedentary" data-action="setMpActivity" data-arg="sedentary"><strong>יושבני</strong>עבודת משרד, מינימום פעילות</button>
-      <button class="activity-opt selected" data-val="light" data-action="setMpActivity" data-arg="light"><strong>פעילות קלה</strong>1–3 ימים בשבוע</button>
-      <button class="activity-opt" data-val="moderate" data-action="setMpActivity" data-arg="moderate"><strong>פעילות בינונית</strong>3–5 ימים בשבוע</button>
-      <button class="activity-opt" data-val="active" data-action="setMpActivity" data-arg="active"><strong>פעילות גבוהה</strong>6–7 ימים בשבוע</button>
-      <button class="activity-opt" data-val="vactive" data-action="setMpActivity" data-arg="vactive"><strong>ספורטאי</strong>אימון יומי אינטנסיבי</button>
-    </div>
-
-    <button class="btn btn-primary" data-action="saveMpProfile">שמור פרופיל</button>
-    <div id="mp-error" class="error-msg"></div>
   </div>
 </div>
 
@@ -447,34 +449,30 @@
 
 <!-- ════════════════ EDIT MEAL MODAL ════════════════ -->
 <div class="modal-overlay" id="edit-modal" data-action="closeEditBackdrop">
-  <div class="modal-sheet" style="direction:rtl">
-    <div style="display:flex;align-items:center;margin-bottom:16px">
-      <div class="modal-title" style="margin-bottom:0">עריכת מנה</div>
-      <button id="edit-modal-close" class="modal-close" data-action="closeEditModal">✕</button>
-    </div>
-    <div class="receipt">
-      <div class="receipt-row receipt-name-row">
-        <input id="edit-name" type="text" class="receipt-name-input" placeholder="שם המנה" style="border-bottom:1px solid var(--border)">
+  <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="edit-title" tabindex="-1">
+    <i class="tape"></i>
+    <div class="slip-body">
+      <div class="slip-head">
+        <div class="modal-title" id="edit-title">עריכת מנה</div>
+        <button id="edit-modal-close" class="modal-close" data-action="closeEditModal">✕</button>
       </div>
-      <hr class="receipt-hr">
-      <div class="receipt-row receipt-entry"><label class="receipt-lbl">קלוריות</label><input id="edit-cal" type="number" min="0" step="1" class="receipt-val"><span class="receipt-unit">קק״ל</span></div>
-      <div class="receipt-row receipt-entry"><label class="receipt-lbl">חלבון</label><input id="edit-pro" type="number" min="0" step="0.1" class="receipt-val"><span class="receipt-unit">גר׳</span></div>
-      <div class="receipt-row receipt-entry"><label class="receipt-lbl">פחמימות</label><input id="edit-carb" type="number" min="0" step="0.1" class="receipt-val"><span class="receipt-unit">גר׳</span></div>
-      <div class="receipt-row receipt-entry"><label class="receipt-lbl">שומן</label><input id="edit-fat" type="number" min="0" step="0.1" class="receipt-val"><span class="receipt-unit">גר׳</span></div>
-      <div class="receipt-row receipt-entry"><label class="receipt-lbl">סיבים</label><input id="edit-fiber" type="number" min="0" step="0.1" class="receipt-val"><span class="receipt-unit">גר׳</span></div>
-      <hr class="receipt-hr">
-      <div class="receipt-row receipt-entry">
-        <label class="receipt-lbl">שעה</label>
-        <input id="edit-time" type="time" class="receipt-val" style="direction:ltr;text-align:left">
+      <input id="edit-name" type="text" class="edit-name" placeholder="שם המנה">
+      <div class="res-rows edit-rows">
+        <label class="res-row"><span>קלוריות</span><span class="res-val"><input id="edit-cal" type="number" min="0" step="1" inputmode="decimal"><i>קק״ל</i></span></label>
+        <label class="res-row"><span>חלבון</span><span class="res-val"><input id="edit-pro" type="number" min="0" step="0.1" inputmode="decimal"><i>גר׳</i></span></label>
+        <label class="res-row"><span>פחמימות</span><span class="res-val"><input id="edit-carb" type="number" min="0" step="0.1" inputmode="decimal"><i>גר׳</i></span></label>
+        <label class="res-row"><span>שומן</span><span class="res-val"><input id="edit-fat" type="number" min="0" step="0.1" inputmode="decimal"><i>גר׳</i></span></label>
+        <label class="res-row"><span>סיבים</span><span class="res-val"><input id="edit-fiber" type="number" min="0" step="0.1" inputmode="decimal"><i>גר׳</i></span></label>
+        <label class="res-row"><span>שעה</span><span class="res-val"><input id="edit-time" type="time"></span></label>
       </div>
+      <div class="meal-select">
+        <button class="meal-opt" data-meal="breakfast" data-action="selectEditMeal">בוקר</button>
+        <button class="meal-opt" data-meal="lunch"     data-action="selectEditMeal">צהריים</button>
+        <button class="meal-opt" data-meal="dinner"    data-action="selectEditMeal">ערב</button>
+        <button class="meal-opt" data-meal="snack"     data-action="selectEditMeal">חטיף</button>
+      </div>
+      <div id="edit-btn-row" class="slip-actions"></div>
     </div>
-    <div class="meal-select" style="margin:14px 0 4px">
-      <button class="meal-opt" data-meal="breakfast" data-action="selectEditMeal">בוקר</button>
-      <button class="meal-opt" data-meal="lunch"     data-action="selectEditMeal">צהריים</button>
-      <button class="meal-opt" data-meal="dinner"    data-action="selectEditMeal">ערב</button>
-      <button class="meal-opt" data-meal="snack"     data-action="selectEditMeal">חטיף</button>
-    </div>
-    <div id="edit-btn-row" style="display:flex;gap:8px;margin-top:16px;flex-direction:row-reverse"></div>
   </div>
 </div>
 

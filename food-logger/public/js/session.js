@@ -2,7 +2,10 @@ import { state } from './state.js';
 import { apiFetch, configureApi } from './api.js';
 import { sortWeightLogs, updateSettingsProfileSub } from './profile.js';
 import { navigate } from './router.js';
+import { closeAllModals } from './dom.js';
 import { resetCamera } from './screens/camera.js';
+import { resetEditModal } from './screens/home.js';
+import { resetSettingsModals } from './screens/settings.js';
 
 // The session itself is an HttpOnly cookie set by the server; JavaScript never sees it.
 // Only the username is kept here, in memory, for display.
@@ -36,7 +39,7 @@ let logoutCount = 0;
 export async function setLoggedIn(u) {
   const startedAt = logoutCount;
   username = u;
-  document.getElementById('settings-user').textContent = `מחובר בתור ${u}`;
+  document.getElementById('settings-username').textContent = u;
   // Load profile from server; fall back to localStorage
   try {
     const serverProfile = await apiFetch('/api/profile');
@@ -63,6 +66,11 @@ export async function doLogout() {
   username = null; state.userProfile = null;
   state.weightLogs = [];   // the next person must not see this one's weights (the dashboard and the weight screen read them)
   resetCamera();   // the next person must not see this one's photo or text
+  closeAllModals();   // a slip left open (profile, password, meal) must not cover the next person's screen,
+  resetSettingsModals();   // nor keep what was typed or loaded into it,
+  resetEditModal();
+  document.getElementById('settings-username').textContent = '';
+  updateSettingsProfileSub();   // and the settings rows show "not set" until the next sign-in fills them
   document.getElementById('bottom-nav').style.display = 'none';
   navigate('auth');
 }
