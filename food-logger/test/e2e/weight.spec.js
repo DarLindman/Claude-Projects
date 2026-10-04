@@ -40,11 +40,13 @@ async function seed(page, weights) {
   }
 }
 
-// The profile has no weight goal field on the server yet (it strips unknown keys); the screen reads `goalWeight` from the
-// profile the client holds, so the tests hand it one through the profile response.
+// The screen reads `goalWeight` from the profile the client holds; these tests hand it one through the profile response
+// (test/e2e/target-weight.spec.js sets it for real, through the profile modal). The screen writes the profile back when the newest
+// weight changes (a PUT of the whole profile, the faked goal included), so that write is answered here and never reaches the
+// server: the faked goal must not become the stored one.
 async function withGoalWeight(page, goalWeight) {
   await page.route('**/api/profile', async (route) => {
-    if (route.request().method() !== 'GET') return route.continue();
+    if (route.request().method() !== 'GET') return route.fulfill({ json: { ok: true } });
     const res = await route.fetch();
     const body = await res.json();
     await route.fulfill({ response: res, json: { ...body, goalWeight } });

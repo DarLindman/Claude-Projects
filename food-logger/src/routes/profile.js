@@ -10,7 +10,8 @@ const S = require('../lib/schemas');
 // accept numeric strings too (legacy stored profiles) and are stored as numbers.
 // Values mirror what the client sends: gender 'male'|'female', activity one of
 // sedentary|light|moderate|active|vactive (a legacy numeric multiplier is tolerated),
-// goalKg (the UI offers -1..1; kept loose, an existing test stores 55), birthDate '' or YYYY-MM-DD, height/weight numbers (0 = unset).
+// goalKg (the UI offers -1..1; kept loose, an existing test stores 55), birthDate '' or YYYY-MM-DD, height/weight numbers (0 = unset),
+// goalWeight (the target weight in kg: 0 = unset, else 20..400, stored with one decimal).
 const profileBody = z.object({
   gender: S.noNul.max(20),
   birthDate: z.union([z.literal(''), S.dateStr]),
@@ -18,6 +19,7 @@ const profileBody = z.object({
   weight: S.looseNumber(0, 700),
   activity: z.union([S.noNul.max(20), z.number().min(0).max(10)]),
   goalKg: S.looseNumber(-1000, 1000),
+  goalWeight: S.zeroOrRangedNumber(20, 400),
 }).partial();
 
 module.exports = function profileRoutes({ pool, auth }) {

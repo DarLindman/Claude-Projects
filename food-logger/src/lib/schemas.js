@@ -65,4 +65,17 @@ function rangedNumber(min, max) {
   });
 }
 
-module.exports = { noNul, id, dateStr, monthStr, yearStr, mealType, loggedAt, nullableNumber, rangedNumber, looseNumber, foodName, optionalQuery };
+// 0 ("not set") or a number in [min, max], rounded to 1 decimal; numeric strings are accepted like looseNumber. '' and
+// non-numeric values are INVALID (the client sends 0, never '', for an empty field).
+function zeroOrRangedNumber(min, max) {
+  return z.unknown().transform((v, ctx) => {
+    const n = toFinite(v);
+    if (Number.isNaN(n)) return reject(ctx, v);
+    if (n === 0) return 0;
+    const r = Math.round(n * 10) / 10;
+    if (r < min || r > max) return reject(ctx, v);
+    return r;
+  });
+}
+
+module.exports = { noNul, id, dateStr, monthStr, yearStr, mealType, loggedAt, nullableNumber, rangedNumber, looseNumber, zeroOrRangedNumber, foodName, optionalQuery };

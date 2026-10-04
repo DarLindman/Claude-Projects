@@ -3,7 +3,7 @@ import { apiFetch } from '../api.js';
 import { closeModal, html, openModal, setHtml, showToast } from '../dom.js';
 import { mountWalkingCapybara } from '../pet.js';
 import { formatNumber } from '../format.js';
-import { calcRecommendedCal, updateSettingsProfileSub } from '../profile.js';
+import { calcRecommendedCal, goalWeightOf, updateSettingsProfileSub } from '../profile.js';
 import { messageFor } from '../errors.js';
 import { todayStr } from '../dates.js';
 import { doLogout } from '../session.js';
@@ -75,6 +75,7 @@ export function resetSettingsModals() {
   clearChangePassModal();
   document.getElementById('mp-birthdate').value = '';
   document.getElementById('mp-height').value = '';
+  document.getElementById('mp-goal-weight').value = '';
   document.getElementById('mp-error').textContent = '';
   document.getElementById('mp-cal-preview').textContent = '—';
   state.mpGender = 'male';
@@ -119,13 +120,17 @@ export function openProfileModal() {
     const bd = state.userProfile.birthDate || (state.userProfile.birthYear ? `${state.userProfile.birthYear}-01-01` : '');
     document.getElementById('mp-birthdate').value = bd;
     document.getElementById('mp-height').value = state.userProfile.height || '';
+    const goalWeight = goalWeightOf(state.userProfile);
+    document.getElementById('mp-goal-weight').value = goalWeight > 0 ? String(goalWeight) : '';
   } else {
     state.mpGender = 'male';
     state.mpActivity = 'light';
     state.mpGoalKg = 0;
     document.getElementById('mp-birthdate').value = '';
     document.getElementById('mp-height').value = '';
+    document.getElementById('mp-goal-weight').value = '';
   }
+  document.getElementById('mp-error').textContent = '';
   document.getElementById('mp-male-btn').classList.toggle('selected', state.mpGender === 'male');
   document.getElementById('mp-female-btn').classList.toggle('selected', state.mpGender === 'female');
   document.querySelectorAll('#mp-activity-list .activity-opt').forEach(b => {
@@ -177,7 +182,19 @@ export function updateMpPreview() {
   document.getElementById('mp-cal-preview').textContent = rec > 0 ? `${formatNumber(rec)} קק״ל` : '—';
 }
 
+// The target-weight field as the profile stores it: empty is 0 (not set), else a number of 20..400 kg with at most one decimal;
+// null when the text is not that (the caller shows the error).
+function readGoalWeight() {
+  const text = document.getElementById('mp-goal-weight').value.trim();
+  if (text === '') return 0;
+  const n = Math.round(+text * 10) / 10;
+  return Number.isFinite(n) && n >= 20 && n <= 400 ? n : null;
+}
+
 export async function saveMpProfile() {
+  document.getElementById('mp-error').textContent = '';
+  const goalWeight = readGoalWeight();
+  if (goalWeight === null) { document.getElementById('mp-error').textContent = 'הזן משקל תקין'; return; }
   const currentWeight = state.weightLogs.length ? +state.weightLogs[state.weightLogs.length - 1].weight_kg : (state.userProfile ? +state.userProfile.weight || 0 : 0);
   const profile = {
     gender: state.mpGender,
@@ -186,6 +203,7 @@ export async function saveMpProfile() {
     weight: currentWeight,
     activity: state.mpActivity,
     goalKg: state.mpGoalKg,
+    goalWeight,
   };
   localStorage.setItem('fl_profile', JSON.stringify(profile));
   state.userProfile = profile;

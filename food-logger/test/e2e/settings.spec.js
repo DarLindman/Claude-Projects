@@ -137,7 +137,7 @@ function expectSlipLooksRight(info, label) {
 const openProfile = (page) => page.locator('#screen-settings').getByRole('button', { name: 'פרופיל גוף ויעד' }).click();
 const openChangePass = (page) => page.locator('#screen-settings').getByRole('button', { name: 'שינוי סיסמה' }).click();
 
-test('the settings page: handwritten rows with the profile as it is today, no goal-weight row, digits in the digit font', async ({ page }) => {
+test('the settings page: handwritten rows with the profile as it is today, the target-weight row, digits in the digit font', async ({ page }) => {
   const guards = attachGuards(page);
   const username = await register(page);
   await openSettings(page);
@@ -148,8 +148,8 @@ test('the settings page: handwritten rows with the profile as it is today, no go
   expect(texts.some((t) => /^גובה\s*175 ס״מ$/.test(t)), `height row in ${JSON.stringify(texts)}`).toBe(true);
   expect(texts.some((t) => /^יעד שינוי שבועי\s*.?-½.? ק״ג$/.test(t)), `weekly goal row in ${JSON.stringify(texts)}`).toBe(true);
   expect(texts.some((t) => /^יעד קלוריות\s*[\d,]{4,6} קק״ל$/.test(t)), `calorie goal row in ${JSON.stringify(texts)}`).toBe(true);
-  // the profile has no target weight: no such row (the server would strip the field)
-  await expect(page.locator('#screen-settings')).not.toContainText('משקל יעד');
+  // the profile has no target weight: its row says so
+  expect(texts.some((t) => /^יעד משקל\s*לא הוגדר$/.test(t)), `target weight row in ${JSON.stringify(texts)}`).toBe(true);
   // the old card layout is gone
   await expect(page.locator('#screen-settings .card, #screen-settings .topbar')).toHaveCount(0);
 
@@ -535,7 +535,7 @@ for (const [width, height] of [[390, 844], [320, 640]]) {
       const label = row.querySelector('span').getBoundingClientRect();
       return { id: row.querySelector('b').id, leftGap: b.left - r.left, rightOfLabelGap: label.left - b.right };
     }));
-    expect(gaps.map((g) => g.id)).toEqual(['settings-username', 'settings-height', 'settings-goalkg', 'settings-profile-sub']);
+    expect(gaps.map((g) => g.id)).toEqual(['settings-username', 'settings-height', 'settings-goalweight', 'settings-goalkg', 'settings-profile-sub']);
     for (const g of gaps) {
       expect(g.leftGap, `${g.id}: the value starts at the row left edge`).toBeLessThanOrEqual(1);
     }

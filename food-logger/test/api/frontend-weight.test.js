@@ -29,3 +29,22 @@ test('sortWeightLogs: a timestamp-like date sorts by its day', async () => {
   const out = sortWeightLogs([{ id: 2, logged_at: '2026-10-03T00:00:00', weight_kg: 1 }, { id: 1, logged_at: '2026-10-03', weight_kg: 2 }]);
   assert.deepEqual(out.map((r) => r.id), [1, 2]);
 });
+
+test('goalWeightOf: a positive number, or 0 for absent, 0, negative, junk; numeric strings from older clients count', async () => {
+  const { goalWeightOf } = await load();
+  assert.equal(goalWeightOf({ goalWeight: 68.5 }), 68.5);
+  assert.equal(goalWeightOf({ goalWeight: '72.5' }), 72.5);
+  for (const p of [null, undefined, {}, { goalWeight: 0 }, { goalWeight: -3 }, { goalWeight: 'abc' }, { goalWeight: null }, { goalWeight: NaN }]) {
+    assert.equal(goalWeightOf(p), 0, JSON.stringify(p));
+  }
+});
+
+test('formatKg: a whole number without decimals, a fraction with one, thousands separated, junk as 0', async () => {
+  const { formatKg } = await import(pathToFileURL(path.join(__dirname, '..', '..', 'public', 'js', 'format.js')).href);
+  assert.equal(formatKg(70), '70');
+  assert.equal(formatKg(68.5), '68.5');
+  assert.equal(formatKg(1000.5), '1,000.5');
+  assert.equal(formatKg(10000), '10,000');
+  assert.equal(formatKg(NaN), '0');
+  assert.equal(formatKg('70'), '0');
+});

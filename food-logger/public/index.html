@@ -349,6 +349,7 @@
       <div class="title big set-title">ההגדרות שלי</div>
       <div class="row2" id="settings-user"><span>מחובר בתור</span> <b id="settings-username"></b></div>
       <div class="row2"><span>גובה</span> <b id="settings-height">לא הוגדר</b></div>
+      <div class="row2"><span>יעד משקל</span> <b id="settings-goalweight">לא הוגדר</b></div>
       <div class="row2"><span>יעד שינוי שבועי</span> <b id="settings-goalkg">לא הוגדר</b></div>
       <div class="row2"><span>יעד קלוריות</span> <b id="settings-profile-sub">לא הוגדר</b></div>
       <button class="row2 row-btn settings-item" data-action="openProfileModal"><span>פרופיל גוף ויעד</span><span class="v">›</span></button>
@@ -414,6 +415,7 @@
 
       <div class="field"><label for="mp-birthdate">תאריך לידה</label><input type="date" id="mp-birthdate" lang="he" data-change="updateMpPreview"></div>
       <div class="field"><label for="mp-height">גובה (ס״מ)</label><select id="mp-height" data-change="updateMpPreview"></select></div>
+      <div class="field"><label for="mp-goal-weight">יעד משקל (ק״ג)</label><input type="number" id="mp-goal-weight" step="0.1" min="20" max="400" inputmode="decimal" placeholder="70.0"></div>
       <div class="field">
         <label for="mp-goal-select">יעד שינוי שבועי (ק״ג)</label>
         <select id="mp-goal-select" data-change="setMpGoal">

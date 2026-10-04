@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { formatNumber } from './format.js';
+import { formatKg, formatNumber } from './format.js';
 
 export function loadProfile() {
   try { state.userProfile = JSON.parse(localStorage.getItem('fl_profile')); } catch {}
@@ -59,7 +59,13 @@ export function formatWeeklyGoal(goalKg) {
   return `\u200e${step > 0 ? '+' : '-'}${GOAL_GLYPH[Math.abs(step)]}\u200e ק״ג`;
 }
 
-// The profile rows of the settings page (height, weekly goal, calorie goal); "לא הוגדר" for whatever the profile lacks.
+// The target weight of a profile as a positive number, or 0 when it has none (absent, 0, a numeric string from an older client).
+export function goalWeightOf(p) {
+  const g = +(p && p.goalWeight);
+  return Number.isFinite(g) && g > 0 ? g : 0;
+}
+
+// The profile rows of the settings page (height, target weight, weekly goal, calorie goal); "לא הוגדר" for whatever the profile lacks.
 // The elements are plain text targets: nothing here is markup.
 export function updateSettingsProfileSub() {
   const NOT_SET = 'לא הוגדר';
@@ -67,6 +73,8 @@ export function updateSettingsProfileSub() {
   const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
   const height = p ? +p.height : 0;
   set('settings-height', height > 0 ? `${height} ס״מ` : NOT_SET);
+  const goalWeight = goalWeightOf(p);
+  set('settings-goalweight', goalWeight > 0 ? `${formatKg(goalWeight)} ק״ג` : NOT_SET);
   set('settings-goalkg', p && p.goalKg != null ? formatWeeklyGoal(p.goalKg) : NOT_SET);
   const rec = calcRecommendedCal();
   set('settings-profile-sub', rec > 0 ? `${formatNumber(rec)} קק״ל` : NOT_SET);

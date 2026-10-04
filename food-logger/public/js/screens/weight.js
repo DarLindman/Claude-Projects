@@ -3,9 +3,9 @@ import { apiFetch } from '../api.js';
 import { renderWeightChart } from '../charts.js';
 import { formatDayMonth, todayStr } from '../dates.js';
 import { html, setHtml, showToast } from '../dom.js';
-import { formatNumber } from '../format.js';
+import { formatKg } from '../format.js';
 import { mountWalkingCapybara } from '../pet.js';
-import { sortWeightLogs, updateSettingsProfileSub } from '../profile.js';
+import { goalWeightOf, sortWeightLogs, updateSettingsProfileSub } from '../profile.js';
 import { getUsername } from '../session.js';
 import { loadDiary } from './home.js';
 import { messageFor } from '../errors.js';
@@ -99,13 +99,10 @@ function renderWeightScreen() {
   renderWeightList();
 }
 
-// The weight goal of the profile (none yet: the profile has no such field, so no goal line and no goal text), a positive number or 0.
+// The target weight of the profile (`goalWeight`, a number, a numeric string from an older client, or absent), a positive number or 0 (none: no goal line, no goal text).
 function weightGoal() {
-  const g = +(state.userProfile && state.userProfile.goalWeight);
-  return Number.isFinite(g) && g > 0 ? g : 0;
+  return goalWeightOf(state.userProfile);
 }
-// The goal with the app's thousands separator; a fraction keeps one decimal (72.5, 1,000.5).
-const formatGoal = (g) => (Number.isInteger(g) ? formatNumber(g) : g.toLocaleString('he-IL', { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
 
 // The newest weight, big, with the unit and the goal beside it; no entries, no head.
 function renderWeightHead() {
@@ -114,7 +111,7 @@ function renderWeightHead() {
   if (!logs.length) { el.hidden = true; el.replaceChildren(); return; }
   const goal = weightGoal();
   const kg = +logs[logs.length - 1].weight_kg;
-  setHtml(el, html`<span class="wt-big">${kg.toFixed(1)}</span><span class="wt-unit">${goal > 0 ? `ק״ג · יעד ${formatGoal(goal)}` : 'ק״ג'}</span>`);
+  setHtml(el, html`<span class="wt-big">${kg.toFixed(1)}</span><span class="wt-unit">${goal > 0 ? `ק״ג · יעד ${formatKg(goal)}` : 'ק״ג'}</span>`);
   el.hidden = false;
 }
 
