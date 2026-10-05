@@ -709,8 +709,11 @@ div.credit > div:first-child { white-space: nowrap; }
 }
 .dash-streak { margin-top: 0; }
 .dash-streak-line { line-height: 30px; }
-.dash-tally { min-height: 0; }
-.dash-tally .tally { height: 54px; width: auto; max-width: 100%; }
+.dash-days svg { display: block; width: 100%; height: 34px; }
+/* the strip of seven circles: a day of the streak is a filled red-pen circle, any other an empty graphite outline, today a larger ink ring */
+.days .day-dot { fill: none; stroke: var(--graphite); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; opacity: .55; }
+.days .filled .day-dot { fill: var(--red); stroke: var(--red); opacity: .92; }
+.days .day-ring { fill: none; stroke: var(--ink); stroke-width: 1.8; stroke-linecap: round; }
 .dash-last { position: relative; height: 170px; margin-top: 10px; }
 .dash-polaroid { right: 0; top: 8px; width: 120px; transform: rotate(-3deg); animation: polaroid-drop var(--dur-slow) var(--ease-spring) both; }
 .dash-polaroid .tape { top: -9px; left: 30px; transform: rotate(-6deg); }
@@ -731,7 +734,7 @@ div.credit > div:first-child { white-space: nowrap; }
   .eat { min-height: 48px; }
   .eat .n { font-size: 40px; line-height: 48px; }
   .ink2 { height: 24px; }
-  .dash-tally .tally { height: 40px; }
+  .dash-days svg { height: 30px; }
   .dash-last { height: 150px; margin-top: 8px; }
   .dash-polaroid { width: 108px; }
   .dash-meal { width: calc(100% - 128px); top: 10px; }
@@ -751,7 +754,7 @@ div.credit > div:first-child { white-space: nowrap; }
   .eat .of { font-size: 16px; line-height: 26px; }
   .ink2 { height: 22px; }
   .dash-streak-line { line-height: 26px; font-size: 16px; }
-  .dash-tally .tally { height: 34px; }
+  .dash-days svg { height: 26px; }
   .dash-last { height: 120px; margin-top: 6px; }
   .dash-polaroid { width: 90px; top: 6px; padding: 6px 6px 28px; }
   .dash-polaroid .cp { font-size: 12px; bottom: 4px; }

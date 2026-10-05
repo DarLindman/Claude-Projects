@@ -60,7 +60,7 @@ const STATES = [
 const NAMED = [
   ['ribbon', '#screen-dashboard .content > .ribbon'], ['date', '#dash-date'], ['greeting', '#screen-dashboard .dash-hello'],
   ['bubble', '#pet-bubble'], ['capybara', '#pet-dashboard-wrap svg'], ['number', '#screen-dashboard .eat'], ['bar', '#dash-bar'],
-  ['streak line', '#dash-streak .dash-streak-line'], ['tally', '#dash-tally svg'], ['polaroid', '#screen-dashboard .dash-polaroid'],
+  ['streak line', '#dash-streak .dash-streak-line'], ['streak strip', '#dash-days svg'], ['polaroid', '#screen-dashboard .dash-polaroid'],
   ['meal name', '#screen-dashboard .dash-meal-name'], ['calories circle', '#screen-dashboard .dash-meal .circ'], ['kcal', '#screen-dashboard .dash-kcal'],
   ['weight', '#dash-weight'],
 ];
