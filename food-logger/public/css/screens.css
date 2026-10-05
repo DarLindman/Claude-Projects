@@ -220,7 +220,7 @@
    screens/stats.js with bottom: 46px), and a scrolling .content with the headline average, the hand-drawn bar chart and
    the macro bars. The content ends 128 px above the page bottom (the strip of the walker and the tabs), so she never walks over text.
 ════════════════════════════════════════ */
-#screen-stats .content { bottom: 128px; padding-bottom: 20px; }
+#screen-stats .content { bottom: 128px; padding-bottom: 24px; }
 .btabs { position: absolute; left: 14px; right: 14px; bottom: 0; height: 42px; display: flex; gap: 8px; align-items: flex-end; z-index: 3; }
 .stats-tab {
   flex: 1; height: 32px; padding: 0; border: 0; cursor: pointer; border-radius: 12px 12px 0 0;
@@ -298,7 +298,7 @@
    the page bottom (.walker, appended by screens/settings.js with bottom: 4px); the content ends 96 px above it, so she
    never walks over text, and scrolls when it is taller.
 ════════════════════════════════════════ */
-#screen-settings .content { bottom: 96px; padding-bottom: 12px; }
+#screen-settings .content { bottom: 96px; padding-bottom: 24px; }
 .set-title { margin-top: 10px; }
 .row2 { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0 12px; min-height: 30px; font: 400 18px/30px var(--font-text); color: var(--ink); }
 .row2 > span { flex: none; }
@@ -404,9 +404,10 @@
 .toggle-btn.selected { color: var(--red); border-color: var(--red); transform: rotate(-2deg); background: rgba(179, 49, 29, .07); }
 
 /* edit slip: a handwritten name and the handwritten rows of the analysis page */
-.modal-sheet .edit-name {
-  display: block; width: 100%; height: 40px; margin: 4px 0 0; padding: 0; border: 0; border-bottom: 2px solid var(--ink); border-radius: 0;
-  background: transparent; color: var(--ink); box-shadow: none; outline: none; font: 400 28px/38px var(--font-text);
+.modal-sheet .edit-name {   /* a textarea that grows with the name (home.js fitEditName), so a long name wraps instead of being clipped */
+  display: block; width: 100%; min-height: 40px; margin: 4px 0 0; padding: 0; border: 0; border-bottom: 2px solid var(--ink); border-radius: 0;
+  background: transparent; color: var(--ink); box-shadow: none; outline: none; resize: none; overflow: hidden; direction: rtl; overflow-wrap: anywhere;
+  font: 400 28px/38px var(--font-text);
 }
 .modal-sheet .edit-name:focus { border-bottom-color: var(--red); box-shadow: none; }
 .modal-sheet .edit-name::placeholder { color: rgba(111, 93, 76, .45); }
@@ -419,7 +420,7 @@
    30 px rule each, newest first. The capybara walks along the page bottom (.walker, appended by screens/weight.js with
    bottom: 4px); the content ends 96 px above the page bottom so she never walks over text.
 ════════════════════════════════════════ */
-#screen-weight .content { bottom: 96px; padding-bottom: 12px; }
+#screen-weight .content { bottom: 96px; padding-bottom: 24px; }
 .wt-title { margin-top: 10px; }
 .wt-head { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; min-height: 60px; }
 .wt-head[hidden] { display: none; }
@@ -434,6 +435,8 @@
 .wchart .wline { stroke: #2b1f16; }
 .wchart .wpt { fill: var(--page); stroke: #2b1f16; }
 .wchart .wpt.last { fill: var(--red); }
+.wchart text { font-family: var(--font-text); fill: var(--graphite); }
+.wchart text.goal { fill: var(--red); }
 
 /* the add row: handwritten fields (label above, an ink underline) like the sign-in page */
 .wt-add { margin-top: 0; }
@@ -523,6 +526,14 @@
 .toast.show { opacity: 1; }
 
 
+/* The pages that end above the walking capybara's strip (stats, weight, settings): a line that is cut by the end of the
+   scroll area fades out over its last 18 px instead of being sliced in half. The 24 px of bottom padding means the last
+   line, scrolled all the way, rests fully clear of the fade. */
+#screen-stats .content, #screen-weight .content, #screen-settings .content {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent);
+}
+
 /* ════ Page typography shared by the redone pages (from the reference) ════ */
 .lbl { font: 400 17px/30px var(--font-text); letter-spacing: .02em; color: var(--graphite); }
 .title { font: 400 25px/46px var(--font-text); margin-top: 4px; white-space: nowrap; }
@@ -610,6 +621,14 @@
 #reg-activity-list .activity-opt strong, #mp-activity-list .activity-opt strong { display: block; font: 400 18px/26px var(--font-text); color: var(--ink); }
 #reg-activity-list .activity-opt.selected, #mp-activity-list .activity-opt.selected { border-color: var(--red); background: rgba(179, 49, 29, .07); transform: rotate(-.6deg); }
 #reg-activity-list .activity-opt.selected strong, #mp-activity-list .activity-opt.selected strong { color: var(--red); }
+/* no dock under the sign-in pages (it is hidden there): the paper runs down to the frame's stitch, no empty band */
+#screen-auth .page { bottom: 16px; }
+/* a 320 px phone: the height and weight lists share a narrow row, so they get a smaller type and a shorter gap and show
+   "70.0 ק״ג" whole */
+@media (max-width: 340px) {
+  #auth-step2 .field-pair { gap: 0 10px; }
+  #auth-step2 .field-pair select { font-size: 17px; padding-inline-end: 18px; }
+}
 /* the walker would cross the tall profile step: it only walks over the short pages */
 #screen-auth .page:has(#auth-step2:not([style*="none"])) > .walker { display: none; }
 
@@ -625,6 +644,11 @@
 .dash-pet { flex: 0 1 132px; min-width: 80px; margin-left: -8px; }
 .dash-pet .pet-wrap { display: block; }
 .dash-pet svg { width: 100%; height: auto; }
+/* a 320 px phone: a smaller capybara gives the bubble room for a whole user name (a longer one wraps inside it, never out of it) */
+@media (max-width: 340px) {
+  .dash-pet { flex-basis: 84px; min-width: 70px; }
+  .dash-bubble { min-width: 110px; }
+}
 .eat { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; min-height: 60px; margin-top: 0; }
 .eat .n { font: 400 46px/60px var(--font-text); color: var(--red); }
 .eat .of { font: 400 17px/30px var(--font-text); color: var(--graphite); }
@@ -693,6 +717,8 @@
 #meal-list .empty-icon { width: 90px; height: 90px; margin: 0 auto 6px; opacity: .55; border-radius: 50%; overflow: hidden; }
 #meal-list .empty-icon svg { display: block; width: 100%; height: 100%; }
 #meal-list .empty-state p { font: 400 20px/30px var(--font-text); color: var(--graphite); }
+/* the line plus of the dock's add button, in ink, inside the empty-state sentence */
+.plus-ico { width: 18px; height: 18px; vertical-align: -3px; stroke: var(--ink); fill: none; stroke-width: 2.6; stroke-linecap: round; }
 
 .meal-item-row { position: relative; height: 180px; --pw: min(122px, 42%); }
 .meal-item-row .polaroid { top: 8px; width: var(--pw); right: 0; transform: rotate(-3.5deg); }

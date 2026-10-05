@@ -146,7 +146,7 @@ test('three meals appear oldest first, as polaroids with the name beside the pho
   await expect(page.locator('#screen-home .macros')).toContainText('סיבים');
   // the old diary furniture is gone
   await expect(page.locator('#screen-home .topbar, #screen-home .card, #pet-diary-wrap')).toHaveCount(0);
-  await expect(page.locator('#screen-home .page > .ribbon')).toBeVisible();
+  await expect(page.locator('#screen-home .content > .ribbon')).toBeVisible();
 
   const digits = await digitOffenders(page);
   expect(digits.seen, 'the diary shows digits').toBeGreaterThan(0);
@@ -162,7 +162,7 @@ test('the ribbon sits below the week strip; the strip has an arrow at each end a
   await expect(page.locator('#screen-home .date-nav button')).toHaveCount(2);
   await expect(page.locator('#screen-home .week button')).toHaveCount(7);
   const strip = await box(page.locator('#screen-home .weekrow'));
-  const ribbon = await box(page.locator('#screen-home .page > .ribbon'));
+  const ribbon = await box(page.locator('#screen-home .content > .ribbon'));
   const arrows = page.locator('#screen-home .date-nav button');
   const first = await box(arrows.first());
   const last = await box(arrows.last());
@@ -224,7 +224,9 @@ test('tapping another day of the strip loads that day', async ({ page }) => {
   const guards = attachGuards(page);
   const { addDays, weekOf } = await loadDates();
   await register(page);
-  const today = localNow().date;
+  // a fixed Wednesday: on a Monday the only other day of yesterday's week would be today itself
+  await page.clock.install({ time: new Date(2026, 9, 7, 12, 0) });
+  const today = '2026-10-07';
   const yesterday = addDays(today, -1);
   // any other day of yesterday's week that is not in the future
   const target = weekOf(yesterday).find((d) => d !== yesterday && d <= today);
@@ -314,7 +316,10 @@ test('an empty day shows the empty state with its wording and nothing broken', a
   const empty = page.locator('#meal-list .empty-state');
   await expect(empty).toBeVisible();
   await expect(empty).toContainText('אין ארוחות מתועדות');
-  await expect(empty).toContainText('לחץ על ➕ כדי להוסיף ארוחה');
+  await expect(empty).toContainText('לחץ על כדי להוסיף ארוחה');   // the plus between the words is the dock's line icon (an SVG), not a colour emoji
+  await expect(empty.locator('svg.plus-ico')).toHaveCount(1);
+  expect(await empty.locator('svg.plus-ico').evaluate((el) => getComputedStyle(el).stroke), 'the plus is drawn in ink').toBe('rgb(43, 31, 22)');
+  expect(await empty.evaluate((el) => /➕/.test(el.textContent))).toBe(false);
   await expect(page.locator('#sum-cal')).toHaveText('0');
   const text = await page.locator('#screen-home').innerText();
   expect(text).not.toMatch(/NaN|undefined|null|\[object/);
@@ -441,6 +446,42 @@ test('a thumbnail that loads fills the polaroid with the picture (a real img, no
   const im = await box(img);
   expect(Math.abs(ph.width - im.width)).toBeLessThan(1.5);
   expect(Math.abs(ph.height - im.height)).toBeLessThan(1.5);
+  expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+});
+
+test('the ribbon is part of the scrolling page: it never lies over a meal name or the ערוך / מחק buttons at any scroll position', async ({ page }) => {
+  const guards = attachGuards(page);
+  await register(page);
+  for (const [i, name] of ['חביתה משתי ביצים עם סלט ולחם מלא', 'קפה הפוך', 'יוגורט עם פירות', 'חזה עוף בגריל עם אורז וסלט'].entries()) {
+    await meal(page, { name, calories: 100 + i, time: `${String(7 + i).padStart(2, "0")}:30` });
+  }
+  await openDiary(page);
+  await expect(rows(page)).toHaveCount(4);
+
+  const overlaps = await page.evaluate(async () => {
+    const content = document.querySelector('#screen-home .content');
+    const ribbon = document.querySelector('#screen-home .content > .ribbon');
+    const hit = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+    const out = []; const tops = [];
+    const max = content.scrollHeight - content.clientHeight;
+    for (let y = 0; y <= max; y += 10) {
+      content.scrollTop = y;
+      await new Promise((r) => requestAnimationFrame(r));
+      const rr = ribbon.getBoundingClientRect();
+      tops.push(rr.top);
+      const cr = content.getBoundingClientRect();
+      for (const el of document.querySelectorAll('#screen-home .mir-name, #screen-home .acts button, #screen-home .macros, #screen-home .page-date')) {
+        const r = el.getBoundingClientRect();
+        // only what is actually visible inside the page can be covered
+        if (r.bottom < cr.top || r.top > cr.bottom) continue;
+        if (hit(rr, r) && rr.bottom > cr.top && rr.top < cr.bottom) out.push(`scrollTop ${y}: ${el.className || el.tagName} "${el.textContent.trim().slice(0, 20)}"`);
+      }
+    }
+    return { out, max, firstTop: tops[0], lastTop: tops[tops.length - 1] };
+  });
+  expect(overlaps.max, 'the diary scrolls').toBeGreaterThan(100);
+  expect(overlaps.lastTop, 'the ribbon scrolls away with the page').toBeLessThan(overlaps.firstTop - 50);
+  expect(overlaps.out).toEqual([]);
   expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
 });
 

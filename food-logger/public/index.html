@@ -141,8 +141,8 @@
 <!-- The home page of the diary: the date, the capybara with her bubble, the calories eaten with the red bar, the streak as a
      hand-written tally, and the last meal as a polaroid. screens/dashboard.js fills it. -->
 <div id="screen-dashboard" class="screen">
-  <div class="page"><div class="rules"></div><div class="margin"></div><div class="ribbon"></div>
-    <div class="content">
+  <div class="page"><div class="rules"></div><div class="margin"></div>
+    <div class="content"><div class="ribbon"></div>
       <div class="title page-date" id="dash-date"></div>
       <div class="lbl dash-hello">שלום, <strong id="pet-name-label"></strong> 👋</div>
       <div class="dash-top">
@@ -166,8 +166,8 @@
      the date, the calories eaten with the red bar, the day's macro totals and every meal as a taped polaroid.
      screens/home.js fills it. The two arrows live in .date-nav (changeDay, one day); the seven day buttons are outside it. -->
 <div id="screen-home" class="screen">
-  <div class="page"><div class="rules"></div><div class="margin"></div><div class="ribbon"></div>
-    <div class="content">
+  <div class="page"><div class="rules"></div><div class="margin"></div>
+    <div class="content"><div class="ribbon"></div>
       <div class="weekrow">
         <div class="date-nav">
           <button data-action="changeDay" data-arg="-1"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
@@ -458,7 +458,7 @@
         <div class="modal-title" id="edit-title">עריכת מנה</div>
         <button id="edit-modal-close" class="modal-close" data-action="closeEditModal">✕</button>
       </div>
-      <input id="edit-name" type="text" class="edit-name" placeholder="שם המנה">
+      <textarea id="edit-name" class="edit-name" placeholder="שם המנה" rows="1"></textarea>
       <div class="res-rows edit-rows">
         <label class="res-row"><span>קלוריות</span><span class="res-val"><input id="edit-cal" type="number" min="0" step="1" inputmode="decimal"><i>קק״ל</i></span></label>
         <label class="res-row"><span>חלבון</span><span class="res-val"><input id="edit-pro" type="number" min="0" step="0.1" inputmode="decimal"><i>גר׳</i></span></label>

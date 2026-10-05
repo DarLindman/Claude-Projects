@@ -126,6 +126,7 @@ async function loadYearlyStats() {
       isFuture: r => String(r.month).slice(0, 7) > currentMonth,
       recommended: rec,
       labelSize: 11,
+      stagger: true,
     }));
     renderStatMacros('yearly-macro', rows, averageFootnote(totalDays), totalDays);
   } catch { }

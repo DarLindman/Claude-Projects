@@ -1,5 +1,5 @@
 import { html, setHtml } from './dom.js';
-import { formatNumber } from './format.js';
+import { formatKg, formatNumber } from './format.js';
 
 // ── Shared stat helpers ──────────────────────────────────────────────────────
 const byId = (id) => document.getElementById(id);
@@ -51,7 +51,7 @@ export function renderStatMacros(elId, rows, footnote, divisor) {
 // goal is red; a day without data is a short pencil dash on the baseline; future days draw nothing.
 const W = 248, BASE = 170, PLOT_TOP = 48, LABEL_Y = 188, GOAL_LABEL_Y = 15, VIEW_H = 194;
 
-export function renderBarChart(rows, { getValue, getLabel, isToday = () => false, isFuture = () => false, showLabel = () => true, recommended = 0, labelSize = 16 }) {
+export function renderBarChart(rows, { getValue, getLabel, isToday = () => false, isFuture = () => false, showLabel = () => true, recommended = 0, labelSize = 16, stagger = false }) {
   const n = rows.length;
   const slot = W / Math.max(n, 1);
   const bw = r1(Math.min(22, slot * 0.64));
@@ -95,12 +95,15 @@ export function renderBarChart(rows, { getValue, getLabel, isToday = () => false
     goalText = html`<text class="goal-label" x="${lx}" y="${GOAL_LABEL_Y}" text-anchor="middle" font-size="16">יעד <tspan>${formatNumber(goal)}</tspan></text>`;
   }
 
+  // stagger: the labels sit on two alternating baselines (every other one a line lower), so twelve short names never touch
+  const rowGap = stagger ? Math.round(labelSize * 1.4) + 4 : 0;   // a text box is about 1.3 times its font size tall
+  const viewH = VIEW_H + rowGap;
   const labels = rows.map((r, i) => (showLabel(r, i)
-    ? html`<text class="${isToday(r) ? 'chart-day today' : 'chart-day'}" x="${r1(cx(i))}" y="${LABEL_Y}" text-anchor="middle" font-size="${labelSize}">${getLabel(r)}</text>`
+    ? html`<text class="${isToday(r) ? 'chart-day today' : 'chart-day'}" x="${r1(cx(i))}" y="${LABEL_Y + (i % 2 ? rowGap : 0)}" text-anchor="middle" font-size="${labelSize}">${getLabel(r)}</text>`
     : ''));
 
   // the invisible frame keeps the filtered group's box from collapsing to a line (an empty chart is only dashes)
-  return html`<svg viewBox="0 0 ${W} ${VIEW_H}" overflow="visible" xmlns="http://www.w3.org/2000/svg">
+  return html`<svg viewBox="0 0 ${W} ${viewH}" overflow="visible" xmlns="http://www.w3.org/2000/svg">
     <g class="chart-ink" filter="url(#wobS)" stroke-width="${n > 12 ? 1.4 : 2}" stroke-linejoin="round" stroke-linecap="round">
       <rect class="chart-frame" x="0" y="${PLOT_TOP - 2}" width="${W}" height="${BASE - PLOT_TOP + 2}" fill="none" stroke="none"/>
       ${goalInk}
@@ -119,8 +122,9 @@ export function renderBarChart(rows, { getValue, getLabel, isToday = () => false
 // ink, every point a cream circle with an ink outline and the newest one red, the goal a dashed red line. Time runs left to
 // right, the newest point is the rightmost. The scale always includes the goal and spans at least MIN_SPAN kg, so a goal
 // above or below every value stays on the paper, and equal values (a zero range) sit in the middle instead of dividing by
-// zero. Up to MAX_DOTS points get a circle each; a longer history keeps the line and circles only the newest point.
-const WW = 248, WH = 130, WX0 = 10, WX1 = 238, WY0 = 16, WY1 = 114, MIN_SPAN = 2, MAX_DOTS = 60;
+// zero. The left WGUTTER units are a gutter for the numbers: the lowest and the highest weight (and the goal) at the height of
+// their value, in kg, digits only; the points and the goal line start right of it, so no label touches them. Up to MAX_DOTS points get a circle each; a longer history keeps the line and circles only the newest point.
+const WW = 248, WH = 130, WGUTTER = 36, WX0 = 44, WX1 = 238, WY0 = 16, WY1 = 114, MIN_SPAN = 2, MAX_DOTS = 60;
 const WGRID = 'M0 26h248M0 52h248M0 78h248M0 104h248M31 0v130M62 0v130M93 0v130M124 0v130M155 0v130M186 0v130M217 0v130';
 const r2 = (n) => Math.round(n * 100) / 100;
 
@@ -141,7 +145,21 @@ export function renderWeightChart(values, { goal = 0 } = {}) {
   const dots = shown.map((i) => (i === n - 1
     ? html`<circle class="wpt last" cx="${pts[i].x}" cy="${pts[i].y}" r="${r + 1}" stroke-width="${r > 3 ? 2.4 : 1.8}"/>`
     : html`<circle class="wpt" cx="${pts[i].x}" cy="${pts[i].y}" r="${r}" stroke-width="${r > 3 ? 2.4 : 1.8}"/>`));
-  const goalLine = g > 0 ? html`<line class="goal-line" x1="0" y1="${yOf(g)}" x2="${WW}" y2="${yOf(g)}" stroke-dasharray="6 5" stroke-width="2"/>` : '';
+  const goalLine = g > 0 ? html`<line class="goal-line" x1="${WGUTTER}" y1="${yOf(g)}" x2="${WW}" y2="${yOf(g)}" stroke-dasharray="6 5" stroke-width="2"/>` : '';
+
+  // the gutter labels: lowest, highest and the goal, each at the height of its value; two that would touch are pushed apart
+  const wants = [];
+  if (n) {
+    const lowest = Math.min(...vals), highest = Math.max(...vals);
+    wants.push({ v: highest, cls: 'wlbl' });
+    if (lowest !== highest) wants.push({ v: lowest, cls: 'wlbl' });
+  }
+  if (g > 0 && !wants.some((w) => Math.abs(w.v - g) < 0.05)) wants.push({ v: g, cls: 'wlbl goal' });
+  wants.forEach((w) => { w.y = yOf(w.v); });
+  wants.sort((a, b) => a.y - b.y);
+  for (let i = 1; i < wants.length; i++) wants[i].y = Math.max(wants[i].y, r2(wants[i - 1].y + 12));
+  for (let i = wants.length - 2; i >= 0 && wants.length && wants[wants.length - 1].y > WH - 6; i--) wants[i].y = Math.min(wants[i].y, wants[i + 1].y - 12);
+  const numbers = wants.map((w) => html`<text class="${w.cls}" x="${WGUTTER / 2}" y="${r2(w.y)}" dy=".35em" text-anchor="middle" font-size="11">${formatKg(w.v)}</text>`);
 
   // the paper is inside the filtered group, so its box never collapses (a flat line would otherwise have no height and vanish)
   return html`<svg class="wchart" viewBox="0 0 ${WW} ${WH}" overflow="visible" xmlns="http://www.w3.org/2000/svg">
@@ -151,5 +169,6 @@ export function renderWeightChart(values, { goal = 0 } = {}) {
       ${line}
       ${dots}
     </g>
+    ${numbers}
   </svg>`;
 }

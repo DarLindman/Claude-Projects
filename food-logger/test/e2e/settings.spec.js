@@ -388,7 +388,7 @@ test('the edit modal keeps its buttons by name and works: edit, recalculate, sav
     .toEqual(['0px', '0px', '2px', 'rgba(0, 0, 0, 0)']);
 
   // the fields of the slip: exactly the meal totals and the time, nothing per component
-  const ids = await modal.locator('input').evaluateAll((els) => els.map((e) => e.id).sort());
+  const ids = await modal.locator('input, textarea').evaluateAll((els) => els.map((e) => e.id).sort());
   expect(ids).toEqual(['edit-cal', 'edit-carb', 'edit-fat', 'edit-fiber', 'edit-name', 'edit-pro', 'edit-time']);
   await expect(modal).not.toContainText('גרם');
   await expect(modal.locator('.receipt, .receipt-row')).toHaveCount(0);

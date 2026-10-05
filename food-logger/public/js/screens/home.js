@@ -66,7 +66,7 @@ function renderWeek(shownDay) {
 function renderMealList(entries) {
   const el = byId('meal-list');
   if (!entries.length) {
-    setHtml(el, html`<div class="empty-state"><div class="empty-icon">${plateSvg()}</div><p>אין ארוחות מתועדות<br>לחץ על ➕ כדי להוסיף ארוחה</p></div>`);
+    setHtml(el, html`<div class="empty-state"><div class="empty-icon">${plateSvg()}</div><p>אין ארוחות מתועדות<br>לחץ על <svg class="plus-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg> כדי להוסיף ארוחה</p></div>`);
     return;
   }
   _mealEntries.clear();
@@ -156,11 +156,22 @@ export function resetEditModal() {
   for (const id of ['edit-name', 'edit-cal', 'edit-pro', 'edit-carb', 'edit-fat', 'edit-fiber', 'edit-time']) {
     document.getElementById(id).value = '';
   }
+  document.getElementById('edit-name').style.height = '';
   document.querySelectorAll('#edit-modal .meal-opt').forEach(b => b.classList.remove('selected'));
   document.getElementById('edit-btn-row').replaceChildren();
   const closeBtn = document.getElementById('edit-modal-close');
   closeBtn.disabled = false;
   closeBtn.style.opacity = '';
+}
+
+// The name field is a textarea that grows with its text (a long name wraps like the analysis page's name). It needs layout,
+// so it is fitted after the slip is open and on every keystroke.
+// A meal name is one line of text: Enter does not add a line break.
+function noNewline(e) { if (e.key === 'Enter') e.preventDefault(); }
+function fitEditName() {
+  const el = document.getElementById('edit-name');
+  el.style.height = 'auto';
+  el.style.height = `${el.scrollHeight + (el.offsetHeight - el.clientHeight)}px`;   // the underline (the border) is part of the box
 }
 
 export function openEditModal(id) {
@@ -193,9 +204,14 @@ export function openEditModal(id) {
   const nameInput = document.getElementById('edit-name');
   nameInput.removeEventListener('input', updateEditButtons);
   nameInput.addEventListener('input', updateEditButtons);
+  nameInput.removeEventListener('keydown', noNewline);
+  nameInput.addEventListener('keydown', noNewline);
+  nameInput.removeEventListener('input', fitEditName);
+  nameInput.addEventListener('input', fitEditName);
 
   updateEditButtons();
   openModal('edit-modal');
+  fitEditName();
 }
 
 export function closeEditModal() {
@@ -240,6 +256,7 @@ export async function editRecalculate() {
     });
     if (gen !== _editGen) return;   // signed out meanwhile: the reply belongs to the previous person
     document.getElementById('edit-name').value  = data.foodName || foodName;
+    fitEditName();
     document.getElementById('edit-cal').value   = (+data.calories  || 0).toFixed(1);
     document.getElementById('edit-pro').value   = (+data.protein_g || 0).toFixed(1);
     document.getElementById('edit-carb').value  = (+data.carbs_g   || 0).toFixed(1);

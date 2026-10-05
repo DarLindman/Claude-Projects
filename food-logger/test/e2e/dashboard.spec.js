@@ -79,7 +79,7 @@ test('home with no meals: date, capybara, 0 eaten of the goal, no streak, no las
   await openHome(page);
 
   await expect(page.locator('#screen-dashboard .page > .content')).toBeVisible();
-  await expect(page.locator('#screen-dashboard .ribbon')).toBeVisible();
+  await expect(page.locator('#screen-dashboard .content > .ribbon')).toBeVisible();
   // "שבת, 3 באוקטובר": the weekday, the day of the month and the full month name
   await expect(page.locator('#dash-date')).toHaveText(/^[א-ת]+, \d{1,2} ב[א-ת]+$/);
   await expect(page.locator('#pet-dashboard-wrap svg')).toBeVisible();
@@ -304,3 +304,51 @@ for (const [label, handler] of [
     expect(pageErrors).toEqual([]);
   });
 }
+
+// ── the first-meal prompt (owner-approved copy) ────────────────────────────────────────────────────────────────────
+
+const FIRST_MEAL = 'לחץ על + כדי להוסיף את הארוחה הראשונה';
+
+for (const width of [390, 320]) {
+  test(`at ${width} px a user with no meal at all gets the first-meal prompt in the sleeping capybara's bubble, clear of her; the first meal replaces it`, async ({ page }) => {
+    const guards = attachGuards(page);
+    await page.setViewportSize({ width, height: 844 });
+    await registerWithProfile(page, uniqueName());
+    await openHome(page);
+
+    const bubble = page.locator('#pet-bubble');
+    await expect(page.locator('#pet-status-text')).toHaveText(FIRST_MEAL);
+    await expect(page.locator('#pet-dashboard-wrap .pet-wrap')).toHaveClass(/pet--sleeping/);
+    const geo = await page.evaluate(() => {
+      const box = (el) => { const r = el.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; };
+      const b = document.getElementById('pet-bubble');
+      return {
+        bubble: box(b), pet: box(document.getElementById('pet-dashboard-wrap')), page: box(document.querySelector('#screen-dashboard .page')),
+        noOverflow: b.scrollWidth <= b.clientWidth + 1,
+      };
+    });
+    const hit = (a, c) => a.l < c.r && c.l < a.r && a.t < c.b && c.t < a.b;
+    expect(hit(geo.bubble, geo.pet), 'the bubble does not overlap the capybara').toBe(false);
+    expect(geo.bubble.l >= geo.page.l && geo.bubble.r <= geo.page.r, 'the bubble is inside the page').toBe(true);
+    expect(geo.noOverflow, 'the text stays inside the bubble').toBe(true);
+
+    // the first meal (seeded like the client does) replaces the prompt: back on home after another screen
+    await meal(page, { name: 'ארוחה ראשונה', calories: 321 });
+    await page.locator('#nav-home').click();
+    await expect(page.locator('#screen-home')).toBeVisible();
+    await page.locator('#nav-dashboard').click();
+    await expect(page.locator('#screen-dashboard')).toBeVisible();
+    await expect(page.locator('#dash-last .dash-meal-name')).toHaveText('ארוחה ראשונה');
+    await expect(bubble).not.toContainText('הארוחה הראשונה');
+    await expect(page.locator('#pet-status-text')).not.toHaveText(FIRST_MEAL);
+    expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+  });
+}
+
+test('the first-meal prompt shows only without any meal: a meal of an earlier day keeps the old messages', async ({ page }) => {
+  await registerWithProfile(page, uniqueName());
+  await meal(page, { name: 'ארוחה ישנה', day: dayBack(5) });
+  await openHome(page);
+  await expect(page.locator('#pet-status-text')).toContainText('כמה זמן לא ראיתי אותך');
+  await expect(page.locator('#pet-status-text')).not.toHaveText(FIRST_MEAL);
+});

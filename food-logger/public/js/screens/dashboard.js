@@ -12,6 +12,7 @@ import { getUsername } from '../session.js';
 import { tallySvg } from '../tally.js';
 
 const PET_SIZE = 132;
+const FIRST_MEAL_PROMPT = 'לחץ על + כדי להוסיף את הארוחה הראשונה';
 
 const byId = (id) => document.getElementById(id);
 
@@ -143,7 +144,10 @@ export async function loadDashboard() {
 
     const petUsername = getUsername() || '';
     byId('pet-name-label').textContent = petUsername;
-    byId('pet-status-text').textContent = PET_MESSAGES[petState](petUsername);
+    // A user with no meal at all (no entry today and the streak endpoint knows no day up to today) gets a gentle first-meal
+    // prompt in the sleeping capybara's bubble instead of "how long since I saw you"; the first meal replaces it by itself.
+    const neverLogged = lastLogDate === null && !hasLoggedToday;
+    byId('pet-status-text').textContent = neverLogged ? FIRST_MEAL_PROMPT : PET_MESSAGES[petState](petUsername);
 
   } catch {}
 }

@@ -273,7 +273,15 @@ test('all three views open, share the tab strip (the active tab raised) and keep
   await expect(page.locator('#yearly-chart .bar')).toHaveCount(1);
   g = await chartGeometry(page, '#yearly-chart');
   expect(g.days).toHaveLength(12);
-  for (let i = 0; i < g.days.length; i++) for (let j = i + 1; j < g.days.length; j++) expect(intersects(g.days[i], g.days[j]), `month labels ${i}/${j}`).toBe(false);
+  // the twelve month names keep a visible gap (at least 2 px on every side) at 390 px and at 320 px
+  const apart = (p, q, gap) => p.l - gap >= q.r || q.l - gap >= p.r || p.t - gap >= q.b || q.t - gap >= p.b;
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    g = await chartGeometry(page, '#yearly-chart');
+    expect(g.days).toHaveLength(12);
+    for (let i = 0; i < g.days.length; i++) for (let j = i + 1; j < g.days.length; j++) expect(apart(g.days[i], g.days[j], 2), `month labels ${g.days[i].text} / ${g.days[j].text} at ${width}px`).toBe(true);
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
   expect(g.days.filter((d) => d.today)).toHaveLength(1);
   expect(g.goalLabel).not.toBeNull();
   for (const bar of g.bars) expect(intersects(g.goalLabel, bar)).toBe(false);
