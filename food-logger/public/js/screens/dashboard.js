@@ -77,6 +77,7 @@ function renderBar(cal, goal) {
 
 // Leaving the screen empties what is user data, so the next visit (or the next user) never shows stale content.
 export function resetDashboard() {
+  byId('screen-dashboard')?.classList.remove('is-fresh');
   const last = byId('dash-last');
   if (last) { last.hidden = true; last.replaceChildren(); }
   const streak = byId('dash-streak');
@@ -148,6 +149,7 @@ export async function loadDashboard() {
     // prompt in the sleeping capybara's bubble instead of "how long since I saw you"; the first meal replaces it by itself.
     const neverLogged = lastLogDate === null && !hasLoggedToday;
     byId('pet-status-text').textContent = neverLogged ? FIRST_MEAL_PROMPT : PET_MESSAGES[petState](petUsername);
+    byId('screen-dashboard').classList.toggle('is-fresh', neverLogged);
 
   } catch {}
 }

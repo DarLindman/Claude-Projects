@@ -534,6 +534,8 @@
   mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent);
 }
 
+#screen-weight .content.no-fade { -webkit-mask-image: none; mask-image: none; }   /* weight.js: the add button is in the fade zone */
+
 /* ════ Page typography shared by the redone pages (from the reference) ════ */
 .lbl { font: 400 17px/30px var(--font-text); letter-spacing: .02em; color: var(--graphite); }
 .title { font: 400 25px/46px var(--font-text); margin-top: 4px; white-space: nowrap; }
@@ -637,13 +639,16 @@
    the streak tally, the last meal. The ribbon (top 50 px, left 46 px) sits beside the first lines, so the date keeps clear of it. */
 #screen-dashboard [hidden] { display: none !important; }
 #screen-dashboard .content { padding-bottom: 28px; }
-.dash-hello { margin-top: 0; font-size: 17px; line-height: 30px; }
+/* the greeting keeps 50 px clear of the ribbon on the left (like the date), whatever the length of the name; a name without a space wraps anywhere */
+.dash-hello { margin: 0 0 0 50px; font-size: 17px; line-height: 30px; overflow-wrap: anywhere; }
 .dash-hello strong { font-weight: 400; color: var(--ink); overflow-wrap: anywhere; }
 .dash-top { display: flex; gap: 10px; align-items: flex-start; min-height: 150px; margin-top: 30px; }
 .dash-bubble { position: relative; flex: 1 1 0; min-width: 100px; margin-top: 0; overflow-wrap: anywhere; }
 .dash-pet { flex: 0 1 132px; min-width: 80px; margin-left: -8px; }
 .dash-pet .pet-wrap { display: block; }
 .dash-pet svg { width: 100%; height: auto; }
+/* a user with no meal at all: the sleeping capybara and her first-meal prompt sit lower on the page (two rules down), so the page does not look empty above a lonely 0 */
+#screen-dashboard.is-fresh .dash-top { margin-top: 90px; }
 /* a 320 px phone: a smaller capybara gives the bubble room for a whole user name (a longer one wraps inside it, never out of it) */
 @media (max-width: 340px) {
   .dash-pet { flex-basis: 84px; min-width: 70px; }

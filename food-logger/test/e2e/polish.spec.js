@@ -249,3 +249,41 @@ test('the weight graph labels: one weight and no goal gives one number; no weigh
   await expect(page.locator('#weight-chart svg .wpt')).toHaveCount(1);
   await expect(page.locator('#weight-chart svg text')).toHaveText(['80']);
 });
+
+// ── the add button is never under the fade ────────────────────────────────────────────────────────────────────────
+
+test('on the weight screen the add button is never washed out by the foot fade, at any phone height; the fade is back once it scrolls clear', async ({ page }) => {
+  const guards = attachGuards(page);
+  await page.setViewportSize({ width: 320, height: 640 });
+  await register(page, { profile: { ...PROFILE, goalWeight: 68.5 } });
+  for (let i = 0; i < 24; i++) expect((await post(page, '/api/weight', { weight_kg: 78 - i * 0.2, logged_at: dayBack(i) })).status()).toBe(200);
+  await page.goto('/');
+  await expect(page.locator('#screen-dashboard')).toBeVisible();
+  await page.locator('#nav-weight').click();
+  await expect(page.locator('#weight-list .weight-entry')).toHaveCount(24);
+
+  const state = () => page.evaluate(() => {
+    const content = document.querySelector('#screen-weight .content');
+    const r = document.querySelector('#screen-weight .wt-add .penbtn').getBoundingClientRect();
+    const zoneTop = content.getBoundingClientRect().bottom - 18;
+    const mask = getComputedStyle(content).maskImage;
+    return { fadeOn: /linear-gradient/.test(mask), inZone: r.bottom > zoneTop && r.top < zoneTop + 18, below: r.top >= zoneTop + 18 };
+  });
+  let sawButtonInZone = false;
+  for (const height of [600, 640, 660, 680, 700, 740, 800]) {
+    await page.setViewportSize({ width: 320, height });
+    await page.evaluate(() => { document.querySelector('#screen-weight .content').scrollTop = 0; });
+    await page.waitForTimeout(100);
+    const s = await state();
+    sawButtonInZone = sawButtonInZone || s.inZone;
+    expect(s.fadeOn && s.inZone, `height ${height}: the button is under the fade on first view`).toBe(false);
+  }
+  expect(sawButtonInZone, 'some phone height puts the button in the fade zone (the test is not vacuous)').toBe(true);
+
+  // scrolled down until the button has left the zone upwards: the fade is on again
+  await page.evaluate(() => { document.querySelector('#screen-weight .content').scrollTop = 10000; });
+  await page.waitForTimeout(100);
+  const end = await state();
+  expect(end.fadeOn, 'the fade is back at the end of the list').toBe(true);
+  expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+});

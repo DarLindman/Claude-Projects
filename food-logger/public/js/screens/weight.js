@@ -22,6 +22,7 @@ export function enterWeight() {
   const page = document.querySelector('#screen-weight .page');
   if (page) _walker = mountWalkingCapybara(page, { state: 'neutral', size: 96, bottom: 4 });
   loadWeightScreen();
+  requestAnimationFrame(updateFootFade);
 }
 export function leaveWeight() {
   loadSeq += 1;
@@ -97,6 +98,25 @@ function renderWeightScreen() {
   renderWeightHead();
   drawWeightChart();
   renderWeightList();
+  requestAnimationFrame(updateFootFade);
+}
+
+// The scroll area fades over its last FOOT_FADE px (screens.css), so a row cut by its end fades instead of being sliced. The
+// screen's main action, the add button, must never be washed out by it: while the button is in that zone the fade is off
+// (class no-fade), and it comes back as soon as the button has scrolled clear.
+const FOOT_FADE = 18;
+function updateFootFade() {
+  const content = document.querySelector('#screen-weight .content');
+  const button = document.querySelector('#screen-weight .wt-add .penbtn');
+  if (!content || !button || !content.clientHeight) return;   // hidden screen: nothing to measure
+  const zoneTop = content.getBoundingClientRect().bottom - FOOT_FADE;
+  const r = button.getBoundingClientRect();
+  content.classList.toggle('no-fade', r.bottom > zoneTop && r.top < zoneTop + FOOT_FADE);
+}
+{
+  const content = document.querySelector('#screen-weight .content');
+  if (content) content.addEventListener('scroll', updateFootFade, { passive: true });
+  window.addEventListener('resize', updateFootFade);
 }
 
 // The target weight of the profile (`goalWeight`, a number, a numeric string from an older client, or absent), a positive number or 0 (none: no goal line, no goal text).

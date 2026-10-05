@@ -352,3 +352,77 @@ test('the first-meal prompt shows only without any meal: a meal of an earlier da
   await expect(page.locator('#pet-status-text')).toContainText('כמה זמן לא ראיתי אותך');
   await expect(page.locator('#pet-status-text')).not.toHaveText(FIRST_MEAL);
 });
+
+// ── a fresh user's home reads like a day with data; the ribbon never covers the greeting ────────────────────────────
+
+const boxOf = (page, sel) => page.evaluate((sel) => { const r = document.querySelector(sel).getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; }, sel);
+const overlap = (a, c) => a.l < c.r && c.l < a.r && a.t < c.b && c.t < a.b;
+
+for (const width of [390, 320]) {
+  test(`at ${width} px a fresh user with a goal sees 0, "קק״ל מתוך N" and an empty bar like a day with data; the sleeping capybara and her prompt stay, clear of the ribbon`, async ({ page }) => {
+    const guards = attachGuards(page);
+    await page.setViewportSize({ width, height: 700 });
+    await registerWithProfile(page, uniqueName());
+    await openHome(page);
+
+    await expect(page.locator('#dash-cal-remaining')).toHaveText('0');
+    await expect(page.locator('#dash-cal-sep')).toBeVisible();
+    await expect(page.locator('#dash-cal-goal-label')).toHaveText(/^[\d,]+$/);
+    await expect(page.locator('#dash-bar')).toBeVisible();
+    expect(await page.locator('#dash-cal-fill').evaluate((el) => el.style.width)).toBe('0%');
+    await expect(page.locator('#screen-dashboard')).toHaveClass(/is-fresh/);
+    await expect(page.locator('#pet-status-text')).toHaveText(FIRST_MEAL);
+    await expect(page.locator('#pet-dashboard-wrap .pet-wrap')).toHaveClass(/pet--sleeping/);
+
+    const ribbon = await boxOf(page, '#screen-dashboard .content > .ribbon');
+    for (const sel of ['#dash-date', '.dash-hello', '#pet-bubble', '#pet-dashboard-wrap svg', '#dash-cal-remaining']) {
+      expect(overlap(ribbon, await boxOf(page, sel)), `the ribbon covers ${sel}`).toBe(false);
+    }
+    const bubble = await boxOf(page, '#pet-bubble');
+    expect(overlap(bubble, await boxOf(page, '#pet-dashboard-wrap')), 'bubble and capybara apart').toBe(false);
+    expect(overlap(bubble, await boxOf(page, '#dash-cal-remaining')), 'the bubble is above the number').toBe(false);
+
+    // a day with data is the old layout (no fresh class)
+    await meal(page, { name: 'ארוחה', calories: 200 });
+    await page.locator('#nav-home').click();
+    await page.locator('#nav-dashboard').click();
+    await expect(page.locator('#dash-last .dash-meal-name')).toHaveText('ארוחה');
+    await expect(page.locator('#screen-dashboard')).not.toHaveClass(/is-fresh/);
+    expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+  });
+
+  test(`at ${width} px a very long user name keeps the greeting clear of the ribbon and inside the page, spaces or not`, async ({ page }) => {
+    const guards = attachGuards(page);
+    await page.setViewportSize({ width, height: 700 });
+    const tag = String(Date.now()).slice(-7);   // user names are unique
+    const names = [
+      `אברמוביץ בן דוד ירושלמי המאוד ארוך של ${tag}`,
+      `${'א'.repeat(43)}${tag}`,
+    ];
+    for (const name of names) {
+      await page.context().clearCookies();
+      await registerWithProfile(page, name);
+      await meal(page, { name: 'ישנה', day: dayBack(1) });   // so the capybara greets by name
+      await openHome(page);
+      await expect(page.locator('#pet-name-label')).toHaveText(name);
+      const g = await page.evaluate(() => {
+        const box = (el) => { const r = el.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; };
+        const hello = document.querySelector('#screen-dashboard .dash-hello');
+        const bubble = document.getElementById('pet-bubble');
+        return {
+          ribbon: box(document.querySelector('#screen-dashboard .content > .ribbon')), hello: box(hello), bubble: box(bubble),
+          page: box(document.querySelector('#screen-dashboard .page')),
+          helloOverflow: hello.scrollWidth > hello.clientWidth + 1, bubbleOverflow: bubble.scrollWidth > bubble.clientWidth + 1,
+          lines: Math.round(hello.getBoundingClientRect().height / 30),
+        };
+      });
+      expect(overlap(g.ribbon, g.hello), `the ribbon covers the greeting of "${name.slice(0, 12)}" (${g.lines} lines)`).toBe(false);
+      expect(g.hello.l >= g.page.l && g.hello.r <= g.page.r, 'the greeting is inside the page').toBe(true);
+      expect(g.bubble.l >= g.page.l && g.bubble.r <= g.page.r, 'the bubble is inside the page').toBe(true);
+      expect(g.helloOverflow || g.bubbleOverflow, 'nothing is clipped').toBe(false);
+      expect(overlap(g.ribbon, g.bubble), 'the ribbon does not cover the bubble').toBe(false);
+      if (!name.includes(' ')) expect(g.lines, 'an unbreakable name wraps onto more lines').toBeGreaterThan(1);
+    }
+    expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+  });
+}
