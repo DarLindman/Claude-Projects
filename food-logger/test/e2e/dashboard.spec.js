@@ -1,7 +1,7 @@
 'use strict';
 
 // Task 8: the home screen as a diary page. The date title, the capybara with her speech bubble, the large
-// handwritten calories eaten with the red progress bar, the streak as a hand-drawn tally under "ברצף כבר N ימים",
+// handwritten calories eaten with the red progress bar, the streak as a strip of seven hand-drawn circles under "ברצף כבר N ימים",
 // and the last meal as a polaroid (the thumbnail when the meal has one, else the drawn plate) with the circled
 // calories. Meals are seeded through the API the way the real client sends them (wall-clock `logged_at` from the
 // browser's local date); the text-analysis flow runs through the UI once.
@@ -112,7 +112,7 @@ test('home with no profile: no goal, no bar, still no NaN', async ({ page }) => 
   expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
 });
 
-test('one meal saved through the UI: eaten calories, circled calories, tally for 1, placeholder plate, username', async ({ page }) => {
+test('one meal saved through the UI: eaten calories, circled calories, streak strip for 1, placeholder plate, username', async ({ page }) => {
   const guards = attachGuards(page);
   const username = uniqueName();
   await registerWithProfile(page, username);
@@ -137,11 +137,11 @@ test('one meal saved through the UI: eaten calories, circled calories, tally for
   await expect(big).toHaveCSS('font-size', '46px');
   await expect(page.locator('#screen-dashboard .eat .of')).toContainText('קק״ל מתוך');
 
-  // streak 1: the line says "יום אחד" and the tally is one stroke
+  // streak 1: the line says "יום אחד" and one circle of the strip (today, the rightmost) is filled
   await expect(page.locator('#dash-streak')).toBeVisible();
   await expect(page.locator('#dash-streak .dash-streak-line')).toHaveText('ברצף כבר יום אחד');
-  await expect(page.locator('#dash-tally svg.tally')).toBeVisible();
-  await expect(page.locator('#dash-tally svg.tally .tally-stroke')).toHaveCount(1);
+  await expect(page.locator('#dash-days svg.days')).toBeVisible();
+  await expect(page.locator('#dash-days .day.filled')).toHaveCount(1);
 
   // the last meal: polaroid with the drawn plate (no thumbnail), circled calories and the name
   const last = page.locator('#dash-last');
@@ -183,7 +183,7 @@ test('a meal with a thumbnail shows it as an img from /api/food/:id/photo, and t
   expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
 });
 
-test('a streak of 7 draws seven strokes and says "ברצף כבר 7 ימים"', async ({ page }) => {
+test('a streak of 7 fills all seven circles and says "ברצף כבר 7 ימים"', async ({ page }) => {
   const guards = attachGuards(page);
   await registerWithProfile(page, uniqueName());
   for (let back = 0; back < 7; back++) await meal(page, { day: dayBack(back), calories: 400 });
@@ -191,8 +191,8 @@ test('a streak of 7 draws seven strokes and says "ברצף כבר 7 ימים"', 
 
   await expect(page.locator('#dash-streak .dash-streak-line')).toHaveText('ברצף כבר 7 ימים');
   await expect(page.locator('#dash-streak-num')).toHaveText('7 ימים');
-  await expect(page.locator('#dash-tally svg.tally .tally-stroke')).toHaveCount(7);   // four strokes, the crossing one, two more
-  await expect(page.locator('#dash-tally svg.tally .tally-diag')).toHaveCount(1);
+  await expect(page.locator('#dash-days .day')).toHaveCount(7);
+  await expect(page.locator('#dash-days .day.filled')).toHaveCount(7);
   expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
 });
 

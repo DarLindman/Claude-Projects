@@ -83,7 +83,7 @@ input::placeholder { color: var(--graphite); }
 .delete-btn:active { background: #efe4cc; }
 
 /* ════════════════════════════════════════
-   THE RECEIPT (receiptHtml in js/receipt.js) AND THE TALLY (tallySvg in js/tally.js)
+   THE RECEIPT (receiptHtml in js/receipt.js)
 ════════════════════════════════════════ */
 .receipt.receipt-slip {
   position: relative; background: #faf6ea; color: #2a2016; border: 0; border-radius: 0; overflow: visible;
@@ -129,6 +129,3 @@ input::placeholder { color: var(--graphite); }
 @media (prefers-reduced-motion: reduce) {
   .receipt-printing, .stamp-thud { animation: none; }
 }
-
-/* the handwritten streak tally */
-.tally { display: block; max-width: 100%; height: auto; overflow: visible; }

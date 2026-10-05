@@ -9,7 +9,7 @@ import { plateSvg } from '../placeholder.js';
 import { photoSrc } from '../photos.js';
 import { calcRecommendedCal } from '../profile.js';
 import { getUsername } from '../session.js';
-import { tallySvg } from '../tally.js';
+import { daysStripSvg } from '../streakDays.js';
 
 const PET_SIZE = 132;
 const FIRST_MEAL_PROMPT = 'לחץ על + כדי להוסיף את הארוחה הראשונה';
@@ -52,13 +52,29 @@ function renderWeight() {
   el.hidden = false;
 }
 
-// A streak of 0 draws nothing: no line, no tally.
-function renderStreak(streak) {
+// The streak: the caption "ברצף כבר N ימים" (only for a streak of at least one day) and, under it, a strip of seven circles for the
+// last seven days, today at the right. The filled ones are the days of the current streak: `streak` consecutive days ending at
+// `lastLogDate` (which the server makes today or yesterday), and today also when a meal of today is on the page. A user who never
+// logged a meal (`lastLogDate` null and nothing today) gets neither, so the first-meal prompt stands alone. Days are the browser's
+// local calendar days (todayStr, addDays), never UTC.
+export function streakDays(today, streak, lastLogDate, hasToday) {
+  const filled = new Set();
+  if (streak >= 1 && lastLogDate) for (let i = 0; i < streak; i++) filled.add(addDays(lastLogDate, -i));
+  if (hasToday) filled.add(today);
+  return Array.from({ length: 7 }, (_, i) => {
+    const day = addDays(today, i - 6);
+    return { day, filled: filled.has(day), today: day === today };
+  });
+}
+
+function renderStreak(streak, lastLogDate, hasToday) {
   const box = byId('dash-streak');
   if (!box) return;
-  if (!(streak >= 1)) { box.hidden = true; byId('dash-tally').replaceChildren(); return; }
-  byId('dash-streak-num').textContent = formatDayCount(streak);
-  setHtml(byId('dash-tally'), tallySvg(streak, { width: 288 }));
+  const hasHistory = lastLogDate !== null && lastLogDate !== undefined || hasToday;
+  if (!hasHistory) { box.hidden = true; byId('dash-days').replaceChildren(); return; }
+  const line = byId('dash-streak-line');
+  if (streak >= 1) { byId('dash-streak-num').textContent = formatDayCount(streak); line.hidden = false; } else line.hidden = true;
+  setHtml(byId('dash-days'), daysStripSvg(streakDays(todayStr(), streak, lastLogDate, hasToday)));
   box.hidden = false;
 }
 
@@ -82,6 +98,8 @@ export function resetDashboard() {
   if (last) { last.hidden = true; last.replaceChildren(); }
   const streak = byId('dash-streak');
   if (streak) streak.hidden = true;
+  const days = byId('dash-days');
+  if (days) days.replaceChildren();
   const weight = byId('dash-weight');
   if (weight) weight.hidden = true;
   const fill = byId('dash-cal-fill');
@@ -122,7 +140,8 @@ export async function loadDashboard() {
 
   try {
     const { streak, lastLogDate } = await apiFetch(`/api/streak?today=${todayStr()}`);
-    renderStreak(streak);
+    const hasLoggedTodayEarly = !!(entries && entries.length);
+    renderStreak(streak, lastLogDate, hasLoggedTodayEarly);
 
     // Pet state: the same local "today" the server was given for the streak
     const today = todayStr();
