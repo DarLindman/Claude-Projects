@@ -40,6 +40,10 @@ const TEXT_ITEMS = [
   { name: 'לחם', weight_g: 25, calories: 65, protein_g: 2, carbs_g: 12, fat_g: 1, fiber_g: 1 },
 ];
 
+// What the replies carry as "items" for the default fake items above (name and calories only).
+const IMAGE_REPLY_ITEMS = [{ name: 'עוף', calories: 250 }, { name: 'אורז', calories: 200 }];
+const TEXT_REPLY_ITEMS = [{ name: 'סלט', calories: 80 }, { name: 'לחם', calories: 65 }];
+
 function fakeAnthropic() {
   const calls = [];
   const reply = (text) => ({ content: [{ type: 'text', text }] });
@@ -77,4 +81,4 @@ function fakeAnthropic() {
   return fake;
 }
 
-module.exports = { fakeAnthropic, IMAGE_ITEMS, TEXT_ITEMS };
+module.exports = { fakeAnthropic, IMAGE_ITEMS, TEXT_ITEMS, IMAGE_REPLY_ITEMS, TEXT_REPLY_ITEMS };

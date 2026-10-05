@@ -1,264 +1,62 @@
-/* ════ Diary leather journal ════ */
-#screen-home { background: transparent; }
-#diary-date-label {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 3px;
-  text-transform: uppercase;
-  color: var(--muted);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 4px 12px;
-}
-#meal-list {
-  background-image: repeating-linear-gradient(
-    to bottom,
-    transparent,
-    transparent 27px,
-    rgba(61,37,21,0.35) 27px,
-    rgba(61,37,21,0.35) 28px
-  );
-  background-size: 100% 28px;
-  padding: 4px 0;
-}
-
-.mir-time-col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-
-.mir-food-icon {
-  font-size: 18px;
-  line-height: 1;
-}
-
-.mir-time {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  color: var(--muted);
-  padding-top: 3px;
-}
-.mir-body {
-  min-width: 0;
-}
-.mir-name {
-  font-family: 'Fraunces', serif;
-  font-style: italic;
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--text);
-  line-height: 1.3;
-}
-.mir-macros {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  color: var(--text2);
-  margin-top: 3px;
-}
-.mir-right {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-}
-.mir-kcal {
-  font-family: 'Fraunces', serif;
-  font-style: italic;
-  font-weight: 300;
-  font-size: 20px;
-  color: var(--text);
-  line-height: 1;
-}
-.mir-delete {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--muted);
-  padding: 4px;
-  border-radius: 4px;
-  transition: color var(--dur-fast);
-  min-width: 32px;
-  min-height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.mir-delete:hover { color: #f87171; }
-
 /* ════════════════════════════════════════
-   CAMERA SCREEN
+   ADD MEAL (#screen-camera)
+   A ruled page: the title, the stage (the dashed frame before a photo, the taped polaroid after it), the meal-type
+   chips, the red ink button (after a photo) and the text line. The stage is a fixed 270 px (nine rules); the frame is
+   the whole button. screens/camera.js toggles .has-photo on the screen.
 ════════════════════════════════════════ */
-#screen-camera { background: #000; padding-bottom: var(--nav-h); }
-
-.camera-area {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 24px;
-  padding: 24px;
-}
-
-.cam-tip {
-  font-size: 11px;
-  color: #444;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  font-weight: 500;
-}
-
-.cam-preview {
-  width: 100%;
-  max-width: 360px;
-  aspect-ratio: 1;
-  border-radius: 22px;
-  overflow: hidden;
-  background: #0c0c0c;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  border: 1px solid #1e1e1e;
-}
-
-
-.cam-corners {
-  position: absolute;
-  inset: 12px;
-  pointer-events: none;
-  z-index: 2;
-}
-.cam-corner {
-  position: absolute;
-  width: 20px;
-  height: 20px;
-}
-.cam-corner path {
-  stroke: var(--accent);
-  fill: none;
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  animation: cornerPulse 2s ease-in-out infinite;
-}
-.cam-corner:nth-child(1) { top: 0; right: 0; }
-.cam-corner:nth-child(2) { top: 0; left: 0; }
-.cam-corner:nth-child(3) { bottom: 0; right: 0; }
-.cam-corner:nth-child(4) { bottom: 0; left: 0; }
-@keyframes cornerPulse {
-  0%, 100% { opacity: 0.5; }
-  50%       { opacity: 1; }
-}
-
-.cam-preview img { width: 100%; height: 100%; object-fit: cover; display: none; }
-.cam-placeholder { font-size: 44px; opacity: 0.2; }
-
-.cam-actions {
-  display: flex;
-  gap: 10px;
-  width: 100%;
-  max-width: 360px;
-}
-
-.cam-btn {
-  flex: 1;
-  padding: 15px;
-  border: none;
-  border-radius: 14px;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: 'DM Sans', sans-serif;
-  transition: all .15s;
-}
-
-.cam-btn-shoot {
-  position: relative;
-  width: 64px !important;
-  height: 64px !important;
-  border-radius: 50% !important;
-  padding: 0 !important;
-  background: var(--surface2) !important;
-  border: 2px solid var(--accent) !important;
-  box-shadow: 0 0 0 6px var(--surface), 0 0 0 7px transparent;
-  flex: 0 0 64px;
-  overflow: hidden;
-  transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast);
-  font-size: 0;
-}
-.cam-btn-shoot::after {
-  content: '';
-  position: absolute;
-  inset: -8px;
-  border-radius: 50%;
-  border: 1px dashed rgba(232,112,58,0.4);
-  animation: outerRingRotate 10s linear infinite;
-}
-.cam-btn-shoot:active {
-  transform: scale(0.92);
-  box-shadow: 0 0 0 6px var(--surface), 0 0 20px var(--accent-glow);
-}
-@keyframes outerRingRotate {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-
-.cam-btn-analyze {
-  background: var(--accent);
-  color: #fff;
-  box-shadow: 0 4px 18px rgba(232,112,58,0.38);
-}
-
-.cam-btn:disabled { opacity: 0.3; }
 #file-input { display: none; }
-
-.text-analyze-section {
-  width: 100%;
-  max-width: 360px;
-  margin-top: 20px;
-  padding: 0 4px;
+#screen-camera .content { padding-bottom: 28px; }
+.cam-title { margin-top: 6px; }
+.cam-stage { position: relative; height: 270px; margin-top: 6px; }
+.cam-frame {
+  position: absolute; inset: 2px 0 auto 0; height: 266px; width: auto; padding: 0; cursor: pointer;
+  border: 2.5px dashed rgba(43, 31, 22, .55); border-radius: 12px; background: rgba(255, 253, 246, .55);
+  display: grid; place-items: center; text-align: center; color: var(--ink); font: inherit;
+  transition: transform var(--dur-fast) var(--ease-out);
 }
-.text-analyze-divider {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
-  color: #444;
-  font-size: 11px;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
+.cam-frame:active { transform: scale(.99); }
+.cam-frame-in { display: block; padding: 0 8px; }
+.cam-icon { display: block; margin: 0 auto; max-width: 100%; }
+.cam-big { display: block; font-size: 30px; line-height: 34px; color: var(--ink); margin-top: 6px; }
+.cam-small { display: block; font-size: 17px; line-height: 22px; color: var(--graphite); margin-top: 2px; }
+.cam-frame-tape { top: -8px; right: 60px; transform: rotate(-4deg); }
+.cam-polaroid, .cam-retake { display: none; }
+.cam-polaroid { right: 10px; top: 4px; width: min(210px, calc(100% - 20px)); transform: rotate(-2deg); animation: cam-drop var(--dur-slow) var(--ease-spring) both; }
+.cam-polaroid .tape { top: -10px; left: calc(50% - 29px); transform: rotate(-4deg); }
+.cam-retake {
+  position: absolute; left: 0; bottom: 0; padding: 10px 6px; margin: -10px -6px; border: 0; background: none; cursor: pointer;
+  font: 400 16px/24px var(--font-text); color: var(--graphite); text-decoration: underline; text-decoration-color: var(--red); text-underline-offset: 4px;
 }
-.text-analyze-divider::before,
-.text-analyze-divider::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: #2a2620;
+@keyframes cam-drop {
+  from { opacity: 0; transform: translateY(-14px) rotate(-6deg); }
+  to   { opacity: 1; transform: translateY(0) rotate(-2deg); }
 }
+#screen-camera.has-photo .cam-frame, #screen-camera.has-photo .cam-frame-tape { display: none; }
+#screen-camera.has-photo .cam-polaroid { display: block; }
+#screen-camera.has-photo .cam-retake { display: block; }
+.cam-chips { margin-top: 14px; }
+.cam-chips .chip { padding: 0 11px; margin-left: 4px; }   /* four chips fit one line on a 390 px phone */
+.cam-analyze-row { display: none; text-align: center; margin-top: 4px; }
+#screen-camera.has-photo .cam-analyze-row { display: block; }
+.cam-analyze { position: static; display: inline-block; font-size: 24px; line-height: 30px; padding: 8px 30px; }
+.cam-analyze:active, .cam-text-go:active { transform: translateY(1px); box-shadow: 0 1px 0 #7f2010, 0 4px 10px rgba(120, 30, 10, .35); }
+.cam-analyze:disabled { opacity: .45; cursor: default; }
+.cam-text { margin-top: 12px; }
 #food-text-input {
-  width: 100%;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-input);
-  color: var(--text);
-  font-family: 'DM Sans', sans-serif;
-  font-size: 14px;
-  padding: 12px 14px;
-  resize: none;
-  overflow: hidden;
-  min-height: 72px;
-  margin-bottom: 10px;
-  direction: rtl;
+  /* the tall letters of the handwriting (ל, ח, ך) rise above the line box: 8 px of padding on top keep them whole in a field that
+     clips its overflow, and the same 8 px of negative margin keep the text where the rule grid wants it; 4 px at the sides */
+  display: block; width: 100%; min-height: 68px; margin-top: -8px; padding: 8px 4px 0; border: 0; border-bottom: 2px solid var(--ink); border-radius: 0;
+  background: transparent; color: var(--ink); box-shadow: none; outline: none; resize: none; overflow: hidden;
+  font: 400 22px/30px var(--font-text); direction: rtl;
 }
-#food-text-input::placeholder { color: var(--muted); }
-#food-text-input:focus { outline: none; border-color: var(--accent); }
+#food-text-input::placeholder { color: rgba(111, 93, 76, .45); font-size: 18px; }
+@media (max-width: 340px) { #food-text-input { min-height: 98px; } }   /* the example takes two lines even at 320 px; the box keeps one spare line on narrow phones */
+#food-text-input:focus { border-bottom-color: var(--red); box-shadow: none; }
+/* with a photo chosen, "נתח את הצלחת" is the one red ink button; the text button is a quiet outline pen */
+#screen-camera.has-photo .cam-text-go { background: transparent; color: var(--red); box-shadow: none; border: 1.8px solid var(--red); padding: 2px 20px; }
+#screen-camera.has-photo .cam-text-go:active { box-shadow: none; background: rgba(179, 49, 29, .08); }
+.cam-text-go { position: static; display: block; margin: 14px 0 0; font-size: 20px; line-height: 28px; padding: 4px 22px; }
 
-/* ════════════════════════════════════════
-   ANALYSIS
-════════════════════════════════════════ */
-#screen-analysis { background: transparent; position: relative; overflow: hidden; }
 #capy-save-popup {
   position: fixed;
   top: 50%;
@@ -275,12 +73,12 @@
 }
 #capy-save-popup.visible { transform: translate(-50%, -50%); opacity: 1; }
 #capy-save-bubble {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: #fffdf6;
+  border: 1px solid rgba(43, 31, 22, .22);
   border-radius: 12px;
   padding: 10px 18px;
   font-size: 15px;
-  color: var(--text);
+  color: var(--ink);
   white-space: nowrap;
 }
 #confetti-canvas {
@@ -291,130 +89,210 @@
   z-index: 199;
 }
 
-.analysis-img {
-  width: 100%;
-  max-height: 220px;
-  object-fit: cover;
-  border-radius: var(--radius-sharp);
-  margin-bottom: 16px;
-  display: none;
-}
-
-.spinner {
-  text-align: center;
-  padding: 48px;
-  font-size: 34px;
-  animation: spin 1.2s linear infinite;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.nutrition-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin: 12px 0;
-}
-
-.nut-field { display: flex; flex-direction: column; gap: 5px; }
-.nut-field label { font-size: 10px; letter-spacing: 0.8px; }
-.nut-field input { font-family: 'IBM Plex Mono', monospace; font-size: 14px; }
-
 .meal-select { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
 
 .meal-opt {
   padding: 8px 14px;
   border-radius: 99px;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(43, 31, 22, .22);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 400;
   cursor: pointer;
-  background: var(--surface2);
-  color: var(--text2);
+  background: #efe4cc;
+  color: var(--graphite);
   transition: all .2s;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--font-text);
 }
 
 .meal-opt.selected {
-  border-color: var(--accent);
-  background: var(--accent-dim);
-  color: var(--accent);
+  border-color: var(--red);
+  background: rgba(179, 49, 29, .10);
+  color: var(--red);
 }
 
 /* ════════════════════════════════════════
-   STATS
+   ANALYSIS (#screen-analysis): waiting, result, error. screens/analysisView.js switches the states.
+   Waiting: [polaroid], then a row with the bubble (right) and the capybara with her magnifier (left), then the red bar.
+   Result: handwritten name, the photo polaroid with the circled calories, the printed receipt, handwritten macro rows,
+   the meal chips, the time and the red ink button.
 ════════════════════════════════════════ */
-.stats-tabs {
-  display: flex;
-  background: var(--surface2);
-  border-radius: var(--radius-input);
-  padding: 3px;
-  margin-bottom: 16px;
-  border: 1px solid var(--border);
+#screen-analysis [hidden] { display: none !important; }
+#screen-analysis .content { padding-bottom: 28px; }
+
+/* ── waiting ── */
+.wait-stage { position: relative; height: 214px; margin-top: 6px; }
+.wait-stage .polaroid { right: 6px; top: 8px; width: 170px; transform: rotate(-2.5deg); animation: cam-drop var(--dur-slow) var(--ease-spring) both; }
+.wait-stage .polaroid .tape, .res-top .polaroid .tape { top: -10px; left: calc(50% - 29px); transform: rotate(-4deg); }
+.wait-row { display: flex; align-items: flex-end; gap: 10px; margin-top: 30px; }
+.wait-bubble { position: relative; flex: 1 1 0; min-width: 0; margin-bottom: 22px; overflow-wrap: anywhere; border-radius: 18px 18px 4px 18px; }
+.wait-pet { position: relative; flex: none; width: 128px; }
+.wait-pet .pet-wrap { display: block; width: 100px; }
+.wait-pet svg:not(.wait-magnifier) { width: 100%; height: auto; }
+.wait-magnifier { position: absolute; left: 66px; top: 50px; width: 56px; height: 56px; transform: rotate(-12deg); transform-origin: 30% 30%; animation: wait-search 2.4s ease-in-out infinite; }
+@keyframes wait-search {
+  0%, 100% { transform: rotate(-12deg) translate(0, 0); }
+  50%      { transform: rotate(-4deg) translate(-5px, -3px); }
+}
+.wait-bar { height: 8px; margin-top: 26px; border-radius: 8px; background: rgba(60, 40, 20, .12); overflow: hidden; box-shadow: inset 0 1px 2px rgba(60, 40, 20, .25); }
+.wait-fill { width: 6%; height: 100%; border-radius: 8px; background: linear-gradient(#c8432a, #a82b17); }
+.wait-bar.running .wait-fill { animation: wait-fill 22s cubic-bezier(.1, .7, .3, 1) forwards; }
+@keyframes wait-fill { from { width: 6%; } to { width: 92%; } }
+
+/* ── error ── */
+.fail { text-align: center; padding-top: 30px; }
+.fail-pet .pet-wrap { display: inline-block; }
+#analysis-error { color: var(--red); font: 400 19px/26px var(--font-text); margin-top: 12px; min-height: 26px; }
+
+/* ── result ── */
+.res-lbl { margin-top: 2px; }
+.res-name {
+  display: block; width: 100%; margin: -12px 0 0; padding: 8px 0 0; border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+  background: transparent; box-shadow: none; outline: none; resize: none; overflow: hidden;
+  font: 400 32px/40px var(--font-text); color: var(--ink); direction: rtl; overflow-wrap: anywhere;
+}
+.res-name:focus { border-bottom-color: var(--red); box-shadow: none; }
+.res-name::placeholder { color: rgba(111, 93, 76, .45); }
+.res-top { position: relative; min-height: 70px; margin-top: 10px; }
+.res-top.has-photo { height: 164px; }
+.res-top .polaroid { right: 0; top: 4px; width: 128px; transform: rotate(-3deg); animation: cam-drop var(--dur-slow) var(--ease-spring) both; }
+.res-top .polaroid .cp { font-size: 13px; }
+.res-cal { text-align: center; padding-top: 6px; container-type: inline-size; }
+.res-top.has-photo .res-cal { position: absolute; left: 0; top: 28px; width: calc(100% - 140px); padding-top: 0; }
+/* the font shrinks with the number of characters (--len, set by analysisView.js) so the whole number fits its column */
+.res-cal .circ { font-size: clamp(14px, calc(100cqw / (var(--len, 3) * .66 + 1)), 34px); line-height: 1.35; padding: 0 .4em; max-width: 100%; }
+.res-cal .circ::after { pointer-events: none; }
+.res-cal .circ input {
+  width: calc(var(--len, 3) * .66em); max-width: 100%; padding: 0; border: 0; background: transparent; box-shadow: none; outline: none;
+  font: inherit; color: var(--red); text-align: center; -moz-appearance: textfield; appearance: textfield;
+}
+.res-cal input::-webkit-outer-spin-button, .res-cal input::-webkit-inner-spin-button,
+.res-val input::-webkit-outer-spin-button, .res-val input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.res-kcal { display: block; font: 400 17px/22px var(--font-text); color: var(--graphite); margin-top: 2px; }
+
+/* the receipt: the lift wrapper carries the drop shadow (the mask of the slip would clip one) and the tape */
+#receipt-mount { margin: 14px 0 0; }
+#receipt-mount .receipt-lift { width: min(250px, 100%); margin: 0 auto; transform: rotate(1deg); }
+#receipt-mount .receipt-lift > .tape { z-index: 2; top: -9px; right: 80px; transform: rotate(3deg); }
+#receipt-mount .stamp { z-index: 2; left: 14px; bottom: 6px; }   /* on the barcode strip, never over the numbers */
+
+.res-rows { margin-top: 18px; }
+.res-row { display: flex; justify-content: space-between; align-items: baseline; min-height: 30px; font: 400 18px/30px var(--font-text); color: var(--ink); cursor: text; }
+.res-val { display: inline-flex; align-items: baseline; gap: 4px; direction: rtl; color: var(--red); }
+.res-val i { font-style: normal; font-size: 15px; color: var(--graphite); }
+.res-val input {
+  width: 4.4em; padding: 0; border: 0; border-bottom: 1.5px dotted rgba(111, 93, 76, .6); border-radius: 0; background: transparent; box-shadow: none; outline: none;
+  font: 400 20px/28px var(--font-text); color: var(--red); text-align: center; -moz-appearance: textfield; appearance: textfield;
+}
+.res-val input:focus { border-bottom-color: var(--red); box-shadow: none; }
+.res-val input[type="time"] { width: auto; direction: ltr; }
+
+/* the meal chips of this page and of the edit slip */
+#screen-analysis .meal-select, #edit-modal .meal-select { margin: 12px 0 0; gap: 0; }
+#screen-analysis .meal-opt, #edit-modal .meal-opt {
+  font: 400 17px/28px var(--font-text); padding: 0 11px; margin: 0 0 8px 4px; background: transparent; color: var(--graphite);
+  border: 1.8px solid var(--graphite); border-radius: 20px 18px 22px 18px; transition: none;
+}
+#screen-analysis .meal-opt.selected, #edit-modal .meal-opt.selected { color: var(--red); border-color: var(--red); transform: rotate(-2deg); background: rgba(179, 49, 29, .07); }
+.res-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
+.res-actions .penbtn { position: static; font-size: 24px; line-height: 30px; padding: 8px 30px; }
+.res-actions .penbtn:active { transform: translateY(1px); box-shadow: 0 1px 0 #7f2010, 0 4px 10px rgba(120, 30, 10, .35); }
+.res-actions .penbtn:disabled { opacity: .6; cursor: default; }
+.res-edit { padding: 10px 6px; border: 0; background: none; cursor: pointer; font: 400 17px/24px var(--font-text); color: var(--graphite); text-decoration: underline; text-decoration-color: var(--red); text-underline-offset: 4px; }
+
+/* a 320 px phone: a smaller polaroid so the circled calories keep their room, a smaller capybara so the bubble keeps its */
+@media (max-width: 340px) {
+  .res-top.has-photo { height: 150px; }
+  .res-top .polaroid { width: 112px; }
+  .res-top.has-photo .res-cal { width: calc(100% - 122px); top: 24px; }
+  .wait-pet { width: 106px; }
+  .wait-pet .pet-wrap { width: 84px; }
+  .wait-magnifier { left: 54px; top: 40px; width: 48px; height: 48px; }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .wait-magnifier { animation: none; }
+  .wait-bar.running .wait-fill { animation: none; width: 55%; }
+  .wait-stage .polaroid, .res-top .polaroid { animation: none; }
+}
+
+
+/* ════════════════════════════════════════
+   STATS (the data page)
+   A .page like the others: index tabs at its bottom edge (.btabs), the capybara walking above them (.walker, appended by
+   screens/stats.js with bottom: 46px), and a scrolling .content with the headline average, the hand-drawn bar chart and
+   the macro bars. The content ends 128 px above the page bottom (the strip of the walker and the tabs), so she never walks over text.
+════════════════════════════════════════ */
+#screen-stats .content { bottom: 128px; padding-bottom: 12px; }
+/* the ruled lines run on behind the walking capybara (the content draws its own only inside its box) */
+#screen-stats .page > .rules { display: block; }
+/* The three views never scroll. On a phone shorter than 800 px the strip of the walker goes (she is hidden) and the content runs
+   down to the tabs; the chart is capped so the headline, chart, macro bars and note all fit. */
+@media (max-height: 800px) {
+  #screen-stats .content { bottom: 46px; }
+  #screen-stats .walker { display: none; }
+  .stat-chart svg { max-height: 176px; }
+}
+@media (max-height: 680px) {
+  .stat-chart svg { max-height: 160px; }
+}
+.btabs { position: absolute; left: 14px; right: 14px; bottom: 0; height: 42px; display: flex; gap: 8px; align-items: flex-end; z-index: 3; }
 .stats-tab {
-  flex: 1;
-  padding: 9px;
-  border: none;
-  background: transparent;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  color: var(--muted);
-  transition: all .2s;
-  font-family: 'DM Sans', sans-serif;
+  flex: 1; height: 32px; padding: 0; border: 0; cursor: pointer; border-radius: 12px 12px 0 0;
+  font: 400 17px/32px var(--font-text); box-shadow: 0 -2px 5px rgba(40, 22, 8, .28);
+  transition: height var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
 }
+.stats-tab[data-arg="weekly"]  { background: #c9532f; color: #fff3dc; }
+.stats-tab[data-arg="monthly"] { background: #d9a850; color: #3a2810; }
+.stats-tab[data-arg="yearly"]  { background: #7f9a6b; color: #17240f; }
+.stats-tab.active { height: 40px; line-height: 40px; box-shadow: 0 -3px 7px rgba(40, 22, 8, .38); }
 
-.stats-tab.active {
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+/* the month / year picker: the two arrows at the ends of a 30 px line, the label between them */
+#screen-stats .date-nav { display: flex; align-items: center; justify-content: space-between; height: 30px; margin: 0; }
+#screen-stats .date-nav button {
+  width: 28px; height: 30px; padding: 0; border: 0; border-radius: 0; background: none; cursor: pointer; display: grid; place-items: center;
 }
+#screen-stats .date-nav svg { width: 16px; height: 16px; stroke: var(--graphite); fill: none; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+#screen-stats .date-display { font: 400 22px/30px var(--font-text); color: var(--ink); letter-spacing: 0; }
 
-/* ════════════════════════════════════════
-   AVG BOX (weekly / monthly)
-════════════════════════════════════════ */
-.avg-box {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sharp);
-  padding: 14px 18px;
-  margin-bottom: 12px;
+/* the headline: the average in handwriting, then its unit; the distance from the recommended calories under it */
+.stat-head { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; min-height: 60px; }
+.avg-val { font: 400 46px/60px var(--font-text); letter-spacing: -.02em; color: var(--ink); }
+.avg-label { font: 400 18px/30px var(--font-text); color: var(--graphite); }
+.stat-diff { font: 400 16px/30px var(--font-text); color: var(--graphite); }
+.stat-diff.over { color: var(--red); }
+.stat-diff.under { color: #0f766e; }
+.stat-empty { font: 400 20px/30px var(--font-text); color: var(--graphite); min-height: 60px; }
+
+/* the bar chart: ink-outlined bars, red over the goal, the dashed goal line with its label above the plot */
+.stat-chart { margin-top: 6px; }
+/* the yearly chart borrows 10 px of the page on each side (it still stops short of the red margin line), so its twelve month names fit one line with a gap */
+#yearly-chart { width: calc(100% + 20px); margin-left: -10px; margin-right: -10px; }
+.stat-chart svg { display: block; width: 100%; height: auto; }
+.chart-ink { fill: none; stroke: #2b1f16; }
+.chart-ink .bar { fill: #d9a850; }
+.chart-ink .bar.over { fill: #c9532f; }
+.chart-ink .tick { stroke: var(--graphite); stroke-width: 2; }
+.chart-ink .base-line { stroke: rgba(43, 31, 22, .35); stroke-width: 1.4; }
+.chart-ink .goal-line, .chart-ink .goal-arrow { stroke: var(--red); stroke-width: 2; }
+.stat-chart text { font-family: var(--font-text); }
+.goal-label { fill: var(--red); }
+.chart-day { fill: var(--graphite); }
+.chart-day.today { fill: var(--red); }
+
+/* the three macro bars, as in the reference's .ink rows */
+.stat-macros { margin-top: 8px; }
+.stat-macros .ink { height: 30px; display: flex; align-items: center; gap: 10px; }
+.stat-macros .ink span { flex: none; width: 58px; font: 400 15px/30px var(--font-text); color: var(--graphite); }
+.stat-macros .ink .track {
+  flex: 1; min-width: 24px; height: 9px; border-radius: 9px; background: rgba(60, 40, 20, .12); position: relative; overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(60, 40, 20, .25);
 }
-.avg-val {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 26px;
-  font-weight: 600;
-  color: var(--accent);
-  line-height: 1;
-}
-.avg-label {
-  font-size: 11px;
-  color: var(--muted);
-  margin-top: 3px;
-}
-.avg-box-left {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.avg-box-right {
-  text-align: left;
-  font-size: 12px;
-  color: var(--text2);
-}
-.avg-diff {
-  font-family: 'IBM Plex Mono', monospace;
-  font-weight: 600;
-  font-size: 14px;
-}
-.avg-diff.under { color: var(--protein); }
-.avg-diff.over  { color: #f87171; }
+.stat-macros .ink .fill { position: absolute; inset: 0 0 0 auto; width: 0; max-width: 100%; border-radius: 9px; transition: width var(--dur-slow) var(--ease-out); }
+.stat-macros .ink .fill.pro  { background: linear-gradient(#5aa38f, #3f8472); }
+.stat-macros .ink .fill.carb { background: linear-gradient(#e3b455, #c9912f); }
+.stat-macros .ink .fill.fat  { background: linear-gradient(#e08a6f, #c4573a); }
+.stat-macros .ink b { flex: none; min-width: 50px; font: 400 14px/30px var(--font-text); color: var(--ink); text-align: end; }
+.stat-note { font: 400 14px/30px var(--font-text); color: var(--graphite); text-align: center; margin: 0; }
 
 /* ════════════════════════════════════════
    SVG CHART WRAP
@@ -430,135 +308,199 @@
 }
 
 /* ════════════════════════════════════════
-   SETTINGS
+   SETTINGS (#screen-settings)
+   A ruled page: the title, the handwritten rows (who is signed in and the profile as it is today: height, weekly goal,
+   calorie goal), the three tappable rows (profile, password, the red logout), the about lines and the credit. No capybara;
+   the content runs to the foot of the page and scrolls when it is taller.
 ════════════════════════════════════════ */
-.settings-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 0;
-  border-bottom: 1px solid var(--border);
-  cursor: pointer;
-}
-.settings-item:last-child { border-bottom: none; }
-.settings-label { font-size: 14px; font-weight: 500; color: var(--text); }
-.settings-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
-.settings-arrow { color: var(--muted); font-size: 16px; }
+#screen-settings .content { padding-bottom: 24px; }
+.set-title { margin-top: 10px; }
+.row2 { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0 12px; min-height: 30px; font: 400 18px/30px var(--font-text); color: var(--ink); }
+.row2 > span { flex: none; }
+.row2 b { flex: 0 1 auto; min-width: 0; margin-inline-start: auto;   /* in the RTL row the value goes to the left edge; one too long for the line drops below its label, to the left, and wraps there */
+  font: 400 20px/30px var(--font-text); overflow-wrap: anywhere; }
+#settings-username { unicode-bidi: plaintext; }   /* a Latin name reads left to right inside the Hebrew row */
+.row2 .v { color: var(--red); }
+.row-btn { width: 100%; padding: 0; border: 0; border-radius: 0; background: none; cursor: pointer; text-align: start; }
+.row-btn:active > span:first-child { color: var(--red); }
+.row-btn.logout { margin-top: 30px; color: var(--red); }
+.set-about { margin: 30px 0 0; font: 400 15px/30px var(--font-text); color: var(--graphite); overflow-wrap: anywhere; }
+/* the credit (settings and the welcome cover): two centred lines, the name and the Instagram link */
+.credit { font: 400 13px/22px var(--font-text); text-align: center; direction: ltr; overflow-wrap: anywhere; }
+.set-brand { margin: 12px 0 0; color: var(--graphite); }
+.set-ig { color: var(--graphite); text-decoration: underline; text-decoration-color: var(--red); text-underline-offset: 3px; }
+.set-ig svg { vertical-align: -2px; margin-inline-end: 2px; }
 
 /* ════════════════════════════════════════
-   MODALS
+   MODALS: taped paper slips on a dimmed page
+   .modal-overlay is the dimming (a click on it closes the slip); .modal-sheet is the slip (cream paper with grain, a lift
+   shadow, a slight tilt, washi tape on its top edge); .slip-body inside it scrolls when the content is taller than the
+   phone, so the tape (a child of the sheet) never scrolls away or gets clipped. The fields are handwritten: a label, an
+   ink underline, no box; the buttons are red ink (.penbtn).
 ════════════════════════════════════════ */
 .modal-overlay {
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.75);
   z-index: 100;
-  align-items: flex-end;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-}
-.modal-overlay.open { display: flex; }
-
-.modal-sheet {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-bottom: none;
-  border-radius: 22px 22px 0 0;
-  padding: 24px;
-  width: 100%;
-  max-height: 88dvh;
-  overflow-y: auto;
-}
-
-.modal-title {
-  font-family: 'Fraunces', serif;
-  font-style: italic;
-  font-weight: 300;
-  font-size: 22px;
-  color: var(--text);
-  margin-bottom: 20px;
-}
-
-.modal-close {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  font-size: 16px;
-  cursor: pointer;
-  color: var(--muted);
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-inline-start: auto;
+  padding: 20px 14px;
+  background: rgba(18, 10, 5, .68);
+}
+.modal-overlay.open { display: flex; animation: slipDim var(--dur-mid) var(--ease-out) both; }
+@keyframes slipDim { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slipDrop {
+  from { opacity: 0; transform: translateY(-16px) rotate(-3deg); }
+  to   { opacity: 1; transform: translateY(0) rotate(-.5deg); }
 }
 
-/* Profile modal cal preview */
-.cal-preview {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-input);
-  padding: 12px 16px;
-  margin-bottom: 16px;
+.modal-sheet {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  max-height: calc(100dvh - 40px);
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  background: #fbf7ea;
+  color: var(--ink);
+  border-radius: 3px;
+  box-shadow: var(--lift);
+  transform: rotate(-.5deg);
+  outline: none;
 }
-.cal-preview-label { font-size: 12px; color: var(--muted); }
-.cal-preview-val {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--accent);
+.modal-overlay.open .modal-sheet { animation: slipDrop var(--dur-slow) var(--ease-spring) both; }
+.modal-sheet::before {            /* paper grain */
+  content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--noise); opacity: .10; mix-blend-mode: multiply; pointer-events: none;
 }
+.modal-sheet > .tape { top: -11px; left: calc(50% - 29px); transform: rotate(-3deg); z-index: 2; }
+.slip-body { position: relative; flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto; padding: 24px 20px 20px; }
+
+.slip-head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+.modal-title {   /* a small caption with a short pen rule under it, clearly a heading and not the first line of what is typed below */
+  position: relative; flex: 1 1 auto; min-width: 0; padding-bottom: 8px; font: 400 17px/24px var(--font-text); letter-spacing: .06em;
+  color: var(--graphite); overflow-wrap: anywhere;
+}
+.modal-title::after {   /* the pen rule runs under the whole title block (under its last line when the title wraps) */
+  content: ''; position: absolute; inset-inline: 0; bottom: 0; height: 5px;
+  border-bottom: 2.5px solid var(--red); border-radius: 50%; transform: rotate(-1.5deg);
+}
+.modal-close {
+  flex: none; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; padding: 0;
+  background: none; border: 1.8px solid var(--graphite); border-radius: 52% 48% 55% 45% / 60% 50% 50% 40%;
+  color: var(--graphite); font: 400 15px/1 var(--font-text); cursor: pointer;
+}
+.modal-close:active { color: var(--red); border-color: var(--red); }
+.modal-close:disabled { cursor: default; }
+
+/* handwritten fields */
+.modal-sheet .field { margin-top: 8px; }
+.modal-sheet .field label { display: block; margin: 0; font: 400 16px/24px var(--font-text); letter-spacing: 0; text-transform: none; color: var(--graphite); }
+.modal-sheet .field input, .modal-sheet .field select {
+  display: block; width: 100%; height: 32px; padding: 0; border: 0; border-bottom: 2px solid var(--ink); border-radius: 0;
+  background: transparent; color: var(--ink); box-shadow: none; outline: none; font: 400 21px/30px var(--font-text);
+}
+.modal-sheet .field input[type="date"] { font-size: 19px; }
+.modal-sheet .field input:focus, .modal-sheet .field select:focus { border-bottom-color: var(--red); box-shadow: none; }
+.modal-sheet .field select {
+  padding-inline-end: 22px; cursor: pointer;
+  background: no-repeat left 2px center / 14px 14px url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236f5d4c' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><path d='M5 9l7 7 7-7'/></svg>");
+}
+.slip-lbl { margin-top: 8px; font: 400 16px/24px var(--font-text); color: var(--graphite); }
+
+/* red ink buttons */
+.modal-sheet .penbtn { position: static; display: inline-block; font-size: 22px; line-height: 30px; padding: 6px 26px; }
+.modal-sheet .penbtn:active { transform: translateY(1px); box-shadow: 0 1px 0 #7f2010, 0 4px 10px rgba(120, 30, 10, .35); }
+.modal-sheet .penbtn:disabled { opacity: .6; cursor: default; }
+.modal-sheet .penbtn.alt { background: transparent; color: var(--graphite); box-shadow: none; border: 1.8px solid var(--graphite); border-radius: 20px 18px 22px 18px; padding: 4px 18px; font-size: 19px; line-height: 24px; }
+.slip-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 18px; }
+.slip-actions:empty { margin-top: 0; }
+.modal-sheet .error-msg { margin: 8px 0 0; min-height: 24px; color: var(--red); font: 400 17px/24px var(--font-text); text-align: start; }
+
+/* profile slip: the recommended calories as a red-pen circle, gender chips */
+.cal-preview { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0 10px; min-height: 40px; }
+.cal-preview-label { font: 400 17px/24px var(--font-text); color: var(--graphite); }
+.toggle-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 6px; }
+.toggle-btn {
+  font: 400 17px/28px var(--font-text); padding: 0 14px; background: transparent; cursor: pointer;
+  border: 1.8px solid var(--graphite); border-radius: 20px 18px 22px 18px; color: var(--graphite);
+}
+.toggle-btn.selected { color: var(--red); border-color: var(--red); transform: rotate(-2deg); background: rgba(179, 49, 29, .07); }
+
+/* edit slip: a handwritten name and the handwritten rows of the analysis page */
+.modal-sheet .edit-name {   /* a textarea that grows with the name (home.js fitEditName), so a long name wraps instead of being clipped */
+  display: block; width: 100%; min-height: 48px; margin: -4px 0 0; padding: 8px 0 0; border: 0; border-bottom: 2px solid var(--ink); border-radius: 0;
+  background: transparent; color: var(--ink); box-shadow: none; outline: none; resize: none; overflow: hidden; direction: rtl; overflow-wrap: anywhere;
+  font: 400 28px/38px var(--font-text);
+}
+.modal-sheet .edit-name:focus { border-bottom-color: var(--red); box-shadow: none; }
+.modal-sheet .edit-name::placeholder { color: rgba(111, 93, 76, .45); }
+.edit-rows { margin-top: 8px; }
 
 /* ════════════════════════════════════════
-   WEIGHT SCREEN
+   WEIGHT (#screen-weight)
+   A ruled page: the title, the newest weight big in the digit font with the unit and the goal, the line graph on squared
+   paper (charts.js renderWeightChart), the add row (two handwritten fields and the red ink button), then the entries, one
+   30 px rule each, newest first. At the top left a small happy capybara with a speech bubble cheers the user on (weight.js); the
+   content runs to the foot of the page and scrolls.
 ════════════════════════════════════════ */
-.weight-log-form {
-  display: flex;
-  gap: 8px;
-  align-items: flex-end;
-}
-.weight-log-form .form-group { margin-bottom: 0; flex: 1; }
-.weight-log-form .btn-primary {
-  width: auto;
-  padding: 12px 18px;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
+#screen-weight .content { padding-bottom: 24px; }
+/* the coach: the capybara at the left, her bubble to the right of her (the title stays clear below them) */
+.wt-coach { display: flex; justify-content: flex-end; align-items: flex-end; gap: 6px; height: 90px; }
+.wt-pet { flex: none; width: 68px; }
+.wt-pet .pet-wrap { display: block; }
+.wt-pet svg { width: 100%; height: auto; }
+.wt-bubble { position: relative; flex: 0 1 auto; min-width: 0; max-width: calc(100% - 76px); margin-bottom: 20px; font-size: 16px; line-height: 22px; overflow-wrap: anywhere; }
+.wt-title { margin-top: 0; }
+.wt-head { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; min-height: 60px; }
+.wt-head[hidden] { display: none; }
+.wt-big { font: 400 49px/60px var(--font-text); color: var(--ink); }
+.wt-unit { font: 400 20px/30px var(--font-text); color: var(--graphite); overflow-wrap: anywhere; }
 
-.weight-entry {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border);
-}
-.weight-entry:last-child { border-bottom: none; }
+/* the graph: a 150 px box (five rules); the svg keeps its 248 x 130 proportions inside it */
+.wt-chart { height: 150px; display: flex; align-items: center; }
+.wt-chart svg { display: block; width: 100%; height: 100%; }
+.wchart .wgrid { stroke: rgba(112, 138, 170, .45); }
+.wchart .goal-line { stroke: var(--red); }
+.wchart .wline { stroke: #2b1f16; }
+.wchart .wpt { fill: var(--page); stroke: #2b1f16; }
+.wchart .wpt.last { fill: var(--red); }
+.wchart text { font-family: var(--font-text); fill: var(--graphite); }
+.wchart text.goal { fill: var(--red); }
 
-.weight-val-big {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 22px;
-  font-weight: 600;
-  color: var(--protein);
-  line-height: 1;
+/* the add row: handwritten fields (label above, an ink underline) like the sign-in page */
+.wt-add { margin-top: 0; }
+.wt-add .field-pair { grid-template-columns: 4fr 8fr; gap: 0 14px; }
+.wt-add .field { margin-top: 0; min-width: 0; }
+.wt-add .field label { font: 400 16px/30px var(--font-text); letter-spacing: 0; text-transform: none; margin: 0; }
+.wt-add .field input {
+  display: block; width: 100%; min-width: 0; height: 30px; padding: 0; border: 0; border-bottom: 2px solid var(--ink); border-radius: 0;
+  background: transparent; color: var(--ink); box-shadow: none; outline: none; font: 400 20px/30px var(--font-text);
 }
-.weight-entry-date {
-  font-size: 11px;
-  color: var(--muted);
-  margin-top: 3px;
-}
-.weight-entry-info { flex: 1; }
+.wt-add .field input[type="date"] { font-size: 17px; }
+.wt-add .field input[type="date"]::-webkit-calendar-picker-indicator { margin: 0 0 0 2px; padding: 0; width: 16px; }
+.wt-add .field input:focus { border-bottom-color: var(--red); box-shadow: none; }
+.wt-add .field input::placeholder { color: rgba(111, 93, 76, .45); }
+.wt-add-row { display: flex; align-items: center; height: 60px; }
+.wt-add .penbtn { position: static; display: inline-block; font-size: 20px; line-height: 30px; padding: 4px 22px; }
+.wt-add .penbtn:active { transform: translateY(1px); box-shadow: 0 1px 0 #7f2010, 0 4px 10px rgba(120, 30, 10, .35); }
+.wt-add .error-msg { color: var(--red); font: 400 17px/30px var(--font-text); text-align: start; margin: 0; min-height: 30px; }
+
+/* the entries: the date (a rule's width of handwriting), the value, the small cross */
+.weight-entry { display: flex; align-items: center; gap: 10px; height: 30px; }
+.weight-entry-date { flex: 1 1 0; min-width: 0; font: 400 18px/30px var(--font-text); color: var(--graphite); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.weight-val-big { flex: none; font: 600 20px/30px var(--font-text); color: var(--ink); }
+.weight-entry .delete-btn { flex: none; width: 28px; height: 30px; padding: 0; border-radius: 0; display: grid; place-items: center; color: var(--graphite); }
+.weight-entry .delete-btn:active { background: none; color: var(--red); }
+#weight-list .empty-state { padding: 0; text-align: start; }
+#weight-list .empty-state p { font: 400 20px/30px var(--font-text); color: var(--graphite); }
 
 /* ════════════════════════════════════════
    MISC
 ════════════════════════════════════════ */
-.empty-state { text-align: center; padding: 40px 24px; color: var(--muted); }
+.empty-state { text-align: center; padding: 40px 24px; color: var(--graphite); }
 .empty-state .empty-icon { font-size: 42px; margin-bottom: 10px; opacity: 0.4; }
-.empty-state p { font-size: 13px; line-height: 1.7; color: var(--muted); }
+.empty-state p { font-size: 13px; line-height: 1.7; color: var(--graphite); }
 
 .date-nav {
   display: flex;
@@ -568,11 +510,11 @@
 }
 
 .date-nav button {
-  background: var(--surface2);
-  border: 1px solid var(--border);
+  background: #efe4cc;
+  border: 1px solid rgba(43, 31, 22, .22);
   font-size: 18px;
   cursor: pointer;
-  color: var(--text2);
+  color: var(--graphite);
   width: 34px;
   height: 34px;
   border-radius: 9px;
@@ -582,22 +524,13 @@
   transition: background .15s;
 }
 
-.date-nav button:active { background: var(--surface3); }
+.date-nav button:active { background: #e6d9bd; }
 
 .date-display {
   font-size: 14px;
-  font-weight: 600;
-  color: var(--text);
+  font-weight: 400;
+  color: var(--ink);
   letter-spacing: -0.2px;
-}
-
-.section-head {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 1.3px;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin: 16px 0 8px;
 }
 
 .toast {
@@ -605,13 +538,13 @@
   bottom: calc(var(--nav-h) + 8px);
   left: 50%;
   transform: translateX(-50%);
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  color: var(--text);
+  background: #efe4cc;
+  border: 1px solid rgba(43, 31, 22, .22);
+  color: var(--ink);
   padding: 10px 20px;
   border-radius: 99px;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 400;
   z-index: 200;
   opacity: 0;
   transition: opacity .3s;
@@ -623,132 +556,233 @@
 .toast.show { opacity: 1; }
 
 
-/* ════════════════════════════════════════
-   DESKTOP (min-width: 768px)
-════════════════════════════════════════ */
-@media (min-width: 768px) {
-  .topbar-title { font-size: 20px; }
-  .topbar-sub { font-size: 14px; }
+/* ════ Page typography shared by the redone pages (from the reference) ════ */
+.lbl { font: 400 17px/30px var(--font-text); letter-spacing: .02em; color: var(--graphite); }
+.title { font: 400 25px/46px var(--font-text); margin-top: 4px; white-space: nowrap; }
+.title.big { font-size: 34px; line-height: 50px; }
+/* the date title of the home page and the diary: one line on a rule, 50 px clear of the ribbon on the left */
+.page-date { font-size: 24px; line-height: 30px; margin: 0 0 0 50px; white-space: normal; overflow-wrap: anywhere; }
 
-  .topbar-brand-title { font-size: 13px; }
-  .topbar-brand-sub { font-size: 11px; }
-  .topbar-brand-ig svg { width: 13px !important; height: 13px !important; }
-
-  .bottom-nav { bottom: 20px; padding: 10px 18px; gap: 8px; }
-  .nav-item { font-size: 12px; gap: 4px; }
-  .nav-item .nav-icon { font-size: 26px; }
-  .nav-item.nav-camera { width: 60px; height: 60px; min-width: 60px; font-size: 28px; }
-
-  .welcome-title { font-size: 64px; }
-  .welcome-subtitle { font-size: 14px; }
-  .welcome-feature-icon { font-size: 28px; }
-  .welcome-feature-text h4 { font-size: 16px; }
-  .welcome-feature-text p { font-size: 13px; }
+/* ════ Welcome: the leather cover ════
+   The cover is the leather frame itself (no .page): foil title, the capybara in her salad bowl
+   (screens/welcome.js), three feature lines with gold line icons, a foil button. It scrolls on a short phone. */
+#screen-welcome { overflow-x: hidden; overflow-y: auto; align-items: center; }
+.welcome-wrap {
+  position: relative; z-index: 2; width: min(400px, 100%); margin: auto;   /* centred when short, scrolls from the top when tall */
+  padding: 54px 34px 36px; display: flex; flex-direction: column; align-items: center; text-align: center;
+}
+.welcome-pet { display: inline-block; }
+.foil {
+  font: 400 66px/1 var(--font-display);
+  background: linear-gradient(#fff0c8, #d2a95a 45%, #8a6120 75%, #e8c987);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .6)) drop-shadow(0 0 1px rgba(255, 230, 170, .5));
+  letter-spacing: -.02em;
+}
+.welcome-sub { font-size: 21px; color: #d9bf8a; margin-top: 4px; }
+.welcome-feats { width: 100%; margin-top: 22px; text-align: right; }
+.feat { display: flex; gap: 12px; align-items: center; margin: 9px 0; color: #e9d7b0; font: 400 17px/20px var(--font-text); }
+.feat svg { flex: none; width: 30px; height: 30px; stroke: #d2a95a; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.welcome-actions { margin-top: 18px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.foilbtn {
+  border: 0; cursor: pointer;
+  background: linear-gradient(#e9c987, #b8893c); color: #2a1a08; font: 400 22px var(--font-text); padding: 8px 34px; border-radius: 26px;
+  box-shadow: 0 2px 0 #6e4d16, 0 10px 20px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .5);
+}
+.foilbtn:active { transform: translateY(1px); }
+.welcome-have { border: 0; background: none; cursor: pointer; padding: 2px 8px; font-size: 17px; color: #b79a68; }
+.welcome-footer { margin-top: 20px; font-size: 13px; color: #c9b58c; text-align: center; }   /* the warm light tone of the feature lines, a little dimmer */
+.welcome-footer a { color: #e3cf9f; text-decoration: underline; text-decoration-color: rgba(227, 207, 159, .5); text-underline-offset: 3px; }
+/* a phone no taller than 760 px: the whole cover (capybara, title, three lines, both buttons and the credit) fits without scrolling */
+@media (max-height: 760px) {
+  .welcome-wrap { padding: 30px 26px 16px; }
+  .welcome-pet svg { width: 156px; height: auto; }
+  .foil { font-size: 56px; }
+  .welcome-sub { font-size: 18px; margin-top: 2px; }
+  .welcome-feats { margin-top: 12px; }
+  .feat { margin: 7px 0; gap: 10px; font-size: 15px; line-height: 18px; }
+  .feat svg { width: 24px; height: 24px; }
+  .welcome-actions { margin-top: 10px; gap: 4px; }
+  .foilbtn { font-size: 20px; padding: 6px 30px; }
+  .welcome-have { font-size: 16px; }
+  .welcome-footer { margin-top: 6px; font-size: 12px; line-height: 18px; }
+}
+/* The credit's first line never wraps: the text is about 280 px wide at 13 px, so a narrower phone sets it smaller (and the settings
+   page, whose text column is only 218 px at 320, lets it run a little past the column, still left of the red margin line). */
+div.credit > div:first-child { white-space: nowrap; }
+@media (max-width: 400px) { div.credit { font-size: 11px; } }
+@media (max-width: 340px) {
+  div.credit { font-size: 10.5px; }
+  .set-brand { margin-left: -4px; margin-right: -10px; }
 }
 
-.receipt {
-  background: var(--surface);
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-sharp);
-  padding: 20px;
-  font-family: 'IBM Plex Mono', monospace;
-  overflow: hidden;
+/* ════ Auth: login, registration and the profile step on one ruled page ════
+   The walking capybara is appended to .page by screens/auth.js. */
+#screen-auth .content { padding-bottom: 20px; }
+.auth-wordmark { margin-top: 0; }
+.auth-sub { margin-top: -6px; }
+.tab-row { display: flex; gap: 22px; height: 30px; margin-top: 6px; }
+.tab-btn {
+  position: relative; border: 0; background: none; cursor: pointer; padding: 0 2px;
+  font: 400 20px/30px var(--font-text); color: var(--graphite);
+}
+.tab-btn.active { color: var(--ink); }
+.tab-btn.active::after {                    /* the red pen underline */
+  content: ''; position: absolute; left: -2px; right: -2px; bottom: 1px; height: 6px;
+  border-bottom: 2.5px solid var(--red); border-radius: 50%; transform: rotate(-1.5deg);
+}
+/* handwritten fields: label above, an ink underline, no box */
+#screen-auth .field { margin-top: 10px; }
+#screen-auth .field label { letter-spacing: 0; text-transform: none; margin: 0; font-weight: 400; }
+#screen-auth .field input, #screen-auth .field select {
+  display: block; width: 100%; height: 30px; padding: 0; border: 0; border-bottom: 2px solid var(--ink); border-radius: 0;
+  background: transparent; color: var(--ink); box-shadow: none; outline: none; font: 400 22px/30px var(--font-text);
+}
+#screen-auth .field input:focus, #screen-auth .field select:focus { border-bottom-color: var(--red); box-shadow: none; }
+#screen-auth .field input::placeholder { color: rgba(111, 93, 76, .45); font-size: 19px; }
+#screen-auth .field select {
+  padding-inline-end: 22px; cursor: pointer;
+  background: no-repeat left 2px center / 14px 14px url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236f5d4c' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><path d='M5 9l7 7 7-7'/></svg>");
+}
+.auth-actions { margin-top: 26px; }
+.auth-actions .penbtn { position: static; display: inline-block; }
+.auth-actions .penbtn:active { transform: translateY(1px); box-shadow: 0 1px 0 #7f2010, 0 4px 10px rgba(120, 30, 10, .35); }
+#screen-auth .error-msg { color: var(--red); font: 400 17px/22px var(--font-text); text-align: start; margin-top: 12px; min-height: 22px; }
+.auth-link { border: 0; background: none; cursor: pointer; padding: 0; font: 400 18px/30px var(--font-text); color: var(--graphite); text-decoration: underline; text-decoration-color: var(--red); text-underline-offset: 4px; }
+#auth-step2 > .auth-link:first-child { display: block; margin-top: 2px; }
+.profile-step-title { margin-top: 0; }
+.profile-step-sub { margin-top: -6px; font-size: 16px; line-height: 22px; white-space: normal; }
+.field-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; }
+/* chips (gender) and handwritten rows (activity); the code toggles .selected */
+.chip-row { margin-top: 4px; }
+#auth-step2 .chip.selected { color: var(--red); border-color: var(--red); transform: rotate(-2deg); background: rgba(179, 49, 29, .07); }
+#reg-activity-list, #mp-activity-list { display: flex; flex-direction: column; gap: 4px; margin: 4px 0 0; }
+#reg-activity-list .activity-opt, #mp-activity-list .activity-opt {
+  display: block; width: 100%; text-align: start; cursor: pointer; padding: 3px 12px; background: transparent;
+  border: 1.8px solid transparent; border-radius: 20px 18px 22px 18px;
+  font: 400 15px/20px var(--font-text); color: var(--graphite);
+}
+#reg-activity-list .activity-opt strong, #mp-activity-list .activity-opt strong { display: block; font: 400 18px/26px var(--font-text); color: var(--ink); }
+#reg-activity-list .activity-opt.selected, #mp-activity-list .activity-opt.selected { border-color: var(--red); background: rgba(179, 49, 29, .07); transform: rotate(-.6deg); }
+#reg-activity-list .activity-opt.selected strong, #mp-activity-list .activity-opt.selected strong { color: var(--red); }
+/* no dock under the sign-in pages (it is hidden there): the paper runs down to the frame's stitch, no empty band */
+#screen-auth .page { bottom: 16px; }
+/* a 320 px phone: the height and weight lists share a narrow row, so they get a smaller type and a shorter gap and show
+   "70.0 ק״ג" whole */
+@media (max-width: 340px) {
+  #auth-step2 .field-pair { gap: 0 10px; }
+  #auth-step2 .field-pair select { font-size: 17px; padding-inline-end: 18px; }
+}
+/* the walker would cross the tall profile step: it only walks over the short pages */
+#screen-auth .page:has(#auth-step2:not([style*="none"])) > .walker { display: none; }
+
+/* ════ Home: the diary's first page ════
+   A flow layout on the 30 px rules (every block starts on a rule and is a multiple of 30 px high): date, greeting, the capybara with her bubble, the calories eaten with the red bar,
+   the streak tally, the last meal. The ribbon (top 50 px, left 46 px) sits beside the first lines, so the date keeps clear of it. */
+#screen-dashboard [hidden] { display: none !important; }
+#screen-dashboard .content { padding-bottom: 28px; }
+/* the greeting keeps 50 px clear of the ribbon on the left (like the date), whatever the length of the name; a name without a space wraps anywhere */
+.dash-hello { margin: 0 0 0 50px; font-size: 17px; line-height: 30px; overflow-wrap: anywhere; }
+.dash-hello strong { font-weight: 400; color: var(--ink); overflow-wrap: anywhere; }
+.dash-top { display: flex; gap: 10px; align-items: flex-start; min-height: 150px; margin-top: 30px; }
+.dash-bubble { position: relative; flex: 1 1 0; min-width: 100px; margin-top: 0; overflow-wrap: anywhere; }
+.dash-pet { flex: 0 1 132px; min-width: 80px; margin-left: -8px; }
+.dash-pet .pet-wrap { display: block; }
+.dash-pet svg { width: 100%; height: auto; }
+/* a user with no meal at all: the sleeping capybara and her first-meal prompt sit lower on the page (two rules down), so the page does not look empty above a lonely 0 */
+#screen-dashboard.is-fresh .dash-top { margin-top: 90px; }
+/* a 320 px phone: a smaller capybara gives the bubble room for a whole user name (a longer one wraps inside it, never out of it) */
+@media (max-width: 340px) {
+  .dash-pet { flex-basis: 84px; min-width: 70px; }
+  .dash-bubble { min-width: 110px; }
+}
+.eat { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; min-height: 60px; margin-top: 0; }
+.eat .n { font: 400 46px/60px var(--font-text); color: var(--red); }
+.eat .of { font: 400 17px/30px var(--font-text); color: var(--graphite); }
+.ink2 { height: 30px; display: flex; align-items: center; }
+.ink2 .track {
+  flex: 1; height: 10px; border-radius: 10px; background: rgba(60, 40, 20, .12); position: relative; overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(60, 40, 20, .25);
+}
+.ink2 .fill {
+  position: absolute; inset: 0 0 0 auto; width: 0; max-width: 100%; border-radius: 10px;
+  background: linear-gradient(#c8432a, #a82b17); transition: width var(--dur-slow) var(--ease-out);
+}
+.dash-streak { margin-top: 0; }
+.dash-streak-line { line-height: 30px; }
+.dash-tally { min-height: 60px; }
+.dash-last { position: relative; height: 180px; margin-top: 30px; }
+.dash-polaroid { right: 0; top: 8px; width: 120px; transform: rotate(-3deg); animation: polaroid-drop var(--dur-slow) var(--ease-spring) both; }
+.dash-polaroid .tape { top: -9px; left: 30px; transform: rotate(-6deg); }
+.dash-polaroid .cp { font-size: 14px; }
+.dash-meal { position: absolute; left: 0; top: 14px; width: calc(100% - 140px); text-align: center; }
+.dash-meal-name {
+  font: 400 20px/30px var(--font-text); color: var(--ink); overflow-wrap: anywhere; text-align: start;
+  display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; max-height: 90px;
+}
+.dash-meal .circ { font-size: 20px; line-height: 34px; margin-top: 4px; }
+.dash-kcal { font: 400 15px/20px var(--font-text); color: var(--graphite); }
+.dash-weight { margin-top: 0; }
+@keyframes polaroid-drop {
+  from { opacity: 0; transform: translateY(-14px) rotate(-7deg); }
+  to   { opacity: 1; transform: translateY(0) rotate(-3deg); }
 }
 
-.receipt-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  font-size: 11px;
-  color: var(--muted);
-  letter-spacing: 1px;
+/* ════ Diary: one day on a ruled page ════
+   Flow layout on the 30 px rules: the week strip, the date, the calories eaten (60 px) with the bar, the macro totals, then
+   one 180 px (six rules) block per meal. The ribbon hangs below the strip (top 50 px, 46 px from the left), so the date keeps
+   clear of it (see .page-date). The two arrows are in .date-nav, laid over the ends of the strip; the
+   seven day buttons are in .week, outside it. */
+#screen-home [hidden] { display: none !important; }
+#screen-home .content { padding-bottom: 28px; }
+#screen-home .ribbon { pointer-events: none; }
+.weekrow { position: relative; height: 30px; }
+#screen-home .date-nav { position: absolute; inset: 0; display: flex; align-items: center; justify-content: space-between; margin: 0; pointer-events: none; }
+#screen-home .date-nav button {
+  pointer-events: auto; width: 28px; height: 30px; padding: 0; border: 0; border-radius: 0; background: none; cursor: pointer;
+  display: grid; place-items: center;
 }
+#screen-home .date-nav button:active { background: none; }
+#screen-home .date-nav svg { width: 16px; height: 16px; stroke: var(--graphite); fill: none; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+#screen-home .date-nav button:disabled { cursor: default; }
+#screen-home .date-nav button:disabled svg { opacity: .3; }
+.week { display: flex; height: 30px; align-items: center; justify-content: space-between; margin: 0 28px; }
+.week .day {
+  position: relative; width: 30px; height: 30px; padding: 0; border: 0; background: none; cursor: pointer;
+  font: 400 15px/30px var(--font-text); color: var(--graphite); text-align: center;
+}
+.week .day.sel { color: var(--ink); }
+.week .day.sel::after {                      /* the shown day, circled in red pen */
+  content: ''; position: absolute; inset: 2px -1px; border: 2px solid var(--red);
+  border-radius: 46% 54% 50% 50% / 55% 45% 55% 45%; transform: rotate(-6deg);
+}
+.week .day.future { opacity: .35; cursor: default; }
+.macros { display: flex; flex-wrap: wrap; column-gap: 10px; margin-top: 0; font-size: 15px; line-height: 30px; }
+.macros b { font-weight: 400; color: var(--ink); }
+#meal-list { padding: 0; }
+#meal-list .empty-state { padding: 20px 0; color: var(--graphite); }
+#meal-list .empty-icon { width: 90px; height: 90px; margin: 0 auto 6px; opacity: .55; border-radius: 50%; overflow: hidden; }
+#meal-list .empty-icon svg { display: block; width: 100%; height: 100%; }
+#meal-list .empty-state p { font: 400 20px/30px var(--font-text); color: var(--graphite); }
+/* the line plus of the dock's add button, in ink, inside the empty-state sentence */
+.plus-ico { width: 18px; height: 18px; vertical-align: -3px; stroke: var(--ink); fill: none; stroke-width: 2.6; stroke-linecap: round; }
 
-.receipt-hr {
-  border: none;
-  border-top: 1px dashed var(--border);
-  margin: 10px 0;
+.meal-item-row { position: relative; height: 180px; --pw: min(122px, 42%); }
+.meal-item-row .polaroid { top: 8px; width: var(--pw); right: 0; transform: rotate(-3.5deg); }
+.meal-item-row .tape { top: -10px; left: calc(50% - 29px); transform: rotate(-6deg); }
+.meal-item-row .polaroid .cp { font-size: 14px; }
+.mir-body { position: absolute; top: 30px; left: 0; width: calc(100% - var(--pw) - 16px); }
+.meal-item-row:nth-child(even) .polaroid { right: auto; left: 0; transform: rotate(3deg); }
+.meal-item-row:nth-child(even) .tape { transform: rotate(7deg); }
+.meal-item-row:nth-child(even) .mir-body { left: auto; right: 0; }
+.mir-name {
+  font: 400 20px/30px var(--font-text); color: var(--ink); overflow-wrap: anywhere; text-align: start;
+  display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; max-height: 90px;
 }
-
-.receipt-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 0;
+.mir-body .circ { font-size: 21px; line-height: 30px; }
+.acts { display: flex; gap: 14px; height: 30px; align-items: center; font: 400 16px/24px var(--font-text); }
+.acts button {                                /* text buttons; the padding and the negative margin widen the tap area to 44 px */
+  border: 0; background: none; cursor: pointer; font: inherit; color: var(--graphite); padding: 10px 6px; margin: -10px -6px;
 }
-
-.receipt-name-row { margin-bottom: 4px; }
-
-.receipt-name-input {
-  font-family: 'Fraunces', serif !important;
-  font-weight: 500 !important;
-  font-size: 22px !important;
-  background: transparent !important;
-  border: none !important;
-  border-bottom: 1px solid transparent !important;
-  color: var(--text) !important;
-  padding: 0 !important;
-  width: 100%;
-  resize: none;
-  overflow: hidden;
-  line-height: 1.3;
-  display: block;
-  min-height: 1.4em;
-}
-.receipt-name-input:focus {
-  border-bottom-color: var(--border) !important;
-  outline: none !important;
-  box-shadow: none !important;
-}
-
-.receipt-lbl {
-  font-size: 12px;
-  color: var(--text2);
-  flex: 1;
-  text-transform: none;
-  letter-spacing: 0;
-  font-weight: 400;
-  margin-bottom: 0;
-}
-
-.receipt-val {
-  font-family: 'IBM Plex Mono', monospace !important;
-  font-size: 13px !important;
-  text-align: left;
-  background: transparent !important;
-  border: none !important;
-  border-bottom: 1px solid transparent !important;
-  width: 64px;
-  color: var(--text) !important;
-  padding: 2px 0 !important;
-}
-.receipt-val:focus {
-  border-bottom-color: var(--border) !important;
-  outline: none !important;
-  box-shadow: none !important;
-}
-
-.receipt-unit {
-  font-size: 11px;
-  color: var(--muted);
-  width: 28px;
-  text-align: left;
-}
-
-/* Stagger animation */
-@keyframes receiptRow {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.receipt-entry {
-  opacity: 0;
-  animation: receiptRow var(--dur-mid) var(--ease-out) both;
-}
-.receipt-entry:nth-child(4) { animation-delay: 80ms; }
-.receipt-entry:nth-child(5) { animation-delay: 140ms; }
-.receipt-entry:nth-child(6) { animation-delay: 200ms; }
-.receipt-entry:nth-child(7) { animation-delay: 260ms; }
-.receipt-entry:nth-child(8) { animation-delay: 320ms; }
-.receipt-entry:nth-child(9) { animation-delay: 380ms; }
-.receipt-entry:nth-child(10) { animation-delay: 440ms; }
+.acts .del { color: var(--red); }
+#meal-list:focus { outline: none; }

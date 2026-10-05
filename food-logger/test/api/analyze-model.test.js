@@ -6,7 +6,7 @@
 const { test, before, after, beforeEach, mock } = require('node:test');
 const assert = require('node:assert/strict');
 const { buildTestApp, signedIn } = require('../helpers/app');
-const { fakeAnthropic, IMAGE_ITEMS, TEXT_ITEMS } = require('../helpers/fakeAnthropic');
+const { fakeAnthropic, IMAGE_ITEMS, TEXT_ITEMS, IMAGE_REPLY_ITEMS, TEXT_REPLY_ITEMS } = require('../helpers/fakeAnthropic');
 const { MODEL } = require('../../src/lib/anthropic');
 const {
   IMAGE_SYSTEM_PROMPT, IMAGE_USER_MESSAGE, TEXT_SYSTEM_PROMPT, analyzeImage, analyzeText, temperatureFor, requestOptionsFor,
@@ -15,8 +15,8 @@ const { REPAIR_PROMPT_PREFIX } = require('../../src/lib/hebrewName');
 
 const JPEG_BASE64 = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01]).toString('base64');
 const SONNET = 'claude-sonnet-5-5';
-const IMAGE_TOTALS = { calories: 450, protein_g: 34, carbs_g: 44, fat_g: 12.5, fiber_g: 1 };
-const TEXT_TOTALS = { calories: 145, protein_g: 4, carbs_g: 22, fat_g: 5, fiber_g: 4 };
+const IMAGE_TOTALS = { calories: 450, protein_g: 34, carbs_g: 44, fat_g: 12.5, fiber_g: 1, items: IMAGE_REPLY_ITEMS };
+const TEXT_TOTALS = { calories: 145, protein_g: 4, carbs_g: 22, fat_g: 5, fiber_g: 4, items: TEXT_REPLY_ITEMS };
 const MARKER = 'REPLY-MARKER';
 const isRepairCall = (c) => typeof c.system === 'string' && c.system.startsWith(REPAIR_PROMPT_PREFIX);
 const imageJson = (extra = {}) => JSON.stringify({ visual_description: `${MARKER} chicken`, draft_name: 'עוף', dish_name: 'עוף עם אורז', items: IMAGE_ITEMS, ...extra });
@@ -375,7 +375,7 @@ test('image: a real zero-calorie meal (water) is not taken for the template', as
   ctx.anthropic.imageContent = [{ type: 'text', text: JSON.stringify({ dish_name: 'מים', items: WATER }) }];
   const res = await analyze();
   assert.equal(res.status, 200, res.text);
-  assert.deepEqual(res.body, { foodName: 'מים', calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
+  assert.deepEqual(res.body, { foodName: 'מים', calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0, items: [{ name: 'מים', calories: 0 }] });
 });
 
 test('text: an echoed template followed by the real array gives the real array', async () => {
@@ -405,7 +405,7 @@ test('text: a real zero-calorie item (water) is not taken for the template', asy
   ctx.anthropic.textContent = [{ type: 'text', text: JSON.stringify(WATER) }];
   const res = await analyzeTextReq('מים');
   assert.equal(res.status, 200, res.text);
-  assert.deepEqual(res.body, { foodName: 'מים', calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
+  assert.deepEqual(res.body, { foodName: 'מים', calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0, items: [{ name: 'מים', calories: 0 }] });
 });
 
 // ─── max_tokens: room for thinking on non-Haiku models ───────────────────────

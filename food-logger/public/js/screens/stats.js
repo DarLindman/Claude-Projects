@@ -1,58 +1,26 @@
 import { state } from '../state.js';
 import { apiFetch } from '../api.js';
-import { renderLineChart, renderStatAvgBox, renderStatMacros } from '../charts.js';
-import { addDays, addMonths, formatDateShort, formatDayCount, formatMonth, todayStr } from '../dates.js';
-import { html, setHtml } from '../dom.js';
-import { cloneCapybara, setPetState } from '../pet.js';
+import { renderBarChart, renderStatAvgBox, renderStatMacros } from '../charts.js';
+import { addDays, addMonths, formatDayCount, formatMonth, monthDays, todayStr, weekdayLetter, yearMonths } from '../dates.js';
+import { setHtml } from '../dom.js';
+import { mountWalkingCapybara } from '../pet.js';
 import { calcRecommendedCal } from '../profile.js';
 
-// ════════════════════════════════════════════════════
-// Walking capybara (stats screen)
-// ════════════════════════════════════════════════════
-let _capyWalkRaf = null;
-let _capyWalkX = 0;
-let _capyWalkDir = 1;
+const AVG_UNIT = 'קק״ל ליום, בממוצע';
+const MONTH_NAMES = ['ינו׳','פבר׳','מרץ','אפר׳','מאי','יוני','יולי','אוג׳','ספט׳','אוק׳','נוב׳','דצמ׳'];
 
-function startStatsCapyWalk() {
-  if (_capyWalkRaf) return;
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const wrap = document.getElementById('pet-stats-wrap');
-  const stage = wrap?.querySelector('.capy-walk-stage');
-  const pet = wrap?.querySelector('.pet-wrap');
-  if (!stage || !pet) return;
-
-  let lastT = null;
-  function tick(t) {
-    if (!lastT) lastT = t;
-    const dt = Math.min(t - lastT, 50);
-    lastT = t;
-    const maxX = wrap.offsetWidth - 64;
-    _capyWalkX += _capyWalkDir * 0.85 * (dt / 16);
-    if (_capyWalkX >= maxX) {
-      _capyWalkX = maxX;
-      _capyWalkDir = -1;
-      pet.classList.add('pet-hopping');
-      setTimeout(() => {
-        pet.style.transform = 'scaleX(-1)';
-        pet.classList.remove('pet-hopping');
-      }, 75);
-    } else if (_capyWalkX <= 0) {
-      _capyWalkX = 0;
-      _capyWalkDir = 1;
-      pet.classList.add('pet-hopping');
-      setTimeout(() => {
-        pet.style.transform = 'scaleX(1)';
-        pet.classList.remove('pet-hopping');
-      }, 75);
-    }
-    stage.style.transform = `translateX(${_capyWalkX}px)`;
-    _capyWalkRaf = requestAnimationFrame(tick);
-  }
-  _capyWalkRaf = requestAnimationFrame(tick);
+// ════════════════════════════════════════════════════
+// The walking capybara (above the index tabs): mounted when the screen is entered, stopped when it is left
+// (router hooks registered in main.js). Mounting the same page twice returns the same walker.
+// ════════════════════════════════════════════════════
+let _walker = null;
+export function enterStats() {
+  const page = document.querySelector('#screen-stats .page');
+  if (page) _walker = mountWalkingCapybara(page, { state: 'happy', size: 84, bottom: 46 });
+  loadStats();
 }
-
-export function stopStatsCapyWalk() {
-  if (_capyWalkRaf) { cancelAnimationFrame(_capyWalkRaf); _capyWalkRaf = null; }
+export function leaveStats() {
+  if (_walker) { _walker.stop(); _walker = null; }
 }
 
 // ════════════════════════════════════════════════════
@@ -78,13 +46,16 @@ export function statsChangeMonth(n) {
 }
 export function statsChangeYear(n) {
   const next = +state.statsYear + n;
-  if (next > new Date().getFullYear()) return; // no future year
+  if (next > +todayStr().slice(0, 4)) return; // no future year
   state.statsYear = String(next);
   loadStats();
 }
 
 // The line under the macro averages; empty (the line is hidden) when there are no days.
 const averageFootnote = (days) => (days > 0 ? `ממוצע יומי על בסיס ${formatDayCount(days)}` : '');
+
+const emptyDay = (day) => ({ day, calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
+const dayOf = (r) => String(r.day).slice(0, 10);
 
 export async function loadStats() {
   if (state.currentStatsTab === 'weekly') await loadWeeklyStats();
@@ -94,62 +65,23 @@ export async function loadStats() {
 
 async function loadWeeklyStats() {
   try {
-    const rows = await apiFetch(`/api/stats/weekly?today=${todayStr()}`);
-    const rec = calcRecommendedCal();
-    renderStatAvgBox('weekly-avg-box', rows, rec, 'ממוצע קלוריות יומי');
-    const chartEl = document.getElementById('weekly-chart');
-    // Build last 7 days including today, filling zeros for missing days
     const todayDs = todayStr();
-    const chartDays = [];
-    for (let i = 6; i >= 0; i--) {
-      const ds = addDays(todayDs, -i);
-      const found = rows.find(r => r.day.slice(0,10) === ds);
-      chartDays.push(found || { day: ds, calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
-    }
-    const hebrewDays = ['א','ב','ג','ד','ה','ו','ש'];
-    setHtml(chartEl, renderLineChart(chartDays, {
+    const rows = await apiFetch(`/api/stats/weekly?today=${todayDs}`);
+    const rec = calcRecommendedCal();
+    renderStatAvgBox('weekly-avg-box', rows, rec, AVG_UNIT);
+    // the last 7 days including today, a zero day where there is no data
+    const byDay = new Map(rows.map(r => [dayOf(r), r]));
+    const chartDays = Array.from({ length: 7 }, (_, k) => {
+      const ds = addDays(todayDs, k - 6);
+      return byDay.get(ds) || emptyDay(ds);
+    });
+    setHtml(document.getElementById('weekly-chart'), renderBarChart(chartDays, {
       getValue: r => +r.calories || 0,
-      getLabel: r => formatDateShort(r.day.slice(0, 10)),
-      isToday: r => r.day.slice(0, 10) === todayDs,
+      getLabel: r => weekdayLetter(dayOf(r)),
+      isToday: r => dayOf(r) === todayDs,
       recommended: rec,
-      dayLetters: chartDays.map(r => {
-        const parts = r.day.slice(0, 10).split('-');
-        const d = new Date(+parts[0], +parts[1] - 1, +parts[2]);
-        return hebrewDays[d.getDay()];
-      }),
     }));
-    // Trigger draw-on animation for the polyline
-    const polylineEl = chartEl.querySelector('polyline[id^="lc-"]');
-    if (polylineEl) {
-      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        polylineEl.style.strokeDashoffset = '0';
-      } else {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            polylineEl.style.strokeDashoffset = '0';
-          });
-        });
-      }
-    }
     renderStatMacros('weekly-macro', rows, averageFootnote(rows.length));
-    const wrapEl = document.getElementById('pet-stats-wrap');
-    if (wrapEl) {
-      if (!wrapEl.querySelector('.capy-walk-stage')) {
-        const stage = document.createElement('div');
-        stage.className = 'capy-walk-stage';
-        stage.appendChild(cloneCapybara(56));
-        wrapEl.replaceChildren(stage);
-      }
-      const avgCal = rows.length
-        ? rows.reduce((s, r) => s + (+r.calories || 0), 0) / rows.length
-        : 0;
-      const pct = rec > 0 ? avgCal / rec : 0;
-      const weeklyState = 'happy';
-      const petWrap = wrapEl.querySelector('.pet-wrap');
-      if (petWrap) setPetState(petWrap, weeklyState);
-      stopStatsCapyWalk();
-      startStatsCapyWalk();
-    }
   } catch { }
 }
 
@@ -158,26 +90,19 @@ async function loadMonthlyStats() {
   try {
     const rows = await apiFetch(`/api/stats/monthly?month=${state.statsMonth}`);
     const rec = calcRecommendedCal();
-    renderStatAvgBox('monthly-avg-box', rows, rec, 'ממוצע קלוריות יומי');
-    const chartEl = document.getElementById('monthly-chart');
-    if (!rows.length) { setHtml(chartEl, html`<div class="empty-state"><p>אין נתונים</p></div>`); return; }
+    renderStatAvgBox('monthly-avg-box', rows, rec, AVG_UNIT);
     const todayS = todayStr();
-    setHtml(chartEl, renderLineChart(rows, {
+    const byDay = new Map(rows.map(r => [dayOf(r), r]));
+    const chartDays = monthDays(state.statsMonth).map(ds => byDay.get(ds) || emptyDay(ds));
+    setHtml(document.getElementById('monthly-chart'), renderBarChart(chartDays, {
       getValue: r => +r.calories || 0,
-      getLabel: r => String(+r.day.slice(8, 10)),
-      isToday: r => r.day.slice(0, 10) === todayS,
+      getLabel: r => String(+dayOf(r).slice(8, 10)),
+      isToday: r => dayOf(r) === todayS,
+      isFuture: r => dayOf(r) > todayS,
+      showLabel: r => { const d = +dayOf(r).slice(8, 10); return d === 1 || d % 5 === 0; },
       recommended: rec,
+      labelSize: 13,
     }));
-    const polylineEl = chartEl.querySelector('polyline[id^="lc-"]');
-    if (polylineEl) {
-      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        polylineEl.style.strokeDashoffset = '0';
-      } else {
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-          polylineEl.style.strokeDashoffset = '0';
-        }));
-      }
-    }
     renderStatMacros('monthly-macro', rows, averageFootnote(rows.length));
   } catch { }
 }
@@ -187,29 +112,20 @@ async function loadYearlyStats() {
   try {
     const rows = await apiFetch(`/api/stats/yearly?year=${state.statsYear}`);
     const rec = calcRecommendedCal();
-    const monthNames = ['ינו׳','פבר׳','מרץ','אפר׳','מאי','יוני','יולי','אוג׳','ספט׳','אוק׳','נוב׳','דצמ׳'];
     const totalCal = rows.reduce((s, r) => s + (+r.calories || 0), 0);
     const totalDays = rows.reduce((s, r) => s + (parseInt(r.day_count, 10) || 0), 0);
     const yearlyDailyAvg = totalDays > 0 ? Math.round(totalCal / totalDays) : (rows.length > 0 ? Math.round(totalCal / (rows.length * 30)) : 0);
-    const yearlyAvgEl = document.getElementById('yearly-avg-box');
-    if (yearlyAvgEl && rows.length) {
-      let diffHtml = '';
-      if (rec > 0) {
-        const diff = yearlyDailyAvg - rec;
-        const cls = diff <= 0 ? 'under' : 'over';
-        // the signed number is isolated left-to-right, so its sign stays on its left in the RTL page
-        diffHtml = html`<div class="avg-diff ${cls}"><bdi dir="ltr">${diff > 0 ? '+' : ''}${diff}</bdi> קק״ל</div><div style="font-size:11px;color:var(--muted)">מהמומלץ</div>`;
-      }
-      setHtml(yearlyAvgEl, html`<div class="avg-box"><div class="avg-box-left"><div class="avg-val">${yearlyDailyAvg}</div><div class="avg-label">ממוצע קלוריות יומי</div></div><div class="avg-box-right">${diffHtml}</div></div>`);
-    }
-    const chartEl = document.getElementById('yearly-chart');
-    if (!rows.length) { setHtml(chartEl, html`<div class="empty-state"><p>אין נתונים</p></div>`); return; }
+    renderStatAvgBox('yearly-avg-box', rows, rec, AVG_UNIT, yearlyDailyAvg);
     const currentMonth = todayStr().slice(0, 7);
-    setHtml(chartEl, renderLineChart(rows, {
-      getValue: r => r.day_count > 0 ? Math.round((+r.calories || 0) / r.day_count) : 0,
-      getLabel: r => monthNames[+(r.month.slice(5, 7)) - 1],
-      isToday: r => r.month === currentMonth,
+    const byMonth = new Map(rows.map(r => [String(r.month).slice(0, 7), r]));
+    const chartMonths = yearMonths(state.statsYear).map(m => byMonth.get(m) || { month: m, calories: 0, day_count: 0 });
+    setHtml(document.getElementById('yearly-chart'), renderBarChart(chartMonths, {
+      getValue: r => (r.day_count > 0 ? Math.round((+r.calories || 0) / r.day_count) : 0),
+      getLabel: r => MONTH_NAMES[+String(r.month).slice(5, 7) - 1],
+      isToday: r => String(r.month).slice(0, 7) === currentMonth,
+      isFuture: r => String(r.month).slice(0, 7) > currentMonth,
       recommended: rec,
+      labelSize: 10,   // twelve short names on one line: the chart is a little wider than the text column (screens.css), see #yearly-chart
     }));
     renderStatMacros('yearly-macro', rows, averageFootnote(totalDays), totalDays);
   } catch { }

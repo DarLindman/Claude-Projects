@@ -178,6 +178,8 @@ const CASES = [
   ['profile PUT: height a string', authed('put', '/api/profile', { height: 'tall' }), 400, VALIDATION, { height: 'INVALID' }],
   ['profile PUT: height absurd', authed('put', '/api/profile', { height: 1e9 }), 400, VALIDATION, { height: 'INVALID' }],
   ['profile PUT: weight negative', authed('put', '/api/profile', { weight: -5 }), 400, VALIDATION, { weight: 'INVALID' }],
+  ['profile PUT: goalWeight below the range', authed('put', '/api/profile', { goalWeight: 5 }), 400, VALIDATION, { goalWeight: 'INVALID' }],
+  ['profile PUT: goalWeight a string', authed('put', '/api/profile', { goalWeight: 'heavy' }), 400, VALIDATION, { goalWeight: 'INVALID' }],
   ['profile PUT: goalKg an object', authed('put', '/api/profile', { goalKg: { a: 1 } }), 400, VALIDATION, { goalKg: 'INVALID' }],
   ['profile PUT: birthDate not real', authed('put', '/api/profile', { birthDate: '2026-02-31' }), 400, VALIDATION, { birthDate: 'INVALID' }],
   ['profile PUT: gender a number', authed('put', '/api/profile', { gender: 5 }), 400, VALIDATION, { gender: 'INVALID' }],

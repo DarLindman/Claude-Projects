@@ -1,7 +1,8 @@
 import { state } from '../state.js';
 import { apiFetch } from '../api.js';
 import { closeModal, html, openModal, setHtml, showToast } from '../dom.js';
-import { calcRecommendedCal, updateSettingsProfileSub } from '../profile.js';
+import { formatNumber } from '../format.js';
+import { calcRecommendedCal, goalWeightOf, updateSettingsProfileSub } from '../profile.js';
 import { messageFor } from '../errors.js';
 import { todayStr } from '../dates.js';
 import { doLogout } from '../session.js';
@@ -41,15 +42,59 @@ export function populateProfileSelects() {
   document.getElementById('reg-weight').value = '70.0';
 }
 
+// Opens the change-password slip empty: what was typed before (and the last error) never comes back.
+export function openChangePassModal() {
+  clearChangePassModal();
+  openModal('modal-change-pass');
+}
+function clearChangePassModal() {
+  document.getElementById('cp-current').value = '';
+  document.getElementById('cp-new').value = '';
+  document.getElementById('cp-error').textContent = '';
+}
+
+// Sign-out: both slips are emptied (they are closed by closeAllModals), so the next person finds nothing of this one.
+export function resetSettingsModals() {
+  _cpGen += 1;
+  _cpBusy = false;
+  document.querySelector('#modal-change-pass [data-action="doChangePassword"]').disabled = false;
+  clearChangePassModal();
+  document.getElementById('mp-birthdate').value = '';
+  document.getElementById('mp-height').value = '';
+  document.getElementById('mp-goal-weight').value = '';
+  document.getElementById('mp-error').textContent = '';
+  document.getElementById('mp-cal-preview').textContent = '—';
+  state.mpGender = 'male';
+  state.mpActivity = 'light';
+  state.mpGoalKg = 0;
+  _mpGen += 1;
+  _mpBusy = false;
+  document.querySelector('#modal-profile [data-action="saveMpProfile"]').disabled = false;
+}
+
+// One request at a time (the button is disabled while it is in flight); _cpGen is bumped by a sign-out, and a reply that was in
+// flight at that moment is dropped: no toast and no error text on the next person's screen.
+let _cpGen = 0;
+let _cpBusy = false;
 export async function doChangePassword() {
+  if (_cpBusy) return;
   const cur = document.getElementById('cp-current').value;
   const nw = document.getElementById('cp-new').value;
+  const btn = document.querySelector('#modal-change-pass [data-action="doChangePassword"]');
   document.getElementById('cp-error').textContent = '';
+  const gen = _cpGen;
+  _cpBusy = true;
+  btn.disabled = true;
   try {
     await apiFetch('/auth/change-password', { method: 'POST', body: JSON.stringify({ currentPassword: cur, newPassword: nw }) });
+    if (gen !== _cpGen) return;
     closeModal('modal-change-pass');
     showToast('הסיסמה שונתה בהצלחה');
-  } catch (e) { document.getElementById('cp-error').textContent = messageFor(e); }
+  } catch (e) {
+    if (gen === _cpGen) document.getElementById('cp-error').textContent = messageFor(e);
+  } finally {
+    if (gen === _cpGen) { _cpBusy = false; btn.disabled = false; }
+  }
 }
 
 // ════════════════════════════════════════════════════
@@ -64,13 +109,17 @@ export function openProfileModal() {
     const bd = state.userProfile.birthDate || (state.userProfile.birthYear ? `${state.userProfile.birthYear}-01-01` : '');
     document.getElementById('mp-birthdate').value = bd;
     document.getElementById('mp-height').value = state.userProfile.height || '';
+    const goalWeight = goalWeightOf(state.userProfile);
+    document.getElementById('mp-goal-weight').value = goalWeight > 0 ? String(goalWeight) : '';
   } else {
     state.mpGender = 'male';
     state.mpActivity = 'light';
     state.mpGoalKg = 0;
     document.getElementById('mp-birthdate').value = '';
     document.getElementById('mp-height').value = '';
+    document.getElementById('mp-goal-weight').value = '';
   }
+  document.getElementById('mp-error').textContent = '';
   document.getElementById('mp-male-btn').classList.toggle('selected', state.mpGender === 'male');
   document.getElementById('mp-female-btn').classList.toggle('selected', state.mpGender === 'female');
   document.querySelectorAll('#mp-activity-list .activity-opt').forEach(b => {
@@ -119,10 +168,30 @@ export function updateMpPreview() {
     goalKg: state.mpGoalKg,
   };
   const rec = calcRecommendedCal(profile);
-  document.getElementById('mp-cal-preview').textContent = rec > 0 ? `${rec} קק״ל` : '—';
+  document.getElementById('mp-cal-preview').textContent = rec > 0 ? `${formatNumber(rec)} קק״ל` : '—';
 }
 
+// The target-weight field as the profile stores it: empty is 0 (not set), else a number of 20..400 kg with at most one decimal;
+// null when the text is not that (the caller shows the error). A number input reports garbled text (68.5.1) as an empty value
+// with validity.badInput: that is invalid, never "empty", or it would silently erase the stored goal.
+function readGoalWeight() {
+  const el = document.getElementById('mp-goal-weight');
+  if (el.validity && el.validity.badInput) return null;
+  const text = el.value.trim();
+  if (text === '') return 0;
+  const n = Math.round(+text * 10) / 10;
+  return Number.isFinite(n) && n >= 20 && n <= 400 ? n : null;
+}
+
+// Saving the profile is one request at a time too: the button is disabled while it is in flight; _mpGen is bumped by a sign-out
+// and a reply that was in flight at that moment is dropped (no toast, no rows written for the next person).
+let _mpGen = 0;
+let _mpBusy = false;
 export async function saveMpProfile() {
+  if (_mpBusy) return;
+  document.getElementById('mp-error').textContent = '';
+  const goalWeight = readGoalWeight();
+  if (goalWeight === null) { document.getElementById('mp-error').textContent = 'הזן משקל תקין'; return; }
   const currentWeight = state.weightLogs.length ? +state.weightLogs[state.weightLogs.length - 1].weight_kg : (state.userProfile ? +state.userProfile.weight || 0 : 0);
   const profile = {
     gender: state.mpGender,
@@ -131,18 +200,29 @@ export async function saveMpProfile() {
     weight: currentWeight,
     activity: state.mpActivity,
     goalKg: state.mpGoalKg,
+    goalWeight,
   };
+  const btn = document.querySelector('#modal-profile [data-action="saveMpProfile"]');
+  const gen = _mpGen;
+  _mpBusy = true;
+  btn.disabled = true;
   localStorage.setItem('fl_profile', JSON.stringify(profile));
   state.userProfile = profile;
-  try { await apiFetch('/api/profile', { method: 'PUT', body: JSON.stringify(profile) }); } catch {}
-  updateSettingsProfileSub();
-  closeModal('modal-profile');
-  showToast('הפרופיל נשמר');
+  try {
+    try { await apiFetch('/api/profile', { method: 'PUT', body: JSON.stringify(profile) }); } catch {}
+    if (gen !== _mpGen) return;
+    updateSettingsProfileSub();
+    closeModal('modal-profile');
+    showToast('הפרופיל נשמר');
+  } finally {
+    if (gen === _mpGen) { _mpBusy = false; btn.disabled = false; }
+  }
 }
 
 // Actions for the settings screen and the profile / change-password modals (doLogout lives in session.js).
 export const actions = {
   openProfileModal: () => openProfileModal(),
+  openChangePassModal: () => openChangePassModal(),
   doLogout: () => doLogout(),
   doChangePassword: () => doChangePassword(),
   setMpGender: (el) => setMpGender(el.dataset.arg),

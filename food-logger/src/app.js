@@ -8,9 +8,10 @@ const { createAuth } = require('./middleware/auth');
 const { AppError, requestId, errorHandler } = require('./middleware/errors');
 const { createCsrf } = require('./middleware/csrf');
 const { securityMiddleware } = require('./middleware/security');
-const { createUsernameLimiter, createIpLimiter, createAnalyzeLimiter, createAnalyzeIpLimiter } = require('./middleware/rateLimit');
+const { createUsernameLimiter, createIpLimiter, createAnalyzeLimiter, createAnalyzeIpLimiter, createPhotoLimiter, createPhotoIpLimiter } = require('./middleware/rateLimit');
 const authRoutes = require('./routes/auth');
 const foodRoutes = require('./routes/food');
+const foodPhotoRoutes = require('./routes/foodPhotos');
 const weightRoutes = require('./routes/weight');
 const profileRoutes = require('./routes/profile');
 const analyzeRoutes = require('./routes/analyze');
@@ -31,6 +32,8 @@ function createApp({ config, pool, anthropic, icon = null, limits = {} }) {
     loginPerMin = 10,
     analyzePerHour = 20,
     analyzePerIpPerHour = 60,
+    photoPerHour = 200,
+    photoPerIpPerHour = 300,
     usernameFailures = 10,
     changePasswordPerMin = 10,
     changePasswordFailures = 10,
@@ -58,6 +61,8 @@ function createApp({ config, pool, anthropic, icon = null, limits = {} }) {
   const changePasswordUserLimiter = createUsernameLimiter({ max: changePasswordFailures, windowMs: usernameWindowMs, now });
   const analyzeLimiter = createAnalyzeLimiter({ max: analyzePerHour });
   const analyzeIpLimiter = createAnalyzeIpLimiter({ max: analyzePerIpPerHour });
+  const photoLimiter = createPhotoLimiter({ max: photoPerHour });
+  const photoIpLimiter = createPhotoIpLimiter({ max: photoPerIpPerHour });
 
   const serveIcon = (_, res) => {
     if (icon) return res.type('png').send(icon);
@@ -73,6 +78,7 @@ function createApp({ config, pool, anthropic, icon = null, limits = {} }) {
 
   app.use('/auth', authRoutes({ ...deps, ipLimiter, usernameLimiter, changePasswordIpLimiter, changePasswordUserLimiter }));
   app.use('/api', analyzeRoutes({ ...deps, analyzeLimiter, analyzeIpLimiter, imageModel: config.imageModel, imageEffort: config.imageEffort }));
+  app.use('/api/food', foodPhotoRoutes({ ...deps, photoLimiter, photoIpLimiter }));
   app.use('/api/food', foodRoutes(deps));
   app.use('/api/weight', weightRoutes(deps));
   app.use('/api/profile', profileRoutes(deps));

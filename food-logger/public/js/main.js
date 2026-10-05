@@ -1,18 +1,18 @@
-import { actions as modalActions } from './dom.js';
+import { actions as modalActions, closeTopModalOnEscape } from './dom.js';
 import { bindActions } from './events.js';
-import { stopFireCanvas } from './effects.js';
-import { _cameraCapyState } from './pet.js';
+import { installPhotoFallback } from './photos.js';
 import { loadProfile } from './profile.js';
 import { actions as navActions, registerScreen } from './router.js';
 import { actions as analysisActions } from './screens/analysis.js';
-import { actions as authActions, doLogin, doRegister } from './screens/auth.js';
-import { actions as cameraActions, animatePlaceholder, autoResizeTextarea } from './screens/camera.js';
-import { animateDashStagger, loadDashboard } from './screens/dashboard.js';
+import { fitCalories, leaveAnalysis } from './screens/analysisView.js';
+import { actions as authActions, doLogin, doRegister, enterAuth, leaveAuth } from './screens/auth.js';
+import { actions as cameraActions, autoResizeTextarea, enterCamera, releaseAnalyzeButtons } from './screens/camera.js';
+import { loadDashboard, resetDashboard } from './screens/dashboard.js';
 import { actions as homeActions, loadDiary } from './screens/home.js';
 import { actions as settingsActions, populateProfileSelects } from './screens/settings.js';
-import { actions as statsActions, loadStats, stopStatsCapyWalk } from './screens/stats.js';
-import { actions as weightActions, loadWeightScreen } from './screens/weight.js';
-import { actions as welcomeActions } from './screens/welcome.js';
+import { actions as statsActions, enterStats, leaveStats } from './screens/stats.js';
+import { actions as weightActions, enterWeight, leaveWeight } from './screens/weight.js';
+import { actions as welcomeActions, mountWelcomePet } from './screens/welcome.js';
 import { bootSession } from './session.js';
 
 // ════════════════════════════════════════════════════
@@ -20,21 +20,26 @@ import { bootSession } from './session.js';
 // ════════════════════════════════════════════════════
 // Screen hooks: the per-screen enter/leave behaviour that navigate() used to hard-code.
 // Registration order matches the order of the original if/else chain in navigate().
-registerScreen('dashboard', { enter: () => { loadDashboard(); animateDashStagger(); }, leave: stopFireCanvas });
+registerScreen('auth',      { enter: enterAuth, leave: leaveAuth });
+registerScreen('dashboard', { enter: loadDashboard, leave: resetDashboard });
 registerScreen('home',      { enter: loadDiary });
-registerScreen('stats',     { enter: () => { loadStats(); }, leave: stopStatsCapyWalk });
-registerScreen('weight',    { enter: loadWeightScreen });
-registerScreen('camera',    { enter: animatePlaceholder });
-registerScreen('analysis',  { enter: () => _cameraCapyState('neutral') });
+registerScreen('stats',     { enter: enterStats, leave: leaveStats });
+registerScreen('weight',    { enter: enterWeight, leave: leaveWeight });
+registerScreen('camera',    { enter: enterCamera });
+registerScreen('analysis',  { leave: () => { leaveAnalysis(); releaseAnalyzeButtons(); } });
 
+installPhotoFallback();
 populateProfileSelects();
+mountWelcomePet();
 loadProfile();
 
 // The session is an HttpOnly cookie: ask the server whether it is still valid.
 bootSession();
 
+document.addEventListener('keydown', closeTopModalOnEscape);
 document.getElementById('login-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 document.getElementById('reg-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
+document.getElementById('res-cal').addEventListener('input', fitCalories);
 document.getElementById('res-name').addEventListener('input', function() { autoResizeTextarea(this); });
 document.getElementById('food-text-input').addEventListener('input', function() { autoResizeTextarea(this); });
 

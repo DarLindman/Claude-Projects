@@ -147,7 +147,7 @@ test('the full journey runs under the CSP: no violations, no console errors, no 
   await expect(page.locator('#screen-weight')).toBeVisible();
   await page.locator('#nav-settings').click();
   await expect(page.locator('#settings-user')).toContainText(username);
-  await page.locator('#screen-settings .settings-item', { hasText: 'יציאה' }).click();
+  await page.locator('#screen-settings .settings-item', { hasText: 'התנתקות' }).click();
   await expect(page.locator('#screen-auth')).toBeVisible();
   await page.locator('#auth-step1 .tab-btn', { hasText: 'כניסה' }).click();
   await page.locator('#login-user').fill(username);

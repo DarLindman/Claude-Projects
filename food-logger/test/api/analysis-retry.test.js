@@ -5,11 +5,11 @@
 const { test, before, after, beforeEach, mock } = require('node:test');
 const assert = require('node:assert/strict');
 const { buildTestApp, signedIn } = require('../helpers/app');
-const { IMAGE_ITEMS, TEXT_ITEMS } = require('../helpers/fakeAnthropic');
+const { IMAGE_ITEMS, TEXT_ITEMS, IMAGE_REPLY_ITEMS, TEXT_REPLY_ITEMS } = require('../helpers/fakeAnthropic');
 
 const JPEG_BASE64 = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01]).toString('base64');
-const IMAGE_TOTALS = { calories: 450, protein_g: 34, carbs_g: 44, fat_g: 12.5, fiber_g: 1 };
-const TEXT_TOTALS = { calories: 145, protein_g: 4, carbs_g: 22, fat_g: 5, fiber_g: 4 };
+const IMAGE_TOTALS = { calories: 450, protein_g: 34, carbs_g: 44, fat_g: 12.5, fiber_g: 1, items: IMAGE_REPLY_ITEMS };
+const TEXT_TOTALS = { calories: 145, protein_g: 4, carbs_g: 22, fat_g: 5, fiber_g: 4, items: TEXT_REPLY_ITEMS };
 const MARKER = 'RETRY-REPLY-MARKER';
 
 const goodImage = JSON.stringify({ visual_description: 'grilled chicken', draft_name: 'עוף', dish_name: 'עוף עם אורז', items: IMAGE_ITEMS });
@@ -224,5 +224,5 @@ test('the usage line leaves the request and the returned object unchanged', asyn
   ctx.anthropic.usage = { input_tokens: 1, output_tokens: 2 };
   const res = await analyze();
   assert.deepEqual(Object.keys(ctx.anthropic.calls[0]), ['model', 'max_tokens', 'thinking', 'output_config', 'system', 'messages']);
-  assert.deepEqual(Object.keys(res.body), ['foodName', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'fiber_g']);
+  assert.deepEqual(Object.keys(res.body), ['foodName', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'fiber_g', 'items']);
 });

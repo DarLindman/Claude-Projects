@@ -1,74 +1,88 @@
 import { state } from '../state.js';
 import { apiFetch } from '../api.js';
-import { addDays, formatDate, todayStr } from '../dates.js';
+import { formatDate, formatDateTitle, todayStr, addDays, weekOf } from '../dates.js';
 import { closeModal, html, openModal, setHtml, showToast } from '../dom.js';
-import { getFoodEmoji } from '../format.js';
-import { cloneCapybara, setIdleWrap, setPetState, startIdleAnimations } from '../pet.js';
+import { formatNumber } from '../format.js';
+import { plateSvg } from '../placeholder.js';
+import { photoSrc } from '../photos.js';
 import { calcRecommendedCal } from '../profile.js';
 import { analysisMessageFor, messageFor } from '../errors.js';
+
+const byId = (id) => document.getElementById(id);
+const WEEKDAY_LETTERS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];   // Sunday first, like weekOf()
 
 // ════════════════════════════════════════════════════
 // Diary
 // ════════════════════════════════════════════════════
-export function changeDay(n) {
-  const next = addDays(state.diaryDate, n);
-  if (next > todayStr()) return; // no future
-  state.diaryDate = next;
+function showDay(day) {
+  if (day > todayStr()) return; // no future
+  state.diaryDate = day;
+  const content = document.querySelector('#screen-home .content');
+  if (content) content.scrollTop = 0;
   loadDiary();
 }
 
+export function changeDay(n) {
+  showDay(addDays(state.diaryDate, n));
+}
+
+// A tap on a day of the week strip (a future day is a disabled button, and showDay refuses it as well).
+export function pickDay(day) {
+  if (day === state.diaryDate) return;
+  showDay(day);
+}
+
 export async function loadDiary() {
+  const day = state.diaryDate ?? todayStr();
   try {
-    const label = document.getElementById('diary-date-label');
-    if (label) label.textContent = formatDate(state.diaryDate);
-    const entries = await apiFetch(`/api/food?date=${state.diaryDate}`);
+    renderWeek(day);
+    const label = byId('diary-date-label');
+    if (label) label.textContent = formatDate(day);
+    const entries = await apiFetch(`/api/food?date=${day}`);
+    if (day !== state.diaryDate) return;   // the user moved to another day while this one loaded: its answer is stale
     renderMealList(entries);
     renderDailySummary(entries);
-  } catch (e) { showToast('שגיאה בטעינת היומן'); }
+  } catch (e) {
+    if (day === state.diaryDate) showToast('שגיאה בטעינת היומן');   // a failure of a day the user has already left is not worth an error
+  }
+}
+
+// The seven days of the displayed week: the shown day is circled in red pen, a future day is dimmed and disabled.
+function renderWeek(shownDay) {
+  const today = todayStr();
+  const week = byId('diary-week');
+  setHtml(week, html`${weekOf(shownDay).map((day, i) => {
+    const shown = day === shownDay;
+    return html`<button class="day${shown ? ' sel' : ''}${day > today ? ' future' : ''}" data-action="pickDay" data-arg="${day}" aria-label="${formatDateTitle(day)}" aria-current="${shown ? 'date' : 'false'}">${WEEKDAY_LETTERS[i]}</button>`;
+  })}`);
+  week.querySelectorAll('.future').forEach((b) => { b.disabled = true; });
+  // the arrows keep an accessible name: the date they lead to (previous day on the right, next on the left)
+  const [previous, next] = document.querySelectorAll('#screen-home .date-nav button');
+  previous.setAttribute('aria-label', formatDateTitle(addDays(shownDay, -1)));
+  next.setAttribute('aria-label', formatDateTitle(addDays(shownDay, 1)));
+  next.disabled = shownDay >= today;
 }
 
 function renderMealList(entries) {
-  const el = document.getElementById('meal-list');
+  const el = byId('meal-list');
   if (!entries.length) {
-    setHtml(el, html`<div class="empty-state"><div class="empty-icon">🍽️</div><p>אין ארוחות מתועדות<br>לחץ על ➕ כדי להוסיף ארוחה</p></div>`);
+    setHtml(el, html`<div class="empty-state"><div class="empty-icon">${plateSvg()}</div><p>אין ארוחות מתועדות<br>לחץ על <svg class="plus-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg> כדי להוסיף ארוחה</p></div>`);
     return;
   }
-  const ACCENT = { breakfast: 'meal-accent-breakfast', lunch: 'meal-accent-lunch', dinner: 'meal-accent-dinner', snack: 'meal-accent-snack' };
   _mealEntries.clear();
   entries.forEach(e => _mealEntries.set(e.id, e));
 
-  setHtml(el, html`${entries.map(e => html`<div class="meal-item-row ${ACCENT[e.meal_type] || ''}" id="entry-${e.id}">
-  <div class="mir-time-col">
-    <div class="mir-food-icon">${getFoodEmoji(e.food_name)}</div>
-    <div class="mir-time">${e.logged_at ? e.logged_at.slice(11, 16) : ''}</div>
-  </div>
+  // One taped polaroid per meal, alternating sides (CSS: odd rows have the photo on the right). The photo is the stored
+  // thumbnail when the meal has one, else the drawn plate; the time is under the photo; the name, the circled calories
+  // and the two text buttons are beside it.
+  setHtml(el, html`${entries.map(e => html`<div class="meal-item-row" id="entry-${e.id}">
+  <div class="polaroid"><i class="tape"></i><div class="ph">${e.has_photo ? html`<img class="ph-img" data-photo src="${photoSrc(e.id)}" alt="">` : plateSvg()}</div><div class="cp">${e.logged_at ? String(e.logged_at).slice(11, 16) : ''}</div></div>
   <div class="mir-body">
     <div class="mir-name">${e.food_name || ''}</div>
-    <div class="mir-macros"><span style="color:var(--protein)">ח ${Math.round(e.protein_g||0)}</span> · <span style="color:var(--carb)">פ ${Math.round(e.carbs_g||0)}</span> · <span style="color:var(--fat)">ש ${Math.round(e.fat_g||0)}</span> · <span style="color:var(--fiber)">ס ${Math.round(e.fiber_g||0)}</span></div>
-  </div>
-  <div class="mir-right">
-    <div class="mir-kcal">${Math.round(e.calories || 0)}</div>
-    <div style="display:flex;flex-direction:row;gap:2px">
-      <button class="mir-delete" data-action="openEditModal" data-id="${e.id}" aria-label="ערוך">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
-          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-        </svg>
-      </button>
-      <button class="mir-delete" data-action="deleteEntry" data-id="${e.id}" aria-label="מחק">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
-          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
-        </svg>
-      </button>
-    </div>
+    <span class="circ">${formatNumber(+e.calories)}</span>
+    <div class="acts"><button data-action="openEditModal" data-id="${e.id}">ערוך</button><button class="del" data-action="deleteEntry" data-id="${e.id}">מחק</button></div>
   </div>
 </div>`)}`);
-}
-
-function getDiaryPetState(cal, goal) {
-  if (cal === 0)               return 'sleeping';
-  if (goal > 0 && cal > goal)  return 'surprised';
-  if (cal > 0)                 return 'happy';
-  return 'neutral';
 }
 
 function renderDailySummary(entries) {
@@ -80,58 +94,40 @@ function renderDailySummary(entries) {
     fiber: a.fiber + (+e.fiber_g || 0),
   }), { cal: 0, pro: 0, carb: 0, fat: 0, fiber: 0 });
 
-  document.getElementById('sum-cal').textContent = Math.round(totals.cal);
-  document.getElementById('sum-pro').textContent = Math.round(totals.pro);
-  document.getElementById('sum-carb').textContent = Math.round(totals.carb);
-  document.getElementById('sum-fat').textContent = Math.round(totals.fat);
-  document.getElementById('sum-fiber').textContent = Math.round(totals.fiber);
+  byId('sum-cal').textContent = formatNumber(totals.cal);
+  byId('sum-pro').textContent = Math.round(totals.pro);
+  byId('sum-carb').textContent = Math.round(totals.carb);
+  byId('sum-fat').textContent = Math.round(totals.fat);
+  byId('sum-fiber').textContent = Math.round(totals.fiber);
 
-  // Calorie goal bar
+  // "of the goal" and the red bar (the share of the goal eaten, never wider than its track); no goal, no bar
   const rec = calcRecommendedCal();
-  const goalSection = document.getElementById('cal-goal-section');
+  const bar = byId('diary-bar');
+  const fill = byId('diary-cal-fill');
+  const sep = byId('diary-goal-sep');
   if (rec > 0) {
-    goalSection.style.display = '';
-    const consumed = Math.round(totals.cal);
-    const pct = Math.min(Math.round(consumed / rec * 100), 200);
-    const isOver = consumed > rec;
-    document.getElementById('cal-goal-text').textContent = `${rec} / ${consumed} קק״ל`;
-    const pctEl = document.getElementById('cal-goal-pct');
-    pctEl.textContent = `${Math.round(consumed / rec * 100)}%`;
-    pctEl.className = 'cal-goal-pct' + (isOver ? ' over' : '');
-    const fill = document.getElementById('cal-goal-fill');
-    const visPct = Math.min(Math.round(consumed / rec * 100), 100);
-    fill.style.width = `${visPct}%`;
-    fill.className = 'cal-goal-fill' + (isOver ? ' over' : '');
-    const diaryPosEl = document.getElementById('pet-diary-wrap');
-    if (diaryPosEl) diaryPosEl.style.right = `calc(${visPct}% - 24px)`;
-    // Add glow milestone animations
-    fill.classList.remove('cal-goal-fill--half', 'cal-goal-fill--done');
-    void fill.offsetWidth; // force reflow to restart animation if class is re-added
-    if (pct >= 100) fill.classList.add('cal-goal-fill--done');
-    else if (pct >= 50) fill.classList.add('cal-goal-fill--half');
+    byId('diary-goal-label').textContent = formatNumber(rec);
+    sep.hidden = false;
+    const pct = Math.max(0, Math.min(100, Math.round((totals.cal / rec) * 100)));
+    bar.hidden = false;
+    bar.setAttribute('aria-valuenow', String(pct));
+    fill.style.width = pct + '%';
   } else {
-    goalSection.style.display = 'none';
-  }
-
-  // Diary capybara
-  const diaryWrapEl = document.getElementById('pet-diary-wrap');
-  if (diaryWrapEl) {
-    if (!diaryWrapEl.querySelector('svg')) {
-      const pet = cloneCapybara(48);
-      diaryWrapEl.appendChild(pet);
-      setIdleWrap('diary', pet);
-      startIdleAnimations(pet);
-    }
-    const pet = diaryWrapEl.querySelector('.pet-wrap');
-    if (pet) setPetState(pet, getDiaryPetState(totals.cal, calcRecommendedCal()));
+    sep.hidden = true;
+    bar.hidden = true;
+    fill.style.width = '0%';
   }
 }
 
 export async function deleteEntry(id) {
   try {
     await apiFetch(`/api/food/${id}`, { method: 'DELETE' });
-    document.getElementById(`entry-${id}`)?.remove();
-    loadDiary();
+    const row = document.getElementById(`entry-${id}`);
+    const nextId = row?.nextElementSibling?.id;
+    row?.remove();
+    await loadDiary();
+    // keyboard focus must not fall to <body>: the next meal's "ערוך", or the list itself when none is left
+    (nextId && document.querySelector(`#${nextId} [data-action="openEditModal"]`) || byId('meal-list'))?.focus();
     showToast('המנה נמחקה');
   } catch (e) { showToast('שגיאה במחיקה'); }
 }
@@ -146,6 +142,37 @@ let _editOriginalName = '';
 let _editOriginalDate = '';
 let _editNotes        = null;
 let _editAnalyzing    = false;
+let _editGen          = 0;   // bumped by resetEditModal: a reply that was in flight at a sign-out is dropped
+
+// Sign-out: the slip is closed (by closeAllModals) and emptied, so the next person finds nothing of this meal.
+export function resetEditModal() {
+  _editGen += 1;
+  _editEntryId = null;
+  _editOriginalName = '';
+  _editOriginalDate = '';
+  _editNotes = null;
+  _editAnalyzing = false;
+  _mealEntries.clear();
+  for (const id of ['edit-name', 'edit-cal', 'edit-pro', 'edit-carb', 'edit-fat', 'edit-fiber', 'edit-time']) {
+    document.getElementById(id).value = '';
+  }
+  document.getElementById('edit-name').style.height = '';
+  document.querySelectorAll('#edit-modal .meal-opt').forEach(b => b.classList.remove('selected'));
+  document.getElementById('edit-btn-row').replaceChildren();
+  const closeBtn = document.getElementById('edit-modal-close');
+  closeBtn.disabled = false;
+  closeBtn.style.opacity = '';
+}
+
+// The name field is a textarea that grows with its text (a long name wraps like the analysis page's name). It needs layout,
+// so it is fitted after the slip is open and on every keystroke.
+// A meal name is one line of text: Enter does not add a line break.
+function noNewline(e) { if (e.key === 'Enter') e.preventDefault(); }
+function fitEditName() {
+  const el = document.getElementById('edit-name');
+  el.style.height = 'auto';
+  el.style.height = `${el.scrollHeight + (el.offsetHeight - el.clientHeight)}px`;   // the underline (the border) is part of the box
+}
 
 export function openEditModal(id) {
   const entry = _mealEntries.get(id);
@@ -177,9 +204,14 @@ export function openEditModal(id) {
   const nameInput = document.getElementById('edit-name');
   nameInput.removeEventListener('input', updateEditButtons);
   nameInput.addEventListener('input', updateEditButtons);
+  nameInput.removeEventListener('keydown', noNewline);
+  nameInput.addEventListener('keydown', noNewline);
+  nameInput.removeEventListener('input', fitEditName);
+  nameInput.addEventListener('input', fitEditName);
 
   updateEditButtons();
   openModal('edit-modal');
+  fitEditName();
 }
 
 export function closeEditModal() {
@@ -198,10 +230,10 @@ function updateEditButtons() {
   const row = document.getElementById('edit-btn-row');
   if (nameChanged) {
     setHtml(row, html`
-      <button class="btn btn-primary" style="flex:1" data-action="editRecalculate">חשב מחדש</button>
-      <button class="btn" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text2)" data-action="editSave">שמור מבלי לחשב מחדש</button>`);
+      <button class="penbtn" data-action="editRecalculate">חשב מחדש</button>
+      <button class="penbtn alt" data-action="editSave">שמור מבלי לחשב מחדש</button>`);
   } else {
-    setHtml(row, html`<button class="btn btn-primary" style="width:100%" data-action="editSave">שמור</button>`);
+    setHtml(row, html`<button class="penbtn" data-action="editSave">שמור</button>`);
   }
 }
 
@@ -213,29 +245,34 @@ export async function editRecalculate() {
   closeBtn.disabled = true;
   closeBtn.style.opacity = '0.4';
   setHtml(document.getElementById('edit-btn-row'),
-    html`<button class="btn btn-primary" style="width:100%" disabled>מחשב... 🔄</button>`);
+    html`<button class="penbtn" disabled>מחשב... 🔄</button>`);
 
   const foodName = document.getElementById('edit-name').value.trim();
+  const gen = _editGen;
   try {
     const data = await apiFetch('/api/analyze-text', {
       method: 'POST',
       body: JSON.stringify({ text: foodName }),
     });
+    if (gen !== _editGen) return;   // signed out meanwhile: the reply belongs to the previous person
     document.getElementById('edit-name').value  = data.foodName || foodName;
+    fitEditName();
     document.getElementById('edit-cal').value   = (+data.calories  || 0).toFixed(1);
     document.getElementById('edit-pro').value   = (+data.protein_g || 0).toFixed(1);
     document.getElementById('edit-carb').value  = (+data.carbs_g   || 0).toFixed(1);
     document.getElementById('edit-fat').value   = (+data.fat_g     || 0).toFixed(1);
     document.getElementById('edit-fiber').value = (+data.fiber_g   || 0).toFixed(1);
     setHtml(document.getElementById('edit-btn-row'),
-      html`<button class="btn btn-primary" style="width:100%" data-action="editSave">שמור</button>`);
+      html`<button class="penbtn" data-action="editSave">שמור</button>`);
   } catch (e) {
     showToast(analysisMessageFor(e));
-    updateEditButtons();
+    if (gen === _editGen) updateEditButtons();
   } finally {
-    _editAnalyzing = false;
-    closeBtn.disabled = false;
-    closeBtn.style.opacity = '';
+    if (gen === _editGen) {
+      _editAnalyzing = false;
+      closeBtn.disabled = false;
+      closeBtn.style.opacity = '';
+    }
   }
 }
 
@@ -257,10 +294,16 @@ export async function editSave() {
                   : null,
     notes:      _editNotes,
   };
+  const gen = _editGen;
   try {
     await apiFetch(`/api/food/${_editEntryId}`, { method: 'PUT', body: JSON.stringify(body) });
+    if (gen !== _editGen) return;   // signed out meanwhile: nothing of this meal is shown to the next person
+    const savedId = _editEntryId;
     closeModal('edit-modal');
-    loadDiary();
+    await loadDiary();
+    if (gen !== _editGen) return;
+    // the list was redrawn, so the "ערוך" that opened the slip is gone: the focus goes to the same meal's button (or the list)
+    (document.querySelector(`#entry-${savedId} [data-action="openEditModal"]`) || byId('meal-list'))?.focus();
     showToast('✅ המנה עודכנה');
   } catch (e) {
     showToast(messageFor(e));
@@ -270,6 +313,7 @@ export async function editSave() {
 // Actions for the diary screen and the edit-meal modal.
 export const actions = {
   changeDay: (el) => changeDay(+el.dataset.arg),
+  pickDay: (el) => pickDay(el.dataset.arg),
   openEditModal: (el) => openEditModal(+el.dataset.id),
   deleteEntry: (el) => deleteEntry(+el.dataset.id),
   closeEditModal: () => closeEditModal(),

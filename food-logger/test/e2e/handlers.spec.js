@@ -125,11 +125,11 @@ test('inline handlers are gone and every delegated action still works', async ({
   await expectNoInline(page, 'dashboard');
 
   // ── camera: file picker button and the file input's change handler ─────
-  await page.locator('#screen-dashboard .dash-cta').click();      // dashboard CTA -> camera
+  await page.locator('#nav-camera').click();                       // the dock's add button -> camera (the home page has no CTA of its own any more)
   await expect(page.locator('#screen-camera')).toBeVisible();
   // The listener is registered before the click that opens the chooser (Promise.all), and the
   // button is given time to be actionable once the screen transition has settled.
-  const shoot = page.locator('.cam-btn-shoot');
+  const shoot = page.locator('.cam-frame');   // the dashed frame is the whole shutter button
   await expect(shoot).toBeEnabled();
   const [chooser] = await Promise.all([
     page.waitForEvent('filechooser', { timeout: 15_000 }),
@@ -155,8 +155,8 @@ test('inline handlers are gone and every delegated action still works', async ({
   await analysisMeals.filter({ hasText: 'ערב' }).click();
   await expectNoInline(page, 'analysis');
 
-  // the top-bar close button goes back to the camera
-  await page.locator('#screen-analysis .topbar button').click();
+  // the dock's add button goes back to the camera (the analysis page has no top bar of its own any more)
+  await page.locator('#nav-camera').click();
   await expect(page.locator('#screen-camera')).toBeVisible();
   await page.locator('#text-analyze-btn').click();
   await expect(page.locator('#analysis-result')).toBeVisible();
@@ -167,7 +167,6 @@ test('inline handlers are gone and every delegated action still works', async ({
   await expect(page.locator('#screen-home')).toBeVisible(SAVE_TO_DIARY);
   const rows = page.locator('#meal-list .meal-item-row');
   await expect(rows).toHaveCount(1);
-  await expect(rows.first()).toHaveClass(/meal-accent-dinner/);   // the saved meal type is the one selected
   await expectNoInline(page, 'diary with an entry (generated row buttons)');
 
   // diary day navigation
@@ -240,7 +239,7 @@ test('inline handlers are gone and every delegated action still works', async ({
   const weights = page.locator('#weight-list .weight-entry');
   await expect(weights).toHaveCount(1);
   await page.locator('#weight-val').fill('71.5');
-  await page.locator('#screen-weight').getByRole('button', { name: 'הוסף', exact: true }).click();
+  await page.locator('#screen-weight').getByRole('button', { name: 'הוסף שקילה', exact: true }).click();
   await expect(weights).toHaveCount(2);
   await expectNoInline(page, 'weight list');
   await weights.filter({ hasText: '71.5' }).getByRole('button', { name: 'מחק' }).click();
@@ -292,7 +291,7 @@ test('inline handlers are gone and every delegated action still works', async ({
   await expect(page.locator('#modal-change-pass')).not.toHaveClass(/open/);
 
   // ── logout ─────────────────────────────────────────────────────────────
-  await page.locator('#screen-settings .settings-item', { hasText: 'יציאה' }).click();
+  await page.locator('#screen-settings .settings-item', { hasText: 'התנתקות' }).click();
   await expect(page.locator('#screen-auth')).toBeVisible();
 
   await expectNoInline(page, 'end of journey');

@@ -60,6 +60,8 @@ for (const [i, payload] of PAYLOADS.entries()) {
     await page.goto('/');
     await expect(page.locator('#screen-dashboard')).toBeVisible();
     await expect(page.locator('#pet-name-label')).toHaveText(payload);
+    // the last meal of the day (the dinner) is shown as a polaroid with its name
+    await expect(page.locator('#dash-last .dash-meal-name')).toHaveText(other);
     await expectInert(page, 'dashboard');
 
     // ── diary ────────────────────────────────────────────────────────────
@@ -141,7 +143,7 @@ test('a hostile name typed into the analysis result is saved and rendered as tex
   expectNoGuardEvents(guards);
 });
 
-test('the chart, plate and dashboard-preview renderers escape hostile data', async ({ page }) => {
+test('the stats chart renderers escape hostile data', async ({ page }) => {
   const guards = attachGuards(page);
   const reg = await post(page, '/auth/register', { username: `xssmod${Date.now()}`, password: PASSWORD });
   expect(reg.status()).toBe(200);
@@ -150,28 +152,23 @@ test('the chart, plate and dashboard-preview renderers escape hostile data', asy
   const payload = PAYLOADS[0];
 
   await page.evaluate(async ({ payload }) => {
-    const dashboard = await import('/js/screens/dashboard.js');
     const charts = await import('/js/charts.js');
     const host = document.createElement('div');
     host.id = 'xss-host';
-    host.innerHTML = '<div id="dash-log-preview"></div><svg id="plate-svg"></svg><div id="plate-legend"></div><div id="plate-tip"></div>'
-      + '<div id="avg-box"></div><div id="macro-box"></div><div id="line-box"></div>';
+    host.innerHTML = '<div id="avg-box"></div><div id="macro-box"></div><div id="line-box"></div>';
     document.body.appendChild(host);
 
-    dashboard.renderDashLogPreview([{ food_name: payload, logged_at: '2026-01-01T10:00:00', calories: 5, protein_g: 1, carbs_g: 1, fat_g: 1 }]);
-    charts.renderPlate('plate-svg', 'plate-legend', 'plate-tip', { pro: 10, carb: 20, fat: 5, fiber: 2 });
     charts.renderStatAvgBox('avg-box', [{ calories: 100 }], 2000, payload);
     charts.renderStatMacros('macro-box', [{ protein_g: 1, carbs_g: 1, fat_g: 1, fiber_g: 1 }], payload);
     document.getElementById('line-box').innerHTML = ''; // not user-facing markup; the chart is rendered below
-    const svg = charts.renderLineChart([{ v: 1, l: payload }, { v: 2, l: payload }], {
+    const svg = charts.renderBarChart([{ v: 1, l: payload }, { v: 2, l: payload }], {
       getValue: (r) => r.v, getLabel: (r) => r.l, isToday: () => false, recommended: 0,
     });
-    // renderLineChart returns a trusted fragment; render it the same way the screens do
+    // renderBarChart returns a trusted fragment; render it the same way the screens do
     const { setHtml } = await import('/js/dom.js');
     setHtml(document.getElementById('line-box'), svg);
   }, { payload });
 
-  await expect(page.locator('#dash-log-preview .dash-log-name')).toHaveText(payload);
   await expect(page.locator('#avg-box .avg-label')).toHaveText(payload);
   await expect(page.locator('#macro-box')).toContainText(payload);
   await expect(page.locator('#line-box text').first()).toHaveText(payload);

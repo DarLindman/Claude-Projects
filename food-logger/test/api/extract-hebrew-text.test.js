@@ -12,7 +12,7 @@ const { tokenize, bodyOf } = require('../../scripts/hebrew-audit/js');
 const { extractHtml, decodeEntities } = require('../../scripts/hebrew-audit/html');
 const { collectJs, account } = require('../../scripts/hebrew-audit/collect');
 const { dedupe, escapeCell, mergeProposals, renderTable } = require('../../scripts/hebrew-audit/table');
-const { build, functionLines } = require('../../scripts/extract-hebrew-text');
+const { build } = require('../../scripts/extract-hebrew-text');
 
 const texts = (src) => tokenize(src).literals.map(bodyOf);
 
@@ -216,12 +216,8 @@ test('the real proposals file: every entry has a level and an empty or valid dec
   }
 });
 
-test('text inside a function the app never calls is marked not shown to users', () => {
-  assert.deepEqual(functionLines('a\nexport function f(x) {\n  y;\n}\nz', 'f'), { start: 2, end: 4 });
-  assert.equal(functionLines('a', 'f'), null);
+test('the audit explains which rows are not copy', () => {
   const out = build(undefined, { proposals: {} });
-  // the macro line of renderDashLogPreview (dashboard.js also has text the app does show)
-  const row = out.rows.find((r) => r.text.startsWith('ח ${…} · פ') && r.locations.some((l) => l.file === 'public/js/screens/dashboard.js'));
-  assert.ok(row.locations.every((l) => /not shown to users: renderDashLogPreview is never called/.test(l.where)));
   assert.match(out.markdown, /`hebrewName\.js` `CONNECTORS` rows are connector words/);
+  assert.doesNotMatch(out.markdown, /\*not shown to users\*|renderDashLogPreview|renderPlate|FOOD_EMOJI_MAP/);
 });

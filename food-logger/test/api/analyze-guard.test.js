@@ -5,11 +5,11 @@ const { test, before, after, beforeEach, mock } = require('node:test');
 const assert = require('node:assert/strict');
 const { buildTestApp, signedIn } = require('../helpers/app');
 const { REPAIR_PROMPT_PREFIX, REPAIR_TEXT_SYSTEM_PROMPT, DEFAULT_DISH_NAME } = require('../../src/lib/hebrewName');
-const { IMAGE_ITEMS } = require('../helpers/fakeAnthropic');
+const { IMAGE_ITEMS, IMAGE_REPLY_ITEMS, TEXT_REPLY_ITEMS } = require('../helpers/fakeAnthropic');
 
 const JPEG_BASE64 = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01]).toString('base64');
-const IMAGE_TOTALS = { calories: 450, protein_g: 34, carbs_g: 44, fat_g: 12.5, fiber_g: 1 };
-const TEXT_TOTALS = { calories: 145, protein_g: 4, carbs_g: 22, fat_g: 5, fiber_g: 4 };
+const IMAGE_TOTALS = { calories: 450, protein_g: 34, carbs_g: 44, fat_g: 12.5, fiber_g: 1, items: IMAGE_REPLY_ITEMS };
+const TEXT_TOTALS = { calories: 145, protein_g: 4, carbs_g: 22, fat_g: 5, fiber_g: 4, items: TEXT_REPLY_ITEMS };
 
 let ctx;
 let client;

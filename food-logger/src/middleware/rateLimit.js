@@ -24,6 +24,17 @@ function createAnalyzeLimiter({ windowMs = 3_600_000, max = 20 } = {}) {
   return engine({ windowMs, max, keyGenerator: (req) => String(req.user.id) });
 }
 
+// Per-user limiter for storing meal thumbnails (PUT /api/food/:id/photo). Mounted after `auth` (needs req.user).
+function createPhotoLimiter({ windowMs = 3_600_000, max = 200 } = {}) {
+  return engine({ windowMs, max, keyGenerator: (req) => String(req.user.id) });
+}
+
+// Per-IP limiter for storing thumbnails: registration is open, so the per-user limit alone lets a script mint accounts and fill
+// the database with 120 KB rows; this caps the total per client address. Mounted after `auth` like the per-user one.
+function createPhotoIpLimiter({ windowMs = 3_600_000, max = 300 } = {}) {
+  return engine({ windowMs, max });
+}
+
 // Per-IP limiter for the AI endpoints, one budget shared by /api/analyze and /api/analyze-text.
 // Registration is open, so the per-user limit alone lets a script mint accounts and multiply
 // billed Anthropic calls; this caps the total per client address. Mounted after `auth` like
@@ -79,4 +90,4 @@ function createUsernameLimiter({ max = 10, windowMs = 900_000, now = Date.now } 
   };
 }
 
-module.exports = { createUsernameLimiter, createIpLimiter, createAnalyzeLimiter, createAnalyzeIpLimiter };
+module.exports = { createUsernameLimiter, createIpLimiter, createAnalyzeLimiter, createAnalyzeIpLimiter, createPhotoLimiter, createPhotoIpLimiter };

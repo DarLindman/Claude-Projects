@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { clearCameraHappyTimer, stopAllIdleAnimations } from './pet.js';
+import { stopAllIdleAnimations } from './pet.js';
 
 export const SCREEN_ORDER = ['welcome','auth','dashboard','home','camera','analysis','stats','weight','settings'];
 
@@ -14,7 +14,6 @@ export function registerScreen(name, { enter, leave } = {}) {
 export function navigate(screen) {
   // stop all idle animations unconditionally on every navigation
   stopAllIdleAnimations();
-  clearCameraHappyTimer();
 
   document.querySelectorAll('.screen').forEach(s =>
     s.classList.remove('active', 'screen-enter-right', 'screen-enter-left')

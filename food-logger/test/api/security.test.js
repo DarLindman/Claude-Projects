@@ -18,7 +18,7 @@ after(async () => {
   await prod.pool.end();
 });
 
-const FONT = '/fonts/Fraunces-latin-opsz-normal.woff2';
+const FONT = '/fonts/GveretLevin-hebrew-400-normal.woff2';
 
 const EXPECTED_CSP = {
   'default-src': ["'self'"],
@@ -90,7 +90,7 @@ test('the self-hosted fonts are served as fonts with the security headers', asyn
   assert.equal(res.status, 200);
   assert.match(res.headers['content-type'], /^(font\/woff2|application\/font-woff2)/);
   assertSecurityHeaders(res, 'font');
-  for (const file of ['Fraunces-latin-opsz-italic', 'DMSans-latin-opsz-normal', 'IBMPlexMono-latin-400-normal', 'IBMPlexMono-latin-600-normal']) {
+  for (const file of ['GveretLevin-latin-400-normal', 'SuezOne-hebrew-400-normal', 'Cousine-hebrew-400-normal', 'PlaypenSansHebrew-latin-500-normal']) {
     assert.equal((await request(ctx.app).get(`/fonts/${file}.woff2`)).status, 200, file);
   }
 });

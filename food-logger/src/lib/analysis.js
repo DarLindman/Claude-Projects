@@ -139,6 +139,26 @@ function checkItems(tag, items) {
   return checked;
 }
 
+// The items of the reply for the receipt in the UI: name and calories only, never a weight or
+// volume (grams of components are never shown to users). Built from the checked items (calories
+// after the sanity rules), in model order, at most MAX_REPLY_ITEMS. The name goes through
+// cleanDishName (Hebrew only), is cut to MAX_ITEM_NAME_CHARS, and one without a Hebrew letter
+// becomes the neutral label. Calories are rounded integers, never negative. The names are
+// returned, never logged.
+const MAX_REPLY_ITEMS = 8;
+const MAX_ITEM_NAME_CHARS = 40;
+const DEFAULT_ITEM_NAME = 'פריט';
+function replyItems(checked) {
+  return checked.slice(0, MAX_REPLY_ITEMS).map((item) => {
+    const name = cleanDishName(item.name).slice(0, MAX_ITEM_NAME_CHARS).trim();
+    const calories = Math.round(Number(item.calories));
+    return {
+      name: /[א-ת]/.test(name) ? name : DEFAULT_ITEM_NAME,
+      calories: Number.isFinite(calories) && calories > 0 ? calories : 0,
+    };
+  });
+}
+
 // ─── Analyze food image ───────────────────────────────────────────────────────
 // `model` is the configured image model (config.imageModel) in production; without it the
 // request goes to MODEL. `temperature` defaults to temperatureFor(model); an explicit value
@@ -183,13 +203,14 @@ async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL, t
   const items = parsed.items;
   // visual_description, scale_reference and draft_name are only the model's recognition,
   // scale and first attempt: they are never read here, so they are not returned, stored or
-  // logged. Item names are
-  // cleaned defensively but not returned; dish_name (the checked final name) goes through
+  // logged. Item names are cleaned here, and replyItems returns name and calories of the
+  // checked items (nothing else of them); dish_name (the checked final name) goes through
   // the guard as is (missing or of any type it becomes the default name).
   items.forEach(item => { item.name = cleanDishName(item.name); });
-  const totals = sumItems(checkItems('analyze', items));
+  const checked = checkItems('analyze', items);
+  const totals = sumItems(checked);
   const { name: foodName } = await ensureHebrewDishName(anthropic, parsed.dish_name, {});
-  return { foodName, ...totals };
+  return { foodName, ...totals, items: replyItems(checked) };
 }
 
 // ─── Analyze food text ────────────────────────────────────────────────────────
@@ -209,12 +230,13 @@ async function analyzeText(anthropic, text) {
     if (value.length === 0) fail('no items');
     return value;
   });
-  const totals = sumItems(checkItems('analyze-text', items));
+  const checked = checkItems('analyze-text', items);
+  const totals = sumItems(checked);
   // The shown name is what the user typed: only non-Hebrew letters are translated, the
   // rest (punctuation, emoji, digits) stays; no word limit, at most the food-name limit
   // of 200 characters, and a text without letters (such as "100") stays as typed.
   const { name: foodName } = await ensureHebrewDishName(anthropic, text.trim(), { mode: 'userText', maxWords: Infinity, maxChars: 200, requireHebrewLetter: false });
-  return { foodName, ...totals };
+  return { foodName, ...totals, items: replyItems(checked) };
 }
 
 module.exports = {

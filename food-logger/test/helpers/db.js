@@ -51,7 +51,7 @@ async function createTestPool() {
 }
 
 async function resetDb(pool) {
-  await pool.query('TRUNCATE users, food_logs, weight_logs, user_profiles RESTART IDENTITY CASCADE');
+  await pool.query('TRUNCATE users, food_logs, food_photos, weight_logs, user_profiles RESTART IDENTITY CASCADE');
 }
 
 module.exports = { createTestPool, ensureTestDb, resetDb, resolveTestUrl };

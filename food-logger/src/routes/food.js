@@ -19,6 +19,8 @@ const foodBody = z.object({
   logged_at: S.loggedAt,
 });
 const idParams = z.object({ id: S.id });
+// The list rows are the table's columns plus whether the meal has a thumbnail (never its bytes).
+const LIST_COLUMNS = 'f.*, EXISTS (SELECT 1 FROM food_photos p WHERE p.food_log_id = f.id) AS has_photo';
 const listQuery = z.object({ date: S.optionalQuery(S.dateStr) });
 
 module.exports = function foodRoutes({ pool, auth }) {
@@ -39,10 +41,10 @@ module.exports = function foodRoutes({ pool, auth }) {
     const { date } = req.valid.query; // YYYY-MM-DD
     let query, params;
     if (date) {
-      query = `SELECT * FROM food_logs WHERE user_id=$1 AND logged_at::date = $2::date ORDER BY logged_at ASC`;
+      query = `SELECT ${LIST_COLUMNS} FROM food_logs f WHERE f.user_id=$1 AND f.logged_at::date = $2::date ORDER BY f.logged_at ASC`;
       params = [req.user.id, date];
     } else {
-      query = `SELECT * FROM food_logs WHERE user_id=$1 ORDER BY logged_at DESC LIMIT 500`;
+      query = `SELECT ${LIST_COLUMNS} FROM food_logs f WHERE f.user_id=$1 ORDER BY f.logged_at DESC LIMIT 500`;
       params = [req.user.id];
     }
     const { rows } = await pool.query(query, params);

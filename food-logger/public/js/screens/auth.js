@@ -4,10 +4,21 @@ import { todayStr } from '../dates.js';
 import { loadProfile } from '../profile.js';
 import { setLoggedIn } from '../session.js';
 import { messageFor } from '../errors.js';
+import { mountWalkingCapybara } from '../pet.js';
 
 // ════════════════════════════════════════════════════
 // Auth
 // ════════════════════════════════════════════════════
+// The capybara walks along the bottom of the page while the screen is shown (router hooks, see main.js).
+let _walker = null;
+export function enterAuth() {
+  const page = document.querySelector('#screen-auth .page');
+  if (page) _walker = mountWalkingCapybara(page, { state: 'neutral', size: 104, bottom: 4 });
+}
+export function leaveAuth() {
+  if (_walker) { _walker.stop(); _walker = null; }
+}
+
 export function switchAuthTab(tab) {
   document.getElementById('auth-login').style.display = tab === 'login' ? '' : 'none';
   document.getElementById('auth-register').style.display = tab === 'register' ? '' : 'none';

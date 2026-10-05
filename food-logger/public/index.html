@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="יומן">
-<meta name="theme-color" content="#0d0b09">
+<meta name="theme-color" content="#22140c">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="180x180" href="/apple-touch-icon.png">
@@ -20,125 +20,50 @@
 <link rel="stylesheet" href="/css/screens.css">
 </head>
 <body>
-<div id="bg-fx" aria-hidden="true">
-  <div class="bg-mesh"></div>
-  <div class="bg-glow"></div>
-  <div class="bg-ember" style="--x:12%;--delay:-3s;--dur:18s"></div>
-  <div class="bg-ember" style="--x:28%;--delay:-8s;--dur:14s"></div>
-  <div class="bg-ember" style="--x:48%;--delay:-15s;--dur:21s"></div>
-  <div class="bg-ember" style="--x:65%;--delay:-6s;--dur:16s"></div>
-  <div class="bg-ember" style="--x:80%;--delay:-11s;--dur:20s"></div>
-  <div class="bg-ember" style="--x:38%;--delay:-2s;--dur:15s"></div>
-</div>
+<!-- Shared by the capybara's drawn style (decorateCapybara in js/pet.js): ink wobble, shading gradients, soft shadow. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+  <filter id="capyink" x="-4%" y="-4%" width="108%" height="108%"><feTurbulence type="fractalNoise" baseFrequency=".07" numOctaves="2" seed="5" result="t"/><feDisplacementMap in="SourceGraphic" in2="t" scale="1.2" result="d"/><feGaussianBlur in="d" stdDeviation=".3"/></filter>
+  <radialGradient id="g-body" cx=".5" cy=".28" r=".85"><stop offset="0" stop-color="#ffebcd" stop-opacity=".26"/><stop offset=".55" stop-color="#ffebcd" stop-opacity="0"/><stop offset="1" stop-color="#46280f" stop-opacity=".26"/></radialGradient>
+  <radialGradient id="g-head" cx=".34" cy=".22" r=".95"><stop offset="0" stop-color="#fff0d7" stop-opacity=".1"/><stop offset=".55" stop-color="#fff0d7" stop-opacity="0"/><stop offset="1" stop-color="#50290f" stop-opacity=".2"/></radialGradient>
+  <filter id="wobS" x="-3%" y="-8%" width="106%" height="116%"><feTurbulence type="fractalNoise" baseFrequency=".05" numOctaves="2" seed="3" result="t"/><feDisplacementMap in="SourceGraphic" in2="t" scale="1.1"/></filter>
+  <filter id="softsh" x="-20%" y="-60%" width="140%" height="220%"><feGaussianBlur stdDeviation="1.7"/></filter>
+</defs></svg>
+<!-- The leather cover: every screen, the dock and the stitch live inside it. -->
+<div class="phone-frame" id="phone-frame">
 
 <!-- ════════════════ WELCOME ════════════════ -->
+<!-- The leather cover itself: foil title, the capybara in her salad bowl (mounted by screens/welcome.js), three feature lines. -->
 <div id="screen-welcome" class="screen">
   <div class="welcome-wrap">
-    <div class="welcome-icon fu fu-1">
-      <svg class="capy-logo" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" width="80" height="80" aria-label="לוגו יומן">
-        <!-- background -->
-        <rect class="capy-logo-bg" x="0" y="0" width="120" height="120" rx="24" fill="#E8703A"/>
-        <!-- capybara body group (breathes) -->
-        <g class="capy-logo-body">
-          <!-- body -->
-          <ellipse cx="60" cy="78" rx="30" ry="18" fill="#C4956A"/>
-          <ellipse cx="60" cy="81" rx="20" ry="11" fill="#e8c89a"/>
-          <!-- head -->
-          <rect x="32" y="38" width="56" height="38" rx="14" fill="#C4956A"/>
-          <!-- snout -->
-          <rect x="39" y="52" width="42" height="18" rx="10" fill="#b07d50"/>
-          <!-- ears -->
-          <circle cx="37" cy="40" r="8" fill="#C4956A"/>
-          <circle cx="37" cy="40" r="4.5" fill="#e0a87a"/>
-          <circle cx="83" cy="40" r="8" fill="#C4956A"/>
-          <circle cx="83" cy="40" r="4.5" fill="#e0a87a"/>
-          <!-- eyes (happy) -->
-          <circle cx="44" cy="46" r="4.5" fill="#2d1a0a"/>
-          <circle cx="44" cy="46" r="3" fill="#1a1a1a"/>
-          <circle cx="43" cy="45" r="1" fill="white"/>
-          <circle cx="76" cy="46" r="4.5" fill="#2d1a0a"/>
-          <circle cx="76" cy="46" r="3" fill="#1a1a1a"/>
-          <circle cx="75" cy="45" r="1" fill="white"/>
-          <!-- nostrils -->
-          <ellipse cx="51" cy="62" rx="2.5" ry="1.8" fill="#8B5E35"/>
-          <ellipse cx="69" cy="62" rx="2.5" ry="1.8" fill="#8B5E35"/>
-          <!-- mouth (grin) -->
-          <path d="M 47 68 Q 60 76 73 68" stroke="#8B5E35" stroke-width="2" fill="none" stroke-linecap="round"/>
-          <!-- blush -->
-          <ellipse cx="38" cy="54" rx="6" ry="3.5" fill="#E8703A" opacity="0.3"/>
-          <ellipse cx="82" cy="54" rx="6" ry="3.5" fill="#E8703A" opacity="0.3"/>
-          <!-- arms -->
-          <path d="M 36 74 Q 28 84 28 93" stroke="#b07d50" stroke-width="5" fill="none" stroke-linecap="round"/>
-          <path d="M 84 74 Q 92 84 92 93" stroke="#b07d50" stroke-width="5" fill="none" stroke-linecap="round"/>
-          <!-- paws -->
-          <ellipse cx="28" cy="95" rx="5" ry="3" fill="#b07d50"/>
-          <ellipse cx="92" cy="95" rx="5" ry="3" fill="#b07d50"/>
-        </g>
-        <!-- bowl (animated separately) -->
-        <g class="capy-logo-bowl">
-          <path d="M 20 93 Q 20 113 60 113 Q 100 113 100 93 Z" fill="white" opacity="0.92"/>
-          <ellipse cx="60" cy="93" rx="40" ry="8" fill="white" opacity="0.92"/>
-          <g class="capy-logo-ing" style="--delay:0ms;--ing-rot:25deg"><circle cx="28" cy="104" r="5" fill="#2E7D32"/></g>
-          <g class="capy-logo-ing" style="--delay:120ms;--ing-rot:-20deg"><circle cx="38" cy="107" r="4.5" fill="#EF5350"/></g>
-          <g class="capy-logo-ing" style="--delay:240ms;--ing-rot:30deg"><circle cx="50" cy="108" r="4" fill="#FFD54F"/></g>
-          <g class="capy-logo-ing" style="--delay:360ms;--ing-rot:-15deg"><circle cx="62" cy="109" r="4.5" fill="#A5D6A7"/></g>
-          <g class="capy-logo-ing" style="--delay:480ms;--ing-rot:20deg"><circle cx="74" cy="107" r="4" fill="#E53935"/></g>
-          <g class="capy-logo-ing" style="--delay:600ms;--ing-rot:-25deg"><circle cx="85" cy="104" r="4.5" fill="#2E7D32"/></g>
-          <g class="capy-logo-ing" style="--delay:720ms;--ing-rot:18deg"><circle cx="92" cy="103" r="4" fill="#A5D6A7"/></g>
-          <g class="capy-logo-ing" style="--delay:840ms;--ing-rot:-22deg"><circle cx="35" cy="97" r="4" fill="#FFD54F"/></g>
-          <g class="capy-logo-ing" style="--delay:960ms;--ing-rot:28deg"><circle cx="48" cy="98" r="4.5" fill="#EF5350"/></g>
-          <g class="capy-logo-ing" style="--delay:1080ms;--ing-rot:-18deg"><circle cx="72" cy="98" r="4" fill="#2E7D32"/></g>
-          <g class="capy-logo-ing" style="--delay:1200ms;--ing-rot:15deg"><circle cx="60" cy="90" r="4" fill="#A5D6A7"/></g>
-        </g>
-      </svg>
+    <div class="welcome-pet fu fu-1" id="welcome-pet"></div>
+    <div class="fu fu-2">
+      <div class="foil">יומן.</div>
+      <div class="hand welcome-sub">יומן האוכל האישי שלך</div>
     </div>
-    <div class="welcome-title"><span class="title-word">יומן</span><em>.</em></div>
-    <div class="welcome-subtitle fu fu-3">יומן האוכל האישי שלך</div>
-    <svg class="wavy-divider" viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true">
-      <path d="M0,4 Q25,1 50,4 Q75,7 100,4"/>
-    </svg>
-    <div class="welcome-features">
-      <div class="welcome-feature fu fu-4">
-        <div class="welcome-feature-icon">📸</div>
-        <div class="welcome-feature-text">
-          <h4>ניתוח תמונות AI</h4>
-          <p>צלם את הצלחת — בינה מלאכותית תזהה את האוכל ותחשב ערכים תזונתיים</p>
-        </div>
-      </div>
-      <div class="welcome-feature fu fu-5">
-        <div class="welcome-feature-icon">📊</div>
-        <div class="welcome-feature-text">
-          <h4>מעקב מאקרו מלא</h4>
-          <p>קלוריות, חלבון, פחמימות, שומן וסיבים — הכול במקום אחד</p>
-        </div>
-      </div>
-      <div class="welcome-feature fu fu-6">
-        <div class="welcome-feature-icon">📈</div>
-        <div class="welcome-feature-text">
-          <h4>גרפים וסטטיסטיקות</h4>
-          <p>מעקב שבועי, חודשי ושנתי — ראה את ההתקדמות שלך לאורך זמן</p>
-        </div>
-      </div>
+    <div class="welcome-feats fu fu-3">
+      <div class="feat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h4l2-3h6l2 3h4v11H3z"/><circle cx="12" cy="13" r="3.6"/></svg><span>צלם את הצלחת. ה-AI מזהה ומחשב</span></div>
+      <div class="feat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V11M10 20V5M16 20v-7M22 20H2"/></svg><span>קלוריות ומאקרו, הכול במקום אחד</span></div>
+      <div class="feat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l5-6 4 3 8-9"/><path d="M3 21h18"/></svg><span>גרפים: שבועי, חודשי ושנתי</span></div>
     </div>
-    <div class="welcome-actions fu fu-7">
-      <button class="btn btn-primary" data-action="goToAuth" data-arg="register">התחל עכשיו</button>
-      <button class="btn btn-ghost" data-action="goToAuth" data-arg="login">יש לי חשבון</button>
+    <div class="welcome-actions fu fu-4">
+      <button class="foilbtn" data-action="goToAuth" data-arg="register">התחל עכשיו</button>
+      <button class="welcome-have hand" data-action="goToAuth" data-arg="login">כבר יש לי חשבון</button>
     </div>
-    <div class="welcome-footer fu fu-7">
-      By Dar &middot; <a href="https://www.instagram.com/darlindman/" target="_blank" rel="noopener">Instagram</a>
+    <div class="credit welcome-footer fu fu-4">
+      <div>Your Personal Food Logger - By Dar Lindman</div>
+      <div><a href="https://www.instagram.com/darlindman/" target="_blank" rel="noopener">Instagram</a></div>
     </div>
   </div>
 </div>
 
 <!-- ════════════════ AUTH ════════════════ -->
+<!-- Login, registration and the profile step: one ruled page with handwritten fields; the walking capybara
+     is mounted into .page by the screen's enter hook (screens/auth.js) and removed by its leave hook. -->
 <div id="screen-auth" class="screen">
-  <div class="auth-wrap">
-    <div class="auth-wordmark"><span class="title-word">יומן</span><em>.</em></div>
-    <div class="auth-sub">יומן האוכל האישי שלך</div>
-    <svg class="wavy-divider" viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true">
-      <path d="M0,4 Q25,1 50,4 Q75,7 100,4"/>
-    </svg>
-    <div class="auth-card">
+  <div class="page"><div class="rules"></div><div class="margin"></div>
+    <div class="content">
+      <div class="title big auth-wordmark">יומן.</div>
+      <div class="lbl auth-sub">יומן האוכל האישי שלך</div>
       <!-- Step 1: login/register tabs -->
       <div id="auth-step1">
         <div class="tab-row">
@@ -146,38 +71,40 @@
           <button class="tab-btn" data-action="switchAuthTab" data-arg="register">הרשמה</button>
         </div>
         <div id="auth-login">
-          <div class="form-group"><label>שם משתמש</label><input id="login-user" type="text" placeholder="your_username" autocomplete="username"></div>
-          <div class="form-group"><label>סיסמה</label><input id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password"></div>
-          <button class="btn btn-primary" data-action="doLogin">כניסה</button>
+          <div class="field"><label for="login-user">שם משתמש</label><input id="login-user" type="text" placeholder="your_username" autocomplete="username"></div>
+          <div class="field"><label for="login-pass">סיסמה</label><input id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password"></div>
+          <div class="auth-actions"><button class="penbtn" data-action="doLogin">כניסה</button></div>
           <div id="auth-error" class="error-msg"></div>
         </div>
         <div id="auth-register" style="display:none">
-          <div class="form-group"><label>שם משתמש</label><input id="reg-user" type="text" placeholder="לפחות 3 תווים" autocomplete="username"></div>
-          <div class="form-group"><label>סיסמה</label><input id="reg-pass" type="password" placeholder="לפחות 8 תווים" autocomplete="new-password"></div>
-          <button class="btn btn-primary" data-action="doRegister">הרשמה</button>
+          <div class="field"><label for="reg-user">שם משתמש</label><input id="reg-user" type="text" placeholder="לפחות 3 תווים" autocomplete="username"></div>
+          <div class="field"><label for="reg-pass">סיסמה</label><input id="reg-pass" type="password" placeholder="לפחות 8 תווים" autocomplete="new-password"></div>
+          <div class="auth-actions"><button class="penbtn" data-action="doRegister">הרשמה</button></div>
           <div id="auth-error2" class="error-msg"></div>
         </div>
       </div>
 
       <!-- Step 2: body profile (shown after register) -->
       <div id="auth-step2" style="display:none">
-        <button class="btn btn-ghost" dir="ltr" style="margin-bottom:12px;width:auto;padding:8px 16px;font-size:13px" data-action="regBack">חזור &#8594;</button>
-        <div class="profile-step-title">ספר לנו עליך</div>
-        <div class="profile-step-sub">נחשב עבורך המלצת קלוריות יומית</div>
+        <button class="auth-link" dir="ltr" data-action="regBack">חזור &#8594;</button>
+        <div class="title profile-step-title">ספר לנו עליך</div>
+        <div class="lbl profile-step-sub">נחשב עבורך המלצת קלוריות יומית</div>
 
-        <label style="margin-bottom:8px">מין</label>
-        <div class="toggle-row" style="margin-bottom:16px">
-          <button class="toggle-btn selected" id="reg-male-btn" data-action="setRegGender" data-arg="male">👨 גבר</button>
-          <button class="toggle-btn" id="reg-female-btn" data-action="setRegGender" data-arg="female">👩 אישה</button>
+        <div class="field">
+          <label>מין</label>
+          <div class="chip-row">
+            <button class="chip selected" id="reg-male-btn" data-action="setRegGender" data-arg="male">👨 גבר</button>
+            <button class="chip" id="reg-female-btn" data-action="setRegGender" data-arg="female">👩 אישה</button>
+          </div>
         </div>
 
-        <div class="form-group" style="margin-bottom:10px"><label>תאריך לידה</label><input type="date" id="reg-birthdate" lang="he" style="font-size:14px"></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
-          <div class="form-group" style="margin-bottom:0"><label>גובה (ס״מ)</label><select id="reg-height"></select></div>
-          <div class="form-group" style="margin-bottom:0"><label>משקל (ק״ג)</label><select id="reg-weight"></select></div>
+        <div class="field"><label for="reg-birthdate">תאריך לידה</label><input type="date" id="reg-birthdate" lang="he"></div>
+        <div class="field-pair">
+          <div class="field"><label for="reg-height">גובה (ס״מ)</label><select id="reg-height"></select></div>
+          <div class="field"><label for="reg-weight">משקל (ק״ג)</label><select id="reg-weight"></select></div>
         </div>
-        <div class="form-group" style="margin-bottom:16px">
-          <label>יעד שינוי שבועי (ק״ג)</label>
+        <div class="field">
+          <label for="reg-goal-select">יעד שינוי שבועי (ק״ג)</label>
           <select id="reg-goal-select" data-change="setRegGoal">
             <option value="1">&lrm;+1&lrm; ק״ג (עלייה במשקל)</option>
             <option value="0.75">&lrm;+¾&lrm; ק״ג</option>
@@ -191,323 +118,206 @@
           </select>
         </div>
 
-        <label style="margin-bottom:8px">רמת פעילות</label>
-        <div class="activity-list" id="reg-activity-list">
-          <button class="activity-opt" data-val="sedentary" data-action="setRegActivity" data-arg="sedentary"><strong>יושבני</strong>עבודת משרד, מינימום פעילות</button>
-          <button class="activity-opt selected" data-val="light" data-action="setRegActivity" data-arg="light"><strong>פעילות קלה</strong>1–3 ימים בשבוע</button>
-          <button class="activity-opt" data-val="moderate" data-action="setRegActivity" data-arg="moderate"><strong>פעילות בינונית</strong>3–5 ימים בשבוע</button>
-          <button class="activity-opt" data-val="active" data-action="setRegActivity" data-arg="active"><strong>פעילות גבוהה</strong>6–7 ימים בשבוע</button>
-          <button class="activity-opt" data-val="vactive" data-action="setRegActivity" data-arg="vactive"><strong>ספורטאי</strong>אימון יומי אינטנסיבי</button>
+        <div class="field">
+          <label>רמת פעילות</label>
+          <div class="activity-list" id="reg-activity-list">
+            <button class="activity-opt" data-val="sedentary" data-action="setRegActivity" data-arg="sedentary"><strong>יושבני</strong>עבודת משרד, מינימום פעילות</button>
+            <button class="activity-opt selected" data-val="light" data-action="setRegActivity" data-arg="light"><strong>פעילות קלה</strong><bdi>1–3</bdi> ימים בשבוע</button>
+            <button class="activity-opt" data-val="moderate" data-action="setRegActivity" data-arg="moderate"><strong>פעילות בינונית</strong><bdi>3–5</bdi> ימים בשבוע</button>
+            <button class="activity-opt" data-val="active" data-action="setRegActivity" data-arg="active"><strong>פעילות גבוהה</strong><bdi>6–7</bdi> ימים בשבוע</button>
+            <button class="activity-opt" data-val="vactive" data-action="setRegActivity" data-arg="vactive"><strong>ספורטאי</strong>אימון יומי אינטנסיבי</button>
+          </div>
         </div>
 
-        <button class="btn btn-primary" style="margin-bottom:10px" data-action="saveRegProfile">בוא נתחיל! 🚀</button>
-        <button class="btn btn-ghost" data-action="skipRegProfile">דלג לעת עתה</button>
+        <div class="auth-actions"><button class="penbtn" data-action="saveRegProfile">בוא נתחיל! 🚀</button></div>
+        <div class="auth-actions"><button class="auth-link" data-action="skipRegProfile">דלג לעת עתה</button></div>
         <div id="auth-error3" class="error-msg"></div>
       </div>
     </div>
   </div>
 </div>
 
+
 <!-- ════════════════ DASHBOARD ════════════════ -->
+<!-- The home page of the diary: the date, the capybara with her bubble, the calories eaten with the red bar, the streak as a
+     hand-written tally, and the last meal as a polaroid. screens/dashboard.js fills it. -->
 <div id="screen-dashboard" class="screen">
-  <div class="pet-strip dash-stagger" id="pet-strip">
-      <svg class="capy-logo" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" width="80" height="80" aria-label="לוגו יומן">
-        <!-- background -->
-        <rect class="capy-logo-bg" x="0" y="0" width="120" height="120" rx="24" fill="#E8703A"/>
-        <!-- capybara body group (breathes) -->
-        <g class="capy-logo-body">
-          <!-- body -->
-          <ellipse cx="60" cy="78" rx="30" ry="18" fill="#C4956A"/>
-          <ellipse cx="60" cy="81" rx="20" ry="11" fill="#e8c89a"/>
-          <!-- head -->
-          <rect x="32" y="38" width="56" height="38" rx="14" fill="#C4956A"/>
-          <!-- snout -->
-          <rect x="39" y="52" width="42" height="18" rx="10" fill="#b07d50"/>
-          <!-- ears -->
-          <circle cx="37" cy="40" r="8" fill="#C4956A"/>
-          <circle cx="37" cy="40" r="4.5" fill="#e0a87a"/>
-          <circle cx="83" cy="40" r="8" fill="#C4956A"/>
-          <circle cx="83" cy="40" r="4.5" fill="#e0a87a"/>
-          <!-- eyes (happy) -->
-          <circle cx="44" cy="46" r="4.5" fill="#2d1a0a"/>
-          <circle cx="44" cy="46" r="3" fill="#1a1a1a"/>
-          <circle cx="43" cy="45" r="1" fill="white"/>
-          <circle cx="76" cy="46" r="4.5" fill="#2d1a0a"/>
-          <circle cx="76" cy="46" r="3" fill="#1a1a1a"/>
-          <circle cx="75" cy="45" r="1" fill="white"/>
-          <!-- nostrils -->
-          <ellipse cx="51" cy="62" rx="2.5" ry="1.8" fill="#8B5E35"/>
-          <ellipse cx="69" cy="62" rx="2.5" ry="1.8" fill="#8B5E35"/>
-          <!-- mouth (grin) -->
-          <path d="M 47 68 Q 60 76 73 68" stroke="#8B5E35" stroke-width="2" fill="none" stroke-linecap="round"/>
-          <!-- blush -->
-          <ellipse cx="38" cy="54" rx="6" ry="3.5" fill="#E8703A" opacity="0.3"/>
-          <ellipse cx="82" cy="54" rx="6" ry="3.5" fill="#E8703A" opacity="0.3"/>
-          <!-- arms -->
-          <path d="M 36 74 Q 28 84 28 93" stroke="#b07d50" stroke-width="5" fill="none" stroke-linecap="round"/>
-          <path d="M 84 74 Q 92 84 92 93" stroke="#b07d50" stroke-width="5" fill="none" stroke-linecap="round"/>
-          <!-- paws -->
-          <ellipse cx="28" cy="95" rx="5" ry="3" fill="#b07d50"/>
-          <ellipse cx="92" cy="95" rx="5" ry="3" fill="#b07d50"/>
-        </g>
-        <!-- bowl (animated separately) -->
-        <g class="capy-logo-bowl">
-          <!-- bowl body -->
-          <path d="M 20 93 Q 20 113 60 113 Q 100 113 100 93 Z" fill="white" opacity="0.92"/>
-          <!-- bowl rim -->
-          <ellipse cx="60" cy="93" rx="40" ry="8" fill="white" opacity="0.92"/>
-          <!-- ingredients — 11 circles, staggered -->
-          <!-- bottom layer, spread wide -->
-          <g class="capy-logo-ing" style="--delay:0ms;--ing-rot:25deg"><circle cx="28" cy="104" r="5" fill="#2E7D32"/></g>
-          <g class="capy-logo-ing" style="--delay:120ms;--ing-rot:-20deg"><circle cx="38" cy="107" r="4.5" fill="#EF5350"/></g>
-          <g class="capy-logo-ing" style="--delay:240ms;--ing-rot:30deg"><circle cx="50" cy="108" r="4" fill="#FFD54F"/></g>
-          <g class="capy-logo-ing" style="--delay:360ms;--ing-rot:-15deg"><circle cx="62" cy="109" r="4.5" fill="#A5D6A7"/></g>
-          <g class="capy-logo-ing" style="--delay:480ms;--ing-rot:20deg"><circle cx="74" cy="107" r="4" fill="#E53935"/></g>
-          <g class="capy-logo-ing" style="--delay:600ms;--ing-rot:-25deg"><circle cx="85" cy="104" r="4.5" fill="#2E7D32"/></g>
-          <g class="capy-logo-ing" style="--delay:720ms;--ing-rot:18deg"><circle cx="92" cy="103" r="4" fill="#A5D6A7"/></g>
-          <!-- mid layer -->
-          <g class="capy-logo-ing" style="--delay:840ms;--ing-rot:-22deg"><circle cx="35" cy="97" r="4" fill="#FFD54F"/></g>
-          <g class="capy-logo-ing" style="--delay:960ms;--ing-rot:28deg"><circle cx="48" cy="98" r="4.5" fill="#EF5350"/></g>
-          <g class="capy-logo-ing" style="--delay:1080ms;--ing-rot:-18deg"><circle cx="72" cy="98" r="4" fill="#2E7D32"/></g>
-          <!-- top peek above rim -->
-          <g class="capy-logo-ing" style="--delay:1200ms;--ing-rot:15deg"><circle cx="60" cy="90" r="4" fill="#A5D6A7"/></g>
-        </g>
-      </svg>
-      <div class="pet-bubble" id="pet-bubble">
-        <div class="pet-bubble-name">שלום, <strong id="pet-name-label"></strong> 👋</div>
-        <div class="pet-bubble-status" id="pet-status-text">טוען...</div>
+  <div class="page"><div class="rules"></div><div class="margin"></div>
+    <div class="content"><div class="ribbon"></div>
+      <div class="title page-date" id="dash-date"></div>
+      <div class="lbl dash-hello">שלום, <strong id="pet-name-label"></strong> 👋</div>
+      <div class="dash-top">
+        <div class="bubble dash-bubble" id="pet-bubble"><span id="pet-status-text">טוען...</span></div>
+        <div class="dash-pet" id="pet-dashboard-wrap"></div>
       </div>
-      <div id="pet-dashboard-wrap"></div>
-  </div>
-  <div class="dash-wrap">
-
-    <svg class="wavy-divider" viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true">
-      <path d="M0,4 Q25,1 50,4 Q75,7 100,4"/>
-    </svg>
-
-    <!-- Hero calorie number -->
-    <div class="dash-hero-cal dash-stagger">
-      <div class="dash-cal-row">
-        <span class="dash-cal-num" id="dash-cal-remaining">—</span>
-        <span class="dash-cal-sep" id="dash-cal-sep" style="display:none">/</span>
-        <span class="dash-cal-num dash-cal-num-goal" id="dash-cal-goal-label" style="display:none"></span>
+      <div class="eat"><span class="n" id="dash-cal-remaining">—</span><span class="of">קק״ל<span id="dash-cal-sep" hidden> מתוך <span id="dash-cal-goal-label"></span></span></span></div>
+      <div class="ink2" id="dash-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><div class="track"><div class="fill" id="dash-cal-fill"></div></div></div>
+      <div class="dash-streak" id="dash-streak" hidden>
+        <div class="lbl dash-streak-line">ברצף כבר <span id="dash-streak-num"></span></div>
+        <div class="dash-tally" id="dash-tally"></div>
       </div>
-      <div class="dash-cal-label-main">קלוריות היום</div>
-      <div class="dash-cal-pct" id="dash-cal-pct" style="display:none"></div>
+      <div class="dash-last" id="dash-last" hidden></div>
+      <div class="lbl dash-weight" id="dash-weight" hidden>משקל <span id="dash-weight-val"></span> ק״ג</div>
     </div>
-
-    <svg class="wavy-divider" viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true">
-      <path d="M0,4 Q25,1 50,4 Q75,7 100,4"/>
-    </svg>
-
-    <!-- Streak circle -->
-    <div class="dash-streak-wrap dash-stagger">
-      <canvas id="dash-fire-canvas" class="dash-fire-canvas" width="200" height="320" aria-hidden="true"></canvas>
-      <div class="dash-streak-circle">
-        <div class="dash-streak-num" id="dash-streak-num">—</div>
-        <div class="dash-streak-lbl">ימים ברצף</div>
-      </div>
-    </div>
-
-    <!-- CTAs -->
-    <button class="btn btn-primary dash-cta dash-stagger" data-action="navigate" data-arg="camera">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true" style="vertical-align:middle;margin-left:6px">
-        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-      </svg>
-      הוסף ארוחה
-    </button>
   </div>
 </div>
 
 <!-- ════════════════ HOME (DIARY) ════════════════ -->
+<!-- The diary page of one day: the week strip (an arrow at each end, the shown day circled in red pen, future days dimmed),
+     the date, the calories eaten with the red bar, the day's macro totals and every meal as a taped polaroid.
+     screens/home.js fills it. The two arrows live in .date-nav (changeDay, one day); the seven day buttons are outside it. -->
 <div id="screen-home" class="screen">
-  <div class="topbar">
-    <div>
-      <div class="topbar-title">יומן</div>
-    </div>
-    <div class="topbar-brand">
-      <div class="topbar-brand-title">Your Personal Food Logger</div>
-      <div class="topbar-brand-sub"><a class="topbar-brand-ig" href="https://www.instagram.com/darlindman/" target="_blank" rel="noopener"><svg width="9" height="9" viewBox="0 0 24 24" fill="#E1306C"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>Instagram</a> &middot; By Dar</div>
-    </div>
-  </div>
-  <div class="page">
-    <div class="date-nav">
-      <button data-action="changeDay" data-arg="-1">&#8249;</button>
-      <div class="date-display" id="diary-date-label"></div>
-      <button data-action="changeDay" data-arg="1">&#8250;</button>
-    </div>
-
-    <div class="card" id="daily-summary-card">
-      <div class="card-title">סיכום יומי</div>
-      <div class="macro-row">
-        <div class="macro-pill mp-cal"><div class="mp-val" id="sum-cal">0</div><div class="mp-label">קלוריות</div></div>
-        <div class="macro-pill mp-pro"><div class="mp-val" id="sum-pro">0</div><div class="mp-label">חלבון</div></div>
-        <div class="macro-pill mp-carb"><div class="mp-val" id="sum-carb">0</div><div class="mp-label">פחמימות</div></div>
-        <div class="macro-pill mp-fat"><div class="mp-val" id="sum-fat">0</div><div class="mp-label">שומן</div></div>
-        <div class="macro-pill mp-fiber"><div class="mp-val" id="sum-fiber">0</div><div class="mp-label">סיבים</div></div>
-      </div>
-      <!-- Calorie goal progress bar (shown if profile set) -->
-      <div id="cal-goal-section" style="display:none">
-        <div class="cal-goal-bar">
-          <div class="cal-goal-label">
-            <span id="cal-goal-text">0 / 0 קק״ל</span>
-          </div>
-          <div class="cal-goal-track-outer">
-            <div id="pet-diary-wrap" style="position:absolute;bottom:7px;right:-24px;z-index:1;pointer-events:none;display:flex;flex-direction:column;align-items:center;width:48px;transition:right .7s cubic-bezier(.4,0,.2,1)">
-              <span class="cal-goal-pct" id="cal-goal-pct" style="margin-bottom:2px">0%</span>
-            </div>
-            <div class="cal-goal-track"><div class="cal-goal-fill" id="cal-goal-fill" style="width:0%"></div></div>
-          </div>
+  <div class="page"><div class="rules"></div><div class="margin"></div>
+    <div class="content"><div class="ribbon"></div>
+      <div class="weekrow">
+        <div class="date-nav">
+          <button data-action="changeDay" data-arg="-1"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+          <button data-action="changeDay" data-arg="1"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
         </div>
+        <div class="week" id="diary-week"></div>
       </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">ארוחות</div>
-      <div id="meal-list"><div class="empty-state"><div class="empty-icon">🍽️</div><p>אין ארוחות מתועדות<br>לחץ על ➕ כדי להוסיף ארוחה</p></div></div>
+      <div class="title page-date" id="diary-date-label"></div>
+      <div class="eat"><span class="n" id="sum-cal">0</span><span class="of">קק״ל<span id="diary-goal-sep" hidden> מתוך <span id="diary-goal-label"></span></span></span></div>
+      <div class="ink2" id="diary-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><div class="track"><div class="fill" id="diary-cal-fill"></div></div></div>
+      <div class="macros lbl">
+        <span>חלבון <b id="sum-pro">0</b></span>
+        <span>פחמימות <b id="sum-carb">0</b></span>
+        <span>שומן <b id="sum-fat">0</b></span>
+        <span>סיבים <b id="sum-fiber">0</b></span>
+      </div>
+      <div id="meal-list" tabindex="-1"></div>
     </div>
   </div>
 </div>
 
 <!-- ════════════════ CAMERA ════════════════ -->
 <div id="screen-camera" class="screen">
-  <div class="camera-area">
-    <div class="cam-tip">צלם את האוכל שלך</div>
-    <div class="cam-preview" id="cam-preview">
-      <div class="cam-corners">
-  <svg class="cam-corner" viewBox="0 0 20 20"><path d="M18 2 H10 M18 2 V10"/></svg>
-  <svg class="cam-corner" viewBox="0 0 20 20"><path d="M2 2 H10 M2 2 V10"/></svg>
-  <svg class="cam-corner" viewBox="0 0 20 20"><path d="M18 18 H10 M18 18 V10"/></svg>
-  <svg class="cam-corner" viewBox="0 0 20 20"><path d="M2 18 H10 M2 18 V10"/></svg>
-</div>
-      <span class="cam-placeholder">📷</span>
-      <img id="preview-img" alt="תצוגה מקדימה">
-    </div>
-    <div class="cam-actions">
-      <button class="cam-btn cam-btn-shoot" data-action="pickImage" aria-label="צלם / בחר תמונה"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></button>
-      <button class="cam-btn cam-btn-analyze" id="analyze-btn" data-action="analyzeFood" disabled>✨ נתח תמונה</button>
-    </div>
-    <input type="file" id="file-input" accept="image/*" data-change="onImageSelected">
-    <div class="text-analyze-section">
-      <div class="text-analyze-divider"><span>או הקלד תיאור אוכל</span></div>
-      <textarea id="food-text-input" placeholder="" data-placeholder="לדוגמה: 100 גרם חזה עוף עם כוס אורז וסלט ירקות"></textarea>
-      <button class="cam-btn cam-btn-analyze" id="text-analyze-btn" data-action="analyzeText">✍️ נתח טקסט</button>
+  <div class="page"><div class="rules"></div><div class="margin"></div>
+    <div class="content">
+      <div class="title big cam-title">מה אכלת?</div>
+      <!-- #cam-preview is the stage: before a photo the dashed frame (the whole frame is the button), after a photo the
+           taped polaroid with #preview-img and the "צלם שוב" link. screens/camera.js toggles .has-photo. -->
+      <div class="cam-stage" id="cam-preview">
+        <button type="button" class="cam-frame" data-action="pickImage">
+          <span class="cam-frame-in">
+            <svg class="cam-icon" width="96" height="82" viewBox="0 0 96 82" fill="none" stroke="#2b1f16" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" filter="url(#wobS)" aria-hidden="true" focusable="false"><path d="M8 24h18l7-11h30l7 11h18v48H8z" fill="#fffdf6"/><circle cx="48" cy="46" r="15"/><circle cx="48" cy="46" r="6" stroke="#b3311d"/><path d="M76 33h6" stroke="#b3311d"/></svg>
+            <span class="cam-big hand">לחץ לצילום</span>
+            <span class="cam-small hand">או בחר תמונה מהגלריה</span>
+          </span>
+        </button>
+        <i class="tape cam-frame-tape"></i>
+        <div class="polaroid cam-polaroid"><i class="tape"></i><div class="ph"><img id="preview-img" alt="תצוגה מקדימה"></div><div class="cp" id="cam-caption"></div></div>
+        <button type="button" class="cam-retake hand" data-action="pickImage">צלם שוב</button>
+      </div>
+      <div class="cam-chips" id="cam-chips">
+        <button type="button" class="chip" data-meal="breakfast" data-action="selectCameraMeal">בוקר</button>
+        <button type="button" class="chip on" data-meal="lunch" data-action="selectCameraMeal">צהריים</button>
+        <button type="button" class="chip" data-meal="dinner" data-action="selectCameraMeal">ערב</button>
+        <button type="button" class="chip" data-meal="snack" data-action="selectCameraMeal">חטיף</button>
+      </div>
+      <div class="cam-analyze-row" id="cam-analyze-row"><button type="button" class="penbtn cam-analyze" id="analyze-btn" data-action="analyzeFood" disabled>נתח את הצלחת</button></div>
+      <input type="file" id="file-input" accept="image/*" data-change="onImageSelected">
+      <div class="field cam-text">
+        <label for="food-text-input">או הקלד תיאור אוכל</label>
+        <textarea id="food-text-input" rows="2" placeholder="" data-placeholder="לדוגמה: 100 גרם חזה עוף עם כוס אורז וסלט ירקות"></textarea>
+        <button type="button" class="penbtn cam-text-go" id="text-analyze-btn" data-action="analyzeText">נתח טקסט</button>
+      </div>
     </div>
   </div>
 </div>
 
 <!-- ════════════════ ANALYSIS ════════════════ -->
+<!-- Two states on one ruled page. Waiting (#analysis-loading): the photo as a polaroid (a photo analysis only), the capybara with a
+     magnifier beside her bubble, a progress bar. Result (#analysis-result): the handwritten name, the photo and the circled
+     calories, the printed receipt (js/receipt.js, mounted in #receipt-mount), the macro rows, the meal chips, the time and
+     "שמור ביומן". screens/analysisView.js switches the states; the polaroid is one element that moves between them. -->
 <div id="screen-analysis" class="screen">
-  <div class="topbar">
-    <div>
-      <div class="topbar-title">ניתוח תזונה</div>
-      <div class="topbar-brand-sub" style="margin-top:2px"><a class="topbar-brand-ig" href="https://www.instagram.com/darlindman/" target="_blank" rel="noopener"><svg width="9" height="9" viewBox="0 0 24 24" fill="#E1306C"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>Instagram</a> &middot; By Dar</div>
+  <div class="page"><div class="rules"></div><div class="margin"></div>
+    <div class="content">
+      <div id="analysis-loading" class="wait" hidden>
+        <div class="wait-stage" id="wait-stage">
+          <div class="polaroid res-polaroid" id="analysis-polaroid" hidden><i class="tape"></i><div class="ph"><img id="analysis-img" alt=""></div><div class="cp" id="analysis-caption"></div></div>
+        </div>
+        <div class="wait-row">
+          <div class="bubble wait-bubble" id="wait-bubble">מחשב כמה יש בצלחת…</div>
+          <div class="wait-pet" id="wait-pet">
+            <svg class="wait-magnifier" width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#2b1f16" stroke-width="3.2" stroke-linecap="round" aria-hidden="true" focusable="false"><circle cx="26" cy="26" r="17" fill="rgba(255,255,255,.55)"/><path d="M39 39l18 18" stroke-width="5"/></svg>
+          </div>
+        </div>
+        <div class="wait-bar" id="wait-bar" role="progressbar" aria-hidden="true"><div class="wait-fill"></div></div>
+      </div>
+      <div id="analysis-fail" class="fail" hidden>
+        <div class="fail-pet" id="fail-pet"></div>
+        <div id="analysis-error" class="error-msg"></div>
+      </div>
+      <div id="analysis-result" hidden>
+        <div class="lbl res-lbl">הארוחה שזיהיתי</div>
+        <textarea id="res-name" class="res-name" placeholder="שם המנה" rows="1"></textarea>
+        <div class="res-top" id="res-top">
+          <div class="res-cal"><span class="circ"><input id="res-cal" type="number" step="any" inputmode="decimal" aria-label="קלוריות"></span><span class="res-kcal">קק״ל</span></div>
+        </div>
+        <div id="receipt-mount"></div>
+        <div class="res-rows">
+          <label class="res-row"><span class="res-lbl2">חלבון</span><span class="res-val"><input id="res-pro" type="number" step="any" inputmode="decimal"><i>גר׳</i></span></label>
+          <label class="res-row"><span class="res-lbl2">פחמימות</span><span class="res-val"><input id="res-carb" type="number" step="any" inputmode="decimal"><i>גר׳</i></span></label>
+          <label class="res-row"><span class="res-lbl2">שומן</span><span class="res-val"><input id="res-fat" type="number" step="any" inputmode="decimal"><i>גר׳</i></span></label>
+          <label class="res-row"><span class="res-lbl2">סיבים</span><span class="res-val"><input id="res-fiber" type="number" step="any" inputmode="decimal"><i>גר׳</i></span></label>
+          <label class="res-row"><span class="res-lbl2">שעה</span><span class="res-val"><input id="res-time" type="time"></span></label>
+        </div>
+        <div class="res-meals meal-select">
+          <button type="button" class="chip meal-opt" data-meal="breakfast" data-action="selectMeal">בוקר</button>
+          <button type="button" class="chip meal-opt selected" data-meal="lunch" data-action="selectMeal">צהריים</button>
+          <button type="button" class="chip meal-opt" data-meal="dinner" data-action="selectMeal">ערב</button>
+          <button type="button" class="chip meal-opt" data-meal="snack" data-action="selectMeal">חטיף</button>
+        </div>
+        <div class="res-actions">
+          <button type="button" class="penbtn" id="save-entry-btn" data-action="saveEntry">שמור ביומן</button>
+          <button type="button" class="res-edit hand" data-action="editTotals">ערוך</button>
+        </div>
+      </div>
     </div>
-    <button style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 13px;font-size:14px;cursor:pointer;color:var(--muted);font-family:inherit" data-action="navigate" data-arg="camera">✕</button>
-  </div>
-  <div class="page">
-    <div id="pet-camera-wrap" style="display:flex;justify-content:center;padding:8px 0 4px"></div>
-    <img id="analysis-img" class="analysis-img" alt="">
-    <div id="analysis-loading" class="spinner">🔄</div>
-    <div id="analysis-result" style="display:none">
-  <div class="receipt" id="receipt-body">
-
-    <div class="receipt-header">
-      <span class="receipt-title">── ניתוח ──</span>
-      <span class="receipt-time" id="receipt-time"></span>
-    </div>
-
-    <div class="receipt-row receipt-name-row">
-      <textarea id="res-name" class="receipt-name-input" placeholder="שם המנה" rows="1"></textarea>
-    </div>
-
-    <hr class="receipt-hr">
-
-    <div class="receipt-row receipt-entry"><label class="receipt-lbl">קלוריות</label><input id="res-cal" type="number" class="receipt-val"><span class="receipt-unit">קק״ל</span></div>
-    <div class="receipt-row receipt-entry"><label class="receipt-lbl">חלבון</label><input id="res-pro" type="number" step="0.1" class="receipt-val"><span class="receipt-unit">גר׳</span></div>
-    <div class="receipt-row receipt-entry"><label class="receipt-lbl">פחמימות</label><input id="res-carb" type="number" step="0.1" class="receipt-val"><span class="receipt-unit">גר׳</span></div>
-    <div class="receipt-row receipt-entry"><label class="receipt-lbl">שומן</label><input id="res-fat" type="number" step="0.1" class="receipt-val"><span class="receipt-unit">גר׳</span></div>
-    <div class="receipt-row receipt-entry"><label class="receipt-lbl">סיבים</label><input id="res-fiber" type="number" step="0.1" class="receipt-val"><span class="receipt-unit">גר׳</span></div>
-
-    <hr class="receipt-hr">
-
-    <div class="receipt-row receipt-entry">
-      <label class="receipt-lbl">שעה</label>
-      <input id="res-time" type="time" class="receipt-val" style="direction:ltr;text-align:left">
-      <span class="receipt-unit"></span>
-    </div>
-
-
-  </div><!-- /receipt -->
-
-  <div class="card-title" style="margin-top:14px">סוג ארוחה</div>
-  <div class="meal-select">
-    <button class="meal-opt" data-meal="breakfast" data-action="selectMeal">בוקר</button>
-    <button class="meal-opt selected" data-meal="lunch" data-action="selectMeal">צהריים</button>
-    <button class="meal-opt" data-meal="dinner" data-action="selectMeal">ערב</button>
-    <button class="meal-opt" data-meal="snack" data-action="selectMeal">חטיף</button>
-  </div>
-
-  <button class="btn btn-primary" id="save-entry-btn" data-action="saveEntry" style="margin-top:4px">שמור ביומן</button>
-    </div>
-    <div id="analysis-error" class="error-msg" style="margin-top:16px"></div>
   </div>
 </div>
 
 <!-- ════════════════ STATS ════════════════ -->
+<!-- The data page: a headline average in handwriting, the hand-drawn bar chart (screens/stats.js + charts.js), the macro bars,
+     the three index tabs at the bottom edge of the page (data-action="switchStats"), and the capybara walking above them
+     (mountWalkingCapybara, mounted and stopped by the screen hooks). The three views are #stats-weekly|monthly|yearly. -->
 <div id="screen-stats" class="screen">
-  <div class="topbar"><div class="topbar-title">נתונים</div><div class="topbar-brand"><div class="topbar-brand-title">Your Personal Food Logger</div><div class="topbar-brand-sub"><a class="topbar-brand-ig" href="https://www.instagram.com/darlindman/" target="_blank" rel="noopener"><svg width="9" height="9" viewBox="0 0 24 24" fill="#E1306C"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>Instagram</a> &middot; By Dar</div></div></div>
-  <div class="page">
-    <div class="stats-tabs">
+  <div class="page"><div class="rules"></div><div class="margin"></div>
+    <div class="btabs">
       <button class="stats-tab active" data-action="switchStats" data-arg="weekly">שבועי</button>
       <button class="stats-tab" data-action="switchStats" data-arg="monthly">חודשי</button>
       <button class="stats-tab" data-action="switchStats" data-arg="yearly">שנתי</button>
     </div>
+    <div class="content">
+      <div id="stats-weekly">
+        <div class="lbl">7 הימים האחרונים</div>
+        <div id="weekly-avg-box"></div>
+        <div class="chart-wrap stat-chart" id="weekly-chart"></div>
+        <div class="stat-macros" id="weekly-macro"></div>
+      </div>
 
-    <div id="stats-weekly">
-      <div id="weekly-avg-box"></div>
-      <div id="pet-stats-wrap" style="text-align:center;padding:8px 0 4px"></div>
-      <div class="card">
-        <div class="card-title">7 הימים האחרונים — קלוריות</div>
-        <div class="chart-wrap" id="weekly-chart"></div>
+      <div id="stats-monthly" style="display:none">
+        <div class="date-nav">
+          <button data-action="statsChangeMonth" data-arg="-1"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+          <div class="date-display" id="stats-month-label"></div>
+          <button data-action="statsChangeMonth" data-arg="1"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+        </div>
+        <div id="monthly-avg-box"></div>
+        <div class="chart-wrap stat-chart" id="monthly-chart"></div>
+        <div class="stat-macros" id="monthly-macro"></div>
       </div>
-      <div class="card">
-        <div class="card-title">ממוצע שבועי — מאקרו</div>
-        <div id="weekly-macro"></div>
-      </div>
-    </div>
 
-    <div id="stats-monthly" style="display:none">
-      <div class="date-nav">
-        <button data-action="statsChangeMonth" data-arg="-1">&#8249;</button>
-        <div class="date-display" id="stats-month-label"></div>
-        <button data-action="statsChangeMonth" data-arg="1">&#8250;</button>
-      </div>
-      <div id="monthly-avg-box"></div>
-      <div class="card">
-        <div class="card-title">קלוריות לפי יום</div>
-        <div class="chart-wrap" id="monthly-chart"></div>
-      </div>
-      <div class="card">
-        <div class="card-title">ממוצע חודשי — מאקרו</div>
-        <div id="monthly-macro"></div>
-      </div>
-    </div>
-
-    <div id="stats-yearly" style="display:none">
-      <div class="date-nav">
-        <button data-action="statsChangeYear" data-arg="-1">&#8249;</button>
-        <div class="date-display" id="stats-year-label"></div>
-        <button data-action="statsChangeYear" data-arg="1">&#8250;</button>
-      </div>
-      <div id="yearly-avg-box"></div>
-      <div class="card">
-        <div class="card-title">קלוריות לפי חודש</div>
-        <div class="chart-wrap" id="yearly-chart"></div>
-      </div>
-      <div class="card">
-        <div class="card-title">ממוצע שנתי — מאקרו</div>
-        <div id="yearly-macro"></div>
+      <div id="stats-yearly" style="display:none">
+        <div class="date-nav">
+          <button data-action="statsChangeYear" data-arg="-1"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+          <div class="date-display" id="stats-year-label"></div>
+          <button data-action="statsChangeYear" data-arg="1"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+        </div>
+        <div id="yearly-avg-box"></div>
+        <div class="chart-wrap stat-chart" id="yearly-chart"></div>
+        <div class="stat-macros" id="yearly-macro"></div>
       </div>
     </div>
   </div>
@@ -515,138 +325,132 @@
 
 <!-- ════════════════ WEIGHT ════════════════ -->
 <div id="screen-weight" class="screen">
-  <div class="topbar"><div class="topbar-title">מעקב משקל</div><div class="topbar-brand"><div class="topbar-brand-title">Your Personal Food Logger</div><div class="topbar-brand-sub"><a class="topbar-brand-ig" href="https://www.instagram.com/darlindman/" target="_blank" rel="noopener"><svg width="9" height="9" viewBox="0 0 24 24" fill="#E1306C"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>Instagram</a> &middot; By Dar</div></div></div>
-  <div class="page">
-    <div class="card">
-      <div class="card-title">הוסף מדידה</div>
-      <div class="weight-log-form">
-        <div class="form-group"><label>תאריך</label><input type="date" id="weight-date"></div>
-        <div class="form-group"><label>משקל (ק״ג)</label><input type="number" id="weight-val" step="0.1" min="20" max="400" placeholder="70.0"></div>
-        <button class="btn btn-primary" data-action="addWeightLog">הוסף</button>
+  <div class="page"><div class="rules"></div><div class="margin"></div>
+    <div class="content">
+      <div class="wt-coach" id="weight-coach">
+        <div class="bubble wt-bubble"><span id="weight-coach-text"></span></div>
+        <div class="wt-pet" id="weight-pet"></div>
       </div>
-      <div id="weight-add-error" class="error-msg"></div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">היסטוריית משקל</div>
-      <div class="chart-wrap" id="weight-chart"></div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">מדידות</div>
-      <div id="weight-list"><div class="empty-state"><div class="empty-icon">⚖️</div><p>אין מדידות עדיין</p></div></div>
+      <div class="title big wt-title">המשקל שלי</div>
+      <div class="wt-head" id="weight-head" hidden></div>
+      <div class="wt-chart" id="weight-chart"></div>
+      <div class="wt-add">
+        <div class="field-pair">
+          <div class="field"><label for="weight-val">משקל (ק״ג)</label><input type="number" id="weight-val" step="0.1" min="20" max="400" placeholder="70.0"></div>
+          <div class="field"><label for="weight-date">תאריך</label><input type="date" id="weight-date"></div>
+        </div>
+        <div class="wt-add-row"><button class="penbtn" data-action="addWeightLog">הוסף שקילה</button></div>
+        <div id="weight-add-error" class="error-msg"></div>
+      </div>
+      <div id="weight-list"><div class="empty-state"><p>אין מדידות עדיין</p></div></div>
     </div>
   </div>
 </div>
 
 <!-- ════════════════ SETTINGS ════════════════ -->
 <div id="screen-settings" class="screen">
-  <div class="topbar"><div class="topbar-title">הגדרות</div><div class="topbar-brand"><div class="topbar-brand-title">Your Personal Food Logger</div><div class="topbar-brand-sub"><a class="topbar-brand-ig" href="https://www.instagram.com/darlindman/" target="_blank" rel="noopener"><svg width="9" height="9" viewBox="0 0 24 24" fill="#E1306C"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>Instagram</a> &middot; By Dar</div></div></div>
-  <div class="page">
-    <div class="card">
-      <div class="settings-item" data-action="openProfileModal">
-        <div>
-          <div class="settings-label">פרופיל גוף ויעד</div>
-          <div class="settings-sub" id="settings-profile-sub">לא הוגדר</div>
-        </div>
-        <div class="settings-arrow">›</div>
+  <div class="page"><div class="rules"></div><div class="margin"></div>
+    <div class="content">
+      <div class="title big set-title">ההגדרות שלי</div>
+      <div class="row2" id="settings-user"><span>מחובר בתור</span> <b id="settings-username"></b></div>
+      <div class="row2"><span>גובה</span> <b id="settings-height">לא הוגדר</b></div>
+      <div class="row2"><span>יעד משקל</span> <b id="settings-goalweight">לא הוגדר</b></div>
+      <div class="row2"><span>יעד שינוי שבועי</span> <b id="settings-goalkg">לא הוגדר</b></div>
+      <div class="row2"><span>יעד קלוריות</span> <b id="settings-profile-sub">לא הוגדר</b></div>
+      <button class="row2 row-btn settings-item" data-action="openProfileModal"><span>פרופיל גוף ויעד</span><span class="v">›</span></button>
+      <button class="row2 row-btn settings-item" data-action="openChangePassModal"><span>שינוי סיסמה</span><span class="v">›</span></button>
+      <button class="row2 row-btn settings-item logout" data-action="doLogout"><span>התנתקות</span></button>
+      <p class="set-about">יומן האוכל האישי שלך — מנוע זיהוי האוכל מאחורי האפליקציה הוא Claude AI של Anthropic. הערכות תזונתיות הן קירוב בלבד ואינן תחליף לייעוץ דיאטטי.</p>
+      <div class="credit set-brand">
+        <div>Your Personal Food Logger - By Dar Lindman</div>
+        <div><a class="set-ig" href="https://www.instagram.com/darlindman/" target="_blank" rel="noopener"><svg width="14" height="14" viewBox="0 0 24 24" fill="#E1306C"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg> Instagram</a></div>
       </div>
-      <div class="settings-item" data-action="openModal" data-arg="modal-change-pass">
-        <div><div class="settings-label">שינוי סיסמה</div></div>
-        <div class="settings-arrow">›</div>
-      </div>
-      <div class="settings-item" data-action="doLogout">
-        <div><div class="settings-label" style="color:#f87171">יציאה</div><div class="settings-sub" id="settings-user"></div></div>
-        <div class="settings-arrow">›</div>
-      </div>
-    </div>
-    <div class="card" style="margin-top:4px">
-      <div class="card-title">אודות</div>
-      <p style="font-size:12px;color:var(--muted);line-height:1.75">יומן האוכל האישי שלך — מנוע זיהוי האוכל מאחורי האפליקציה הוא Claude AI של Anthropic. הערכות תזונתיות הן קירוב בלבד ואינן תחליף לייעוץ דיאטטי.</p>
     </div>
   </div>
 </div>
 
-<!-- ════════════════ BOTTOM NAV ════════════════ -->
-<nav class="bottom-nav" id="bottom-nav" style="display:none">
-  <button class="nav-item active" id="nav-dashboard" data-action="navigate" data-arg="dashboard">
-    <span class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg></span><span>בית</span>
-  </button>
-  <button class="nav-item" id="nav-home" data-action="navigate" data-arg="home">
-    <span class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-  <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
-  <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
-</svg></span><span>יומן</span>
-  </button>
-  <button class="nav-item nav-camera" id="nav-camera" data-action="navigate" data-arg="camera"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></button>
-  <button class="nav-item" id="nav-stats" data-action="navigate" data-arg="stats">
-    <span class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span><span>נתונים</span>
-  </button>
-  <button class="nav-item" id="nav-weight" data-action="navigate" data-arg="weight">
-    <span class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg></span><span>משקל</span>
-  </button>
-  <button class="nav-item" id="nav-settings" data-action="navigate" data-arg="settings">
-    <span class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span><span>הגדרות</span>
-  </button>
+<!-- ════════════════ BOTTOM NAV (the dock) ════════════════ -->
+<nav class="dock" id="bottom-nav" style="display:none">
+  <button class="nav-item active" id="nav-dashboard" data-action="navigate" data-arg="dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v9H4z"/></svg><span>בית</span></button>
+  <button class="nav-item" id="nav-home" data-action="navigate" data-arg="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h6a3 3 0 0 1 3 3v12a3 3 0 0 0-3-3H3z M21 5h-6a3 3 0 0 0-3 3v12a3 3 0 0 1 3-3h6z"/></svg><span>יומן</span></button>
+  <button class="nav-item nav-camera add" id="nav-camera" data-action="navigate" data-arg="camera"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+  <button class="nav-item" id="nav-stats" data-action="navigate" data-arg="stats"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/></svg><span>נתונים</span></button>
+  <button class="nav-item" id="nav-weight" data-action="navigate" data-arg="weight"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="7"/><path d="M12 13l3-3"/></svg><span>משקל</span></button>
+  <button class="nav-item" id="nav-settings" data-action="navigate" data-arg="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg><span>הגדרות</span></button>
 </nav>
 
-<!-- ════════════════ MODALS ════════════════ -->
+</div><!-- /phone-frame -->
+
+<!-- ════════════════ MODALS ════════════════
+     Taped paper slips on a dimmed page: .modal-overlay (the dimming, a click on it closes) > .modal-sheet (the slip; the tape
+     sits on it, outside the scrolling .slip-body). -->
 <div class="modal-overlay" id="modal-change-pass" data-action="closeModalBackdrop" data-arg="modal-change-pass">
-  <div class="modal-sheet">
-    <button class="modal-close" data-action="closeModal" data-arg="modal-change-pass">✕</button>
-    <div class="modal-title">שינוי סיסמה</div>
-    <div class="form-group"><label>סיסמה נוכחית</label><input id="cp-current" type="password"></div>
-    <div class="form-group"><label>סיסמה חדשה</label><input id="cp-new" type="password"></div>
-    <button class="btn btn-primary" data-action="doChangePassword">שמור</button>
-    <div id="cp-error" class="error-msg"></div>
+  <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="cp-title" tabindex="-1">
+    <i class="tape"></i>
+    <div class="slip-body">
+      <div class="slip-head">
+        <div class="modal-title" id="cp-title">שינוי סיסמה</div>
+        <button class="modal-close" data-action="closeModal" data-arg="modal-change-pass">✕</button>
+      </div>
+      <div class="field"><label for="cp-current">סיסמה נוכחית</label><input id="cp-current" type="password" autocomplete="current-password"></div>
+      <div class="field"><label for="cp-new">סיסמה חדשה</label><input id="cp-new" type="password" autocomplete="new-password"></div>
+      <div class="slip-actions"><button class="penbtn" data-action="doChangePassword">שמור</button></div>
+      <div id="cp-error" class="error-msg"></div>
+    </div>
   </div>
 </div>
 
 <!-- Profile modal -->
 <div class="modal-overlay" id="modal-profile" data-action="closeModalBackdrop" data-arg="modal-profile">
-  <div class="modal-sheet">
-    <button class="modal-close" data-action="closeModal" data-arg="modal-profile">✕</button>
-    <div class="modal-title">פרופיל גוף ויעד</div>
+  <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="mp-title" tabindex="-1">
+    <i class="tape"></i>
+    <div class="slip-body">
+      <div class="slip-head">
+        <div class="modal-title" id="mp-title">פרופיל גוף ויעד</div>
+        <button class="modal-close" data-action="closeModal" data-arg="modal-profile">✕</button>
+      </div>
 
-    <div class="cal-preview">
-      <span class="cal-preview-label">קלוריות מומלצות ביום</span>
-      <span class="cal-preview-val" id="mp-cal-preview">—</span>
+      <div class="cal-preview">
+        <span class="cal-preview-label">קלוריות מומלצות ביום</span>
+        <span class="cal-preview-val circ" id="mp-cal-preview">—</span>
+      </div>
+
+      <div class="slip-lbl">מין</div>
+      <div class="toggle-row">
+        <button class="toggle-btn selected" id="mp-male-btn" data-action="setMpGender" data-arg="male">👨 גבר</button>
+        <button class="toggle-btn" id="mp-female-btn" data-action="setMpGender" data-arg="female">👩 אישה</button>
+      </div>
+
+      <div class="field"><label for="mp-birthdate">תאריך לידה</label><input type="date" id="mp-birthdate" lang="he" data-change="updateMpPreview"></div>
+      <div class="field"><label for="mp-height">גובה (ס״מ)</label><select id="mp-height" data-change="updateMpPreview"></select></div>
+      <div class="field"><label for="mp-goal-weight">יעד משקל (ק״ג)</label><input type="number" id="mp-goal-weight" step="0.1" min="20" max="400" inputmode="decimal" placeholder="70.0"></div>
+      <div class="field">
+        <label for="mp-goal-select">יעד שינוי שבועי (ק״ג)</label>
+        <select id="mp-goal-select" data-change="setMpGoal">
+          <option value="1">&lrm;+1&lrm; ק״ג (עלייה במשקל)</option>
+          <option value="0.75">&lrm;+¾&lrm; ק״ג</option>
+          <option value="0.5">&lrm;+½&lrm; ק״ג</option>
+          <option value="0.25">&lrm;+¼&lrm; ק״ג</option>
+          <option value="0">0 (שמירה על משקל)</option>
+          <option value="-0.25">&lrm;-¼&lrm; ק״ג</option>
+          <option value="-0.5">&lrm;-½&lrm; ק״ג</option>
+          <option value="-0.75">&lrm;-¾&lrm; ק״ג</option>
+          <option value="-1">&lrm;-1&lrm; ק״ג (הרזיה מהירה)</option>
+        </select>
+      </div>
+
+      <div class="slip-lbl">רמת פעילות</div>
+      <div class="activity-list" id="mp-activity-list">
+        <button class="activity-opt" data-val="sedentary" data-action="setMpActivity" data-arg="sedentary"><strong>יושבני</strong>עבודת משרד, מינימום פעילות</button>
+        <button class="activity-opt selected" data-val="light" data-action="setMpActivity" data-arg="light"><strong>פעילות קלה</strong><bdi>1–3</bdi> ימים בשבוע</button>
+        <button class="activity-opt" data-val="moderate" data-action="setMpActivity" data-arg="moderate"><strong>פעילות בינונית</strong><bdi>3–5</bdi> ימים בשבוע</button>
+        <button class="activity-opt" data-val="active" data-action="setMpActivity" data-arg="active"><strong>פעילות גבוהה</strong><bdi>6–7</bdi> ימים בשבוע</button>
+        <button class="activity-opt" data-val="vactive" data-action="setMpActivity" data-arg="vactive"><strong>ספורטאי</strong>אימון יומי אינטנסיבי</button>
+      </div>
+
+      <div class="slip-actions"><button class="penbtn" data-action="saveMpProfile">שמור פרופיל</button></div>
+      <div id="mp-error" class="error-msg"></div>
     </div>
-
-    <label style="margin-bottom:8px">מין</label>
-    <div class="toggle-row">
-      <button class="toggle-btn selected" id="mp-male-btn" data-action="setMpGender" data-arg="male">👨 גבר</button>
-      <button class="toggle-btn" id="mp-female-btn" data-action="setMpGender" data-arg="female">👩 אישה</button>
-    </div>
-
-    <div class="form-group" style="margin-bottom:10px"><label>תאריך לידה</label><input type="date" id="mp-birthdate" lang="he" data-change="updateMpPreview" style="font-size:14px"></div>
-    <div class="form-group" style="margin-bottom:16px"><label>גובה (ס״מ)</label><select id="mp-height" data-change="updateMpPreview"></select></div>
-    <div class="form-group" style="margin-bottom:16px">
-      <label>יעד שינוי שבועי (ק״ג)</label>
-      <select id="mp-goal-select" data-change="setMpGoal">
-        <option value="1">&lrm;+1&lrm; ק״ג (עלייה במשקל)</option>
-        <option value="0.75">&lrm;+¾&lrm; ק״ג</option>
-        <option value="0.5">&lrm;+½&lrm; ק״ג</option>
-        <option value="0.25">&lrm;+¼&lrm; ק״ג</option>
-        <option value="0">0 (שמירה על משקל)</option>
-        <option value="-0.25">&lrm;-¼&lrm; ק״ג</option>
-        <option value="-0.5">&lrm;-½&lrm; ק״ג</option>
-        <option value="-0.75">&lrm;-¾&lrm; ק״ג</option>
-        <option value="-1">&lrm;-1&lrm; ק״ג (הרזיה מהירה)</option>
-      </select>
-    </div>
-
-    <label style="margin-bottom:8px">רמת פעילות</label>
-    <div class="activity-list" id="mp-activity-list">
-      <button class="activity-opt" data-val="sedentary" data-action="setMpActivity" data-arg="sedentary"><strong>יושבני</strong>עבודת משרד, מינימום פעילות</button>
-      <button class="activity-opt selected" data-val="light" data-action="setMpActivity" data-arg="light"><strong>פעילות קלה</strong>1–3 ימים בשבוע</button>
-      <button class="activity-opt" data-val="moderate" data-action="setMpActivity" data-arg="moderate"><strong>פעילות בינונית</strong>3–5 ימים בשבוע</button>
-      <button class="activity-opt" data-val="active" data-action="setMpActivity" data-arg="active"><strong>פעילות גבוהה</strong>6–7 ימים בשבוע</button>
-      <button class="activity-opt" data-val="vactive" data-action="setMpActivity" data-arg="vactive"><strong>ספורטאי</strong>אימון יומי אינטנסיבי</button>
-    </div>
-
-    <button class="btn btn-primary" data-action="saveMpProfile">שמור פרופיל</button>
-    <div id="mp-error" class="error-msg"></div>
   </div>
 </div>
 
@@ -655,34 +459,30 @@
 
 <!-- ════════════════ EDIT MEAL MODAL ════════════════ -->
 <div class="modal-overlay" id="edit-modal" data-action="closeEditBackdrop">
-  <div class="modal-sheet" style="direction:rtl">
-    <div style="display:flex;align-items:center;margin-bottom:16px">
-      <div class="modal-title" style="margin-bottom:0">עריכת מנה</div>
-      <button id="edit-modal-close" class="modal-close" data-action="closeEditModal">✕</button>
-    </div>
-    <div class="receipt">
-      <div class="receipt-row receipt-name-row">
-        <input id="edit-name" type="text" class="receipt-name-input" placeholder="שם המנה" style="border-bottom:1px solid var(--border)">
+  <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="edit-title" tabindex="-1">
+    <i class="tape"></i>
+    <div class="slip-body">
+      <div class="slip-head">
+        <div class="modal-title" id="edit-title">עריכת מנה</div>
+        <button id="edit-modal-close" class="modal-close" data-action="closeEditModal">✕</button>
       </div>
-      <hr class="receipt-hr">
-      <div class="receipt-row receipt-entry"><label class="receipt-lbl">קלוריות</label><input id="edit-cal" type="number" min="0" step="1" class="receipt-val"><span class="receipt-unit">קק״ל</span></div>
-      <div class="receipt-row receipt-entry"><label class="receipt-lbl">חלבון</label><input id="edit-pro" type="number" min="0" step="0.1" class="receipt-val"><span class="receipt-unit">גר׳</span></div>
-      <div class="receipt-row receipt-entry"><label class="receipt-lbl">פחמימות</label><input id="edit-carb" type="number" min="0" step="0.1" class="receipt-val"><span class="receipt-unit">גר׳</span></div>
-      <div class="receipt-row receipt-entry"><label class="receipt-lbl">שומן</label><input id="edit-fat" type="number" min="0" step="0.1" class="receipt-val"><span class="receipt-unit">גר׳</span></div>
-      <div class="receipt-row receipt-entry"><label class="receipt-lbl">סיבים</label><input id="edit-fiber" type="number" min="0" step="0.1" class="receipt-val"><span class="receipt-unit">גר׳</span></div>
-      <hr class="receipt-hr">
-      <div class="receipt-row receipt-entry">
-        <label class="receipt-lbl">שעה</label>
-        <input id="edit-time" type="time" class="receipt-val" style="direction:ltr;text-align:left">
+      <textarea id="edit-name" class="edit-name" placeholder="שם המנה" rows="1"></textarea>
+      <div class="res-rows edit-rows">
+        <label class="res-row"><span>קלוריות</span><span class="res-val"><input id="edit-cal" type="number" min="0" step="1" inputmode="decimal"><i>קק״ל</i></span></label>
+        <label class="res-row"><span>חלבון</span><span class="res-val"><input id="edit-pro" type="number" min="0" step="0.1" inputmode="decimal"><i>גר׳</i></span></label>
+        <label class="res-row"><span>פחמימות</span><span class="res-val"><input id="edit-carb" type="number" min="0" step="0.1" inputmode="decimal"><i>גר׳</i></span></label>
+        <label class="res-row"><span>שומן</span><span class="res-val"><input id="edit-fat" type="number" min="0" step="0.1" inputmode="decimal"><i>גר׳</i></span></label>
+        <label class="res-row"><span>סיבים</span><span class="res-val"><input id="edit-fiber" type="number" min="0" step="0.1" inputmode="decimal"><i>גר׳</i></span></label>
+        <label class="res-row"><span>שעה</span><span class="res-val"><input id="edit-time" type="time"></span></label>
       </div>
+      <div class="meal-select">
+        <button class="meal-opt" data-meal="breakfast" data-action="selectEditMeal">בוקר</button>
+        <button class="meal-opt" data-meal="lunch"     data-action="selectEditMeal">צהריים</button>
+        <button class="meal-opt" data-meal="dinner"    data-action="selectEditMeal">ערב</button>
+        <button class="meal-opt" data-meal="snack"     data-action="selectEditMeal">חטיף</button>
+      </div>
+      <div id="edit-btn-row" class="slip-actions"></div>
     </div>
-    <div class="meal-select" style="margin:14px 0 4px">
-      <button class="meal-opt" data-meal="breakfast" data-action="selectEditMeal">בוקר</button>
-      <button class="meal-opt" data-meal="lunch"     data-action="selectEditMeal">צהריים</button>
-      <button class="meal-opt" data-meal="dinner"    data-action="selectEditMeal">ערב</button>
-      <button class="meal-opt" data-meal="snack"     data-action="selectEditMeal">חטיף</button>
-    </div>
-    <div id="edit-btn-row" style="display:flex;gap:8px;margin-top:16px;flex-direction:row-reverse"></div>
   </div>
 </div>
 

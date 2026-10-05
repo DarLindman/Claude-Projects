@@ -1,7 +1,12 @@
 import { state } from './state.js';
 import { apiFetch, configureApi } from './api.js';
-import { updateSettingsProfileSub } from './profile.js';
+import { sortWeightLogs, updateSettingsProfileSub } from './profile.js';
 import { navigate } from './router.js';
+import { closeAllModals } from './dom.js';
+import { resetCamera } from './screens/camera.js';
+import { resetEditModal } from './screens/home.js';
+import { resetSettingsModals } from './screens/settings.js';
+import { resetWeightAdd } from './screens/weight.js';
 
 // The session itself is an HttpOnly cookie set by the server; JavaScript never sees it.
 // Only the username is kept here, in memory, for display.
@@ -35,7 +40,7 @@ let logoutCount = 0;
 export async function setLoggedIn(u) {
   const startedAt = logoutCount;
   username = u;
-  document.getElementById('settings-user').textContent = `מחובר בתור ${u}`;
+  document.getElementById('settings-username').textContent = u;
   // Load profile from server; fall back to localStorage
   try {
     const serverProfile = await apiFetch('/api/profile');
@@ -46,7 +51,7 @@ export async function setLoggedIn(u) {
   } catch {}
   if (logoutCount !== startedAt) return; // the session was lost: stay on the auth screen
   // Load weight logs at startup so calcRecommendedCal always has current weight
-  try { state.weightLogs = await apiFetch('/api/weight'); } catch {}
+  try { state.weightLogs = sortWeightLogs(await apiFetch('/api/weight')); } catch {}
   if (logoutCount !== startedAt) return;
   updateSettingsProfileSub();
   document.getElementById('bottom-nav').style.display = 'flex';
@@ -60,6 +65,14 @@ export async function doLogout() {
   try { await apiFetch('/auth/logout', { method: 'POST', silent: true }); } catch {}
   localStorage.removeItem('fl_profile');
   username = null; state.userProfile = null;
+  state.weightLogs = [];   // the next person must not see this one's weights (the dashboard and the weight screen read them)
+  resetCamera();   // the next person must not see this one's photo or text
+  closeAllModals();   // a slip left open (profile, password, meal) must not cover the next person's screen,
+  resetSettingsModals();   // nor keep what was typed or loaded into it,
+  resetEditModal();
+  resetWeightAdd();   // an add in flight for this person must not hold the next person's button
+  document.getElementById('settings-username').textContent = '';
+  updateSettingsProfileSub();   // and the settings rows show "not set" until the next sign-in fills them
   document.getElementById('bottom-nav').style.display = 'none';
   navigate('auth');
 }
