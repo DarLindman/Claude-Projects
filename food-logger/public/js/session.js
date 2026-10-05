@@ -6,6 +6,7 @@ import { closeAllModals } from './dom.js';
 import { resetCamera } from './screens/camera.js';
 import { resetEditModal } from './screens/home.js';
 import { resetSettingsModals } from './screens/settings.js';
+import { resetWeightAdd } from './screens/weight.js';
 
 // The session itself is an HttpOnly cookie set by the server; JavaScript never sees it.
 // Only the username is kept here, in memory, for display.
@@ -69,6 +70,7 @@ export async function doLogout() {
   closeAllModals();   // a slip left open (profile, password, meal) must not cover the next person's screen,
   resetSettingsModals();   // nor keep what was typed or loaded into it,
   resetEditModal();
+  resetWeightAdd();   // an add in flight for this person must not hold the next person's button
   document.getElementById('settings-username').textContent = '';
   updateSettingsProfileSub();   // and the settings rows show "not set" until the next sign-in fills them
   document.getElementById('bottom-nav').style.display = 'none';

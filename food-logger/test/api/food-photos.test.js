@@ -27,7 +27,7 @@ const binary = (res, cb) => {
 };
 const getPhoto = (c, id) => c.get(`/api/food/${id}/photo`).buffer(true).parse(binary);
 
-test('PUT then GET returns the same bytes with the immutable private cache headers', async () => {
+test('PUT then GET returns the same bytes with private no-cache, a strong ETag and Vary: Cookie', async () => {
   const c = await signedIn(ctx.app, 'pic1');
   const id = await newMeal(c);
   const jpeg = realJpeg(16, 16, 1);
@@ -37,7 +37,9 @@ test('PUT then GET returns the same bytes with the immutable private cache heade
   const get = await getPhoto(c, id);
   assert.equal(get.status, 200);
   assert.match(get.headers['content-type'], /^image\/jpeg/);
-  assert.equal(get.headers['cache-control'], 'private, max-age=31536000, immutable');
+  assert.equal(get.headers['cache-control'], 'private, no-cache');
+  assert.match(get.headers.etag, /^"[0-9a-f]{40}"$/, 'a strong ETag');
+  assert.match(get.headers.vary, /Cookie/);
   assert.ok(Buffer.compare(get.body, jpeg) === 0, 'same bytes');
 });
 
@@ -186,6 +188,51 @@ test('the rate limit counts PUTs per user (limits.photoPerHour)', async () => {
     // Reading is not limited, and another user has their own budget.
     assert.equal((await a.get(`/api/food/${ida}/photo`)).status, 200);
     assert.equal((await putPhoto(b, idb, realJpeg())).status, 200);
+  } finally {
+    await local.pool.end();
+  }
+});
+
+test('revalidation: the owner gets 304 for a matching If-None-Match; nobody else ever does, with or without a session', async () => {
+  const owner = await signedIn(ctx.app, 'etag-owner');
+  const other = await signedIn(ctx.app, 'etag-other');
+  const id = await newMeal(owner);
+  assert.equal((await putPhoto(owner, id, realJpeg(16, 16, 5))).status, 200);
+  const first = await getPhoto(owner, id);
+  const etag = first.headers.etag;
+  assert.ok(etag);
+
+  const again = await owner.get(`/api/food/${id}/photo`).set('If-None-Match', etag);
+  assert.equal(again.status, 304);
+  assert.equal(again.headers['cache-control'], 'private, no-cache');
+
+  // another user sending the owner's ETag: the same 404 as for any foreign id, never a 304 or the bytes
+  const foreign = await other.get(`/api/food/${id}/photo`).set('If-None-Match', etag);
+  assert.equal(foreign.status, 404);
+  assert.deepEqual(foreign.body, { error: { code: 'NOT_FOUND' } });
+  // no session at all (a signed-out browser with the cached validator): 401, not 304
+  const anonymous = await request(ctx.app).get(`/api/food/${id}/photo`).set('If-None-Match', etag);
+  assert.equal(anonymous.status, 401);
+  // a replaced thumbnail has a new ETag, so the old validator no longer matches
+  assert.equal((await putPhoto(owner, id, realJpeg(24, 24, 200))).status, 200);
+  const replaced = await owner.get(`/api/food/${id}/photo`).set('If-None-Match', etag);
+  assert.equal(replaced.status, 200);
+  assert.notEqual(replaced.headers.etag, etag);
+});
+
+test('the per-IP limit counts PUTs of every user from one address (limits.photoPerIpPerHour)', async () => {
+  const local = await buildTestApp({ limits: { photoPerHour: 100, photoPerIpPerHour: 2 } });
+  try {
+    const a = await signedIn(local.app, 'ip-a');
+    const b = await signedIn(local.app, 'ip-b');
+    const ida = (await a.post('/api/food', meal())).body.id;
+    const idb = (await b.post('/api/food', meal())).body.id;
+    assert.equal((await putPhoto(a, ida, realJpeg())).status, 200);
+    assert.equal((await putPhoto(b, idb, realJpeg())).status, 200);
+    const limited = await putPhoto(b, idb, realJpeg());   // a different account, the same address
+    assert.equal(limited.status, 429);
+    assert.deepEqual(limited.body, { error: { code: 'RATE_LIMITED' } });
+    assert.equal((await a.get(`/api/food/${ida}/photo`)).status, 200, 'reading is not limited');
   } finally {
     await local.pool.end();
   }

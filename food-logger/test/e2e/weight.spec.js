@@ -229,6 +229,63 @@ test('a second tap on a cross while its DELETE is in flight sends nothing and sh
   expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
 });
 
+test('a double tap on the add button sends one weight; the button is disabled meanwhile and free again after, also after a failure', async ({ page }) => {
+  const guards = attachGuards(page);
+  await register(page);
+  const posts = [];
+  let failNext = false;
+  await page.route('**/api/weight', async (route) => {
+    if (route.request().method() !== 'POST') return route.continue();
+    posts.push(route.request().postData());
+    await new Promise((r) => setTimeout(r, 700));
+    if (failNext) { failNext = false; return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: { code: 'INTERNAL' } }) }); }
+    return route.continue();
+  });
+  await openWeight(page);
+  const btn = page.locator('#screen-weight .wt-add .penbtn');
+  await page.locator('#weight-val').fill('71.5');
+  // two taps in the same tick
+  await btn.evaluate((b) => { b.click(); b.click(); });
+  await expect(btn).toBeDisabled();
+  await expect(page.locator('#toast')).toHaveText('המשקל נשמר');
+  await expect(btn).toBeEnabled();
+  expect(posts, 'one POST for two taps').toHaveLength(1);
+  await expect(page.locator('#weight-list .weight-entry')).toHaveCount(1);
+
+  // a failing add frees the button and shows the error
+  failNext = true;
+  await page.locator('#weight-val').fill('72');
+  await btn.click();
+  await expect(btn).toBeDisabled();
+  await expect(page.locator('#weight-add-error')).not.toBeEmpty();
+  await expect(btn).toBeEnabled();
+  expect(posts).toHaveLength(2);
+  expectNoGuardEvents(guards, [SIGNED_OUT_ME, /status of 500/]);
+});
+
+test('a sign-out while an add is in flight frees the button for the next person and shows them nothing of it', async ({ page }) => {
+  const guards = attachGuards(page);
+  await register(page);
+  await page.route('**/api/weight', async (route) => {
+    if (route.request().method() !== 'POST') return route.continue();
+    await new Promise((r) => setTimeout(r, 1500));
+    await route.continue();
+  });
+  await openWeight(page);
+  const btn = page.locator('#screen-weight .wt-add .penbtn');
+  await page.locator('#weight-val').fill('71.5');
+  await btn.click();
+  await expect(btn).toBeDisabled();
+  await page.evaluate(async () => { await (await import('/js/session.js')).doLogout(); });
+  await expect(page.locator('#screen-auth')).toBeVisible();
+  await expect(btn).toBeEnabled();
+  await expect(page.locator('#weight-val')).toHaveValue('');
+  await page.waitForTimeout(1800);                       // the late reply of the previous person arrives
+  await expect(btn).toBeEnabled();
+  await expect(page.locator('#weight-add-error')).toBeEmpty();
+  expectNoGuardEvents(guards, [SIGNED_OUT_ME, /status of 40[13]/]);
+});
+
 // ── 2. The graph with 0, 1 and 30 points ───────────────────────────────────────────────────
 for (const [count, label] of [[0, 'no entries'], [1, 'one entry'], [30, '30 entries']]) {
   test(`the graph renders with ${label}: squared paper, no NaN, the last point red`, async ({ page }) => {

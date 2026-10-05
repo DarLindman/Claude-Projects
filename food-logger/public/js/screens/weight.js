@@ -49,7 +49,22 @@ export async function loadWeightScreen() {
   } catch (e) { if (seq === loadSeq) showToast('שגיאה בטעינת נתוני משקל'); }
 }
 
+// One add at a time: the button is disabled while the request runs and a second tap sends nothing (it would add the weight twice).
+// A sign-out bumps the generation, so a request that was running for the previous person cannot touch the next one's button.
+let _addBusy = false;
+let _addGen = 0;
+const addButton = () => document.querySelector('#screen-weight .wt-add .penbtn');
+export function resetWeightAdd() {
+  _addGen += 1;
+  _addBusy = false;
+  const btn = addButton();
+  if (btn) btn.disabled = false;
+  document.getElementById('weight-add-error').textContent = '';
+  document.getElementById('weight-val').value = '';
+}
+
 export async function addWeightLog() {
+  if (_addBusy) return;
   const val = document.getElementById('weight-val').value;
   const date = document.getElementById('weight-date').value;
   document.getElementById('weight-add-error').textContent = '';
@@ -62,6 +77,10 @@ export async function addWeightLog() {
     return;
   }
   const who = getUsername();
+  const gen = _addGen;
+  _addBusy = true;
+  const btn = addButton();
+  if (btn) btn.disabled = true;
   try {
     await apiFetch('/api/weight', { method: 'POST', body: JSON.stringify({ weight_kg: +val, logged_at: date || todayStr() }) });
     document.getElementById('weight-val').value = '';
@@ -74,7 +93,8 @@ export async function addWeightLog() {
     updateSettingsProfileSub();
     loadDiary(); // refresh home screen calorie bar regardless of current screen
     showToast('המשקל נשמר');
-  } catch (e) { document.getElementById('weight-add-error').textContent = messageFor(e); }
+  } catch (e) { if (gen === _addGen) document.getElementById('weight-add-error').textContent = messageFor(e); }
+  finally { if (gen === _addGen) { _addBusy = false; if (btn) btn.disabled = false; } }
 }
 
 // Ids whose DELETE is in flight: a second tap on the same cross sends nothing (it would only come back as a 404).

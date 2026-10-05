@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('crypto');
 const express = require('express');
 const { z } = require('zod');
 const { AppError, asyncHandler } = require('../middleware/errors');
@@ -19,10 +20,10 @@ const rawJpeg = express.raw({ type: 'image/jpeg', limit: '130kb' });
 
 // Thumbnails of meals: PUT stores or replaces one, GET serves it to its owner. Ownership is
 // part of every query, so a foreign meal id and a nonexistent one are indistinguishable (404).
-module.exports = function foodPhotoRoutes({ pool, auth, photoLimiter }) {
+module.exports = function foodPhotoRoutes({ pool, auth, photoLimiter, photoIpLimiter }) {
   const router = express.Router();
 
-  router.put('/:id/photo', auth, photoLimiter, validate({ params: idParams }), rawJpeg, asyncHandler(async (req, res) => {
+  router.put('/:id/photo', auth, photoIpLimiter, photoLimiter, validate({ params: idParams }), rawJpeg, asyncHandler(async (req, res) => {
     const bytes = req.body;
     const size = Buffer.isBuffer(bytes) ? parseJpegSize(bytes) : null;
     if (!Buffer.isBuffer(bytes) || bytes.length === 0 || detectImageType(bytes) !== 'image/jpeg'
@@ -48,8 +49,14 @@ module.exports = function foodPhotoRoutes({ pool, auth, photoLimiter }) {
       [req.valid.params.id, req.user.id]
     );
     if (rows.length === 0) throw new AppError(404, 'NOT_FOUND');
-    res.set('Cache-Control', 'private, max-age=31536000, immutable');
-    res.type('image/jpeg').send(rows[0].bytes);
+    // Never served from the browser cache without asking: after a sign-out on a shared device the next person would otherwise
+    // be handed the previous one's thumbnail. The ETag (a strong hash of the bytes) makes the revalidation cheap, and it is
+    // answered only here, after auth and the ownership query above, so another user can never get a 304 or the bytes.
+    const bytes = rows[0].bytes;
+    res.set('Cache-Control', 'private, no-cache');
+    res.vary('Cookie');
+    res.set('ETag', `"${crypto.createHash('sha1').update(bytes).digest('hex')}"`);
+    res.type('image/jpeg').send(bytes);   // Express answers 304 itself when If-None-Match matches
   }));
 
   return router;

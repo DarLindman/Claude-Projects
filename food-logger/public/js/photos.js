@@ -3,9 +3,9 @@ import { apiFetch } from './api.js';
 import { setHtml } from './dom.js';
 import { plateSvg } from './placeholder.js';
 
-// The thumbnail of a meal. The server keeps one per meal and sends it with a year-long immutable cache header, so a
-// replaced thumbnail would show stale from the browser cache: a caller that ever replaces one passes a new `version`
-// (a timestamp) and gets a different URL, which the cache has never seen. Nothing replaces a thumbnail yet.
+// The thumbnail of a meal. The server sends it with `Cache-Control: private, no-cache` and an ETag, so the browser always
+// revalidates (a replaced thumbnail is picked up, and a signed-out browser is never served the previous user's picture from
+// its cache). A caller that wants to bypass even that passes a new `version` (a timestamp) and gets a different URL.
 export function photoSrc(id, version) {
   return version === undefined || version === null ? `/api/food/${id}/photo` : `/api/food/${id}/photo?v=${encodeURIComponent(version)}`;
 }
