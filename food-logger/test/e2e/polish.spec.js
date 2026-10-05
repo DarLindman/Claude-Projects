@@ -1,9 +1,8 @@
 'use strict';
 
-// The owner-preview defects of the diary redesign (Task 16): a soft fade where the scroll area meets the walking
-// capybara's strip, a whole "ק״ג" in the registration weight list at 320 px, a user name that stays whole in the
-// capybara's bubble, no empty band under the sign-in pages, a long meal name that wraps in the edit slip, and the
-// numbers of the weight graph. (The ribbon, the yearly labels and the empty-state plus are tested with their screens.)
+// The owner-preview defects of the diary redesign (Task 16): a whole "ק״ג" in the registration weight list at 320 px, a user name
+// that stays whole in the capybara's bubble, no empty band under the sign-in pages, a long meal name that wraps in the edit slip
+// and the numbers of the weight graph. (The ribbon, the yearly labels and the empty-state plus are tested with their screens.)
 
 const { test, expect } = require('@playwright/test');
 const { attachGuards, expectNoGuardEvents, SIGNED_OUT_ME, localNow } = require('./helpers');
@@ -30,44 +29,6 @@ const dayBack = (n) => {
 };
 
 const WIDTHS = [390, 320];
-
-// ── 2. a line cut by the end of the scroll area fades; the last line scrolls fully clear ──────────────────────────
-
-for (const width of WIDTHS) {
-  test(`at ${width} px the scroll areas above the walker fade at their foot and the last line scrolls fully clear of the fade`, async ({ page }) => {
-    const guards = attachGuards(page);
-    await page.setViewportSize({ width, height: 844 });
-    await register(page, { profile: { ...PROFILE, goalWeight: 68.5 } });
-    for (let i = 0; i < 14; i++) expect((await post(page, '/api/weight', { weight_kg: 76 - i * 0.4, logged_at: dayBack(i) })).status()).toBe(200);
-    await page.goto('/');
-    await expect(page.locator('#screen-dashboard')).toBeVisible();
-
-    const FADE = 18;
-    for (const [nav, screen] of [['#nav-weight', '#screen-weight'], ['#nav-settings', '#screen-settings'], ['#nav-stats', '#screen-stats']]) {
-      await page.locator(nav).click();
-      await expect(page.locator(screen)).toBeVisible();
-      if (screen === '#screen-weight') await expect(page.locator('#weight-list .weight-entry')).toHaveCount(14);
-      const r = await page.evaluate(({ screen }) => {
-        const content = document.querySelector(`${screen} .content`);
-        const mask = getComputedStyle(content).maskImage || getComputedStyle(content).webkitMaskImage;
-        content.scrollTop = content.scrollHeight;
-        const cr = content.getBoundingClientRect();
-        // the last visible leaf of the page: the lowest thing a reader has to reach
-        let last = content;
-        for (;;) {
-          const kids = [...last.children].filter((e) => e.getBoundingClientRect().height > 0 && getComputedStyle(e).display !== 'none' && !e.classList.contains('ribbon'));
-          if (!kids.length) break;
-          last = kids[kids.length - 1];
-        }
-        return { mask, scrolls: content.scrollHeight > content.clientHeight, clear: cr.bottom - last.getBoundingClientRect().bottom };
-      }, { screen });
-      expect(r.mask, `${screen}: the foot of the scroll area fades`).toMatch(/linear-gradient/);
-      if (screen === '#screen-weight') expect(r.scrolls, `${screen} scrolls at ${width}px`).toBe(true);
-      if (r.scrolls) expect(r.clear, `${screen}: the last line rests clear of the ${FADE} px fade`).toBeGreaterThanOrEqual(FADE);
-    }
-    expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
-  });
-}
 
 // ── 5a. the registration weight list shows "ק״ג" whole at 320 px ──────────────────────────────────────────────────
 
@@ -250,40 +211,93 @@ test('the weight graph labels: one weight and no goal gives one number; no weigh
   await expect(page.locator('#weight-chart svg text')).toHaveText(['80']);
 });
 
-// ── the add button is never under the fade ────────────────────────────────────────────────────────────────────────
+// ── nothing the handwriting draws is clipped in the multi-line name and text fields ──────────────────────────────
 
-test('on the weight screen the add button is never washed out by the foot fade, at any phone height; the fade is back once it scrolls clear', async ({ page }) => {
-  const guards = attachGuards(page);
-  await page.setViewportSize({ width: 320, height: 640 });
-  await register(page, { profile: { ...PROFILE, goalWeight: 68.5 } });
-  for (let i = 0; i < 24; i++) expect((await post(page, '/api/weight', { weight_kg: 78 - i * 0.2, logged_at: dayBack(i) })).status()).toBe(200);
-  await page.goto('/');
-  await expect(page.locator('#screen-dashboard')).toBeVisible();
-  await page.locator('#nav-weight').click();
-  await expect(page.locator('#weight-list .weight-entry')).toHaveCount(24);
+// The tallest letter of the handwriting font (ל rises above the line box) must fit in the room the field gives the first
+// line: its top padding plus the half-leading plus the font's ascent. Measured with the real font, in the real field.
+async function tallestLetterFits(page, selector, sizeOf) {
+  return page.evaluate(async ({ selector, sizeOf }) => {
+    await document.fonts.load('20px "Gveret Levin"', 'לדוגמה');
+    const el = document.querySelector(selector);
+    const cs = getComputedStyle(el);
+    const size = sizeOf === 'placeholder' ? parseFloat(getComputedStyle(el, '::placeholder').fontSize) : parseFloat(cs.fontSize);
+    const ctx = document.createElement('canvas').getContext('2d');
+    ctx.font = `${size}px "Gveret Levin"`;
+    const m = ctx.measureText('לחךדוגמהל');
+    const lineHeight = parseFloat(cs.lineHeight);
+    const room = parseFloat(cs.paddingTop) + (lineHeight - (m.fontBoundingBoxAscent + m.fontBoundingBoxDescent)) / 2 + m.fontBoundingBoxAscent;
+    return { size, ink: m.actualBoundingBoxAscent, room, padTop: parseFloat(cs.paddingTop), padLeft: parseFloat(cs.paddingLeft), padRight: parseFloat(cs.paddingRight), overflow: cs.overflowY, lineHeight };
+  }, { selector, sizeOf });
+}
 
-  const state = () => page.evaluate(() => {
-    const content = document.querySelector('#screen-weight .content');
-    const r = document.querySelector('#screen-weight .wt-add .penbtn').getBoundingClientRect();
-    const zoneTop = content.getBoundingClientRect().bottom - 18;
-    const mask = getComputedStyle(content).maskImage;
-    return { fadeOn: /linear-gradient/.test(mask), inZone: r.bottom > zoneTop && r.top < zoneTop + 18, below: r.top >= zoneTop + 18 };
+for (const width of WIDTHS) {
+  test(`at ${width} px the tall letters are whole in the add-meal text field, the analysis name and the edit-slip name`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await register(page);
+    expect((await post(page, '/api/food', { meal_type: 'lunch', food_name: 'חזה עוף בגריל עם אורז וסלט', calories: 480, protein_g: 40, carbs_g: 50, fat_g: 12, fiber_g: 5, logged_at: `${localNow().date}T12:30:00` })).status()).toBe(200);
+    await page.goto('/');
+    await page.locator('#nav-camera').click();
+    await expect(page.locator('#screen-camera')).toBeVisible();
+
+    const field = await tallestLetterFits(page, '#food-text-input', 'text');
+    const placeholder = await tallestLetterFits(page, '#food-text-input', 'placeholder');
+    expect(field.ink, `typed text: the ל (${field.ink}px) fits the ${field.room}px above the baseline`).toBeLessThanOrEqual(field.room);
+    expect(placeholder.ink, `placeholder: the ל (${placeholder.ink}px) fits the ${placeholder.room}px`).toBeLessThanOrEqual(placeholder.room);
+    expect(field.padLeft, 'room at the side for the first letter').toBeGreaterThanOrEqual(4);
+    expect(field.padRight).toBeGreaterThanOrEqual(4);
+
+    await page.locator('#food-text-input').fill('סלט');
+    await page.locator('#text-analyze-btn').click();
+    await expect(page.locator('#analysis-result')).toBeVisible();
+    const name = await tallestLetterFits(page, '#res-name', 'text');
+    expect(name.ink, 'analysis name').toBeLessThanOrEqual(name.room);
+
+    await page.locator('#nav-home').click();
+    await page.locator('#meal-list .meal-item-row').first().getByRole('button', { name: 'ערוך' }).click();
+    await expect(page.locator('#edit-modal')).toHaveClass(/open/);
+    const edit = await tallestLetterFits(page, '#edit-name', 'text');
+    expect(edit.ink, 'edit-slip name').toBeLessThanOrEqual(edit.room);
   });
-  let sawButtonInZone = false;
-  for (const height of [600, 640, 660, 680, 700, 740, 800]) {
-    await page.setViewportSize({ width: 320, height });
-    await page.evaluate(() => { document.querySelector('#screen-weight .content').scrollTop = 0; });
-    await page.waitForTimeout(100);
-    const s = await state();
-    sawButtonInZone = sawButtonInZone || s.inZone;
-    expect(s.fadeOn && s.inZone, `height ${height}: the button is under the fade on first view`).toBe(false);
-  }
-  expect(sawButtonInZone, 'some phone height puts the button in the fade zone (the test is not vacuous)').toBe(true);
+}
 
-  // scrolled down until the button has left the zone upwards: the fade is on again
-  await page.evaluate(() => { document.querySelector('#screen-weight .content').scrollTop = 10000; });
-  await page.waitForTimeout(100);
-  const end = await state();
-  expect(end.fadeOn, 'the fade is back at the end of the list').toBe(true);
-  expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+// ── the slip titles are captions, clearly not part of what is typed ────────────────────────────────────────────────
+
+test('the three slips have a small graphite caption with a pen rule, well apart from the dish name below it', async ({ page }) => {
+  await register(page);
+  expect((await post(page, '/api/food', { meal_type: 'lunch', food_name: 'חזה עוף בגריל', calories: 480, protein_g: 40, carbs_g: 50, fat_g: 12, fiber_g: 5, logged_at: `${localNow().date}T12:30:00` })).status()).toBe(200);
+  await page.goto('/');
+  await page.locator('#nav-home').click();
+  await page.locator('#meal-list .meal-item-row').first().getByRole('button', { name: 'ערוך' }).click();
+  await expect(page.locator('#edit-modal')).toHaveClass(/open/);
+  // the slip drops in with a tilt: measure it where it rests
+  await page.evaluate(() => Promise.all(document.getAnimations().filter((x) => x.effect.getComputedTiming().iterations !== Infinity).map((x) => x.finished.catch(() => {}))));
+  const edit = await page.evaluate(() => {
+    const title = document.getElementById('edit-title');
+    const name = document.getElementById('edit-name');
+    const cs = getComputedStyle(title);
+    return {
+      size: parseFloat(cs.fontSize), color: cs.color, rule: getComputedStyle(title, '::after').borderBottomWidth, ruleColor: getComputedStyle(title, '::after').borderBottomColor,
+      nameSize: parseFloat(getComputedStyle(name).fontSize), gap: name.getBoundingClientRect().top - title.getBoundingClientRect().bottom,
+    };
+  });
+  expect(edit.size, 'a small caption').toBeLessThanOrEqual(18);
+  expect(edit.nameSize, 'the name is much bigger than its caption').toBeGreaterThanOrEqual(edit.size * 1.5);
+  expect(edit.color).toBe('rgb(111, 93, 76)');
+  expect(parseFloat(edit.rule)).toBeGreaterThan(0);
+  expect(edit.ruleColor).toBe('rgb(179, 49, 29)');
+  expect(edit.gap, 'clear space between the caption and the name').toBeGreaterThanOrEqual(10);
+  await page.locator('#edit-modal-close').click();
+
+  // the other two slips share the caption style
+  await page.locator('#nav-settings').click();
+  for (const [button, slip, title] of [['פרופיל גוף ויעד', '#modal-profile', '#mp-title'], ['שינוי סיסמה', '#modal-change-pass', '#cp-title']]) {
+    await page.locator('#screen-settings').getByRole('button', { name: button }).click();
+    await expect(page.locator(slip)).toHaveClass(/open/);
+    const t = await page.locator(title).evaluate((el) => ({ size: parseFloat(getComputedStyle(el).fontSize), color: getComputedStyle(el).color, rule: getComputedStyle(el, '::after').borderBottomWidth }));
+    expect(t.size).toBe(edit.size);
+    expect(t.color).toBe(edit.color);
+    expect(parseFloat(t.rule)).toBeGreaterThan(0);
+    await page.locator(`${slip} .modal-close`).click();
+    await expect(page.locator(slip)).not.toHaveClass(/open/);
+  }
 });

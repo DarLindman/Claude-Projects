@@ -1,25 +1,11 @@
 import { state } from '../state.js';
 import { apiFetch } from '../api.js';
 import { closeModal, html, openModal, setHtml, showToast } from '../dom.js';
-import { mountWalkingCapybara } from '../pet.js';
 import { formatNumber } from '../format.js';
 import { calcRecommendedCal, goalWeightOf, updateSettingsProfileSub } from '../profile.js';
 import { messageFor } from '../errors.js';
 import { todayStr } from '../dates.js';
 import { doLogout } from '../session.js';
-
-// ════════════════════════════════════════════════════
-// The walking capybara (along the bottom of the page): mounted when the screen is entered, stopped when it is left
-// (router hooks registered in main.js). Mounting the same page twice returns the same walker.
-// ════════════════════════════════════════════════════
-let _walker = null;
-export function enterSettings() {
-  const page = document.querySelector('#screen-settings .page');
-  if (page) _walker = mountWalkingCapybara(page, { state: 'neutral', size: 96, bottom: 4 });
-}
-export function leaveSettings() {
-  if (_walker) { _walker.stop(); _walker = null; }
-}
 
 // Populate dropdown selects for profile fields
 export function populateProfileSelects() {

@@ -9,7 +9,7 @@ import { actions as authActions, doLogin, doRegister, enterAuth, leaveAuth } fro
 import { actions as cameraActions, autoResizeTextarea, enterCamera, releaseAnalyzeButtons } from './screens/camera.js';
 import { loadDashboard, resetDashboard } from './screens/dashboard.js';
 import { actions as homeActions, loadDiary } from './screens/home.js';
-import { actions as settingsActions, enterSettings, leaveSettings, populateProfileSelects } from './screens/settings.js';
+import { actions as settingsActions, populateProfileSelects } from './screens/settings.js';
 import { actions as statsActions, enterStats, leaveStats } from './screens/stats.js';
 import { actions as weightActions, enterWeight, leaveWeight } from './screens/weight.js';
 import { actions as welcomeActions, mountWelcomePet } from './screens/welcome.js';
@@ -25,7 +25,6 @@ registerScreen('dashboard', { enter: loadDashboard, leave: resetDashboard });
 registerScreen('home',      { enter: loadDiary });
 registerScreen('stats',     { enter: enterStats, leave: leaveStats });
 registerScreen('weight',    { enter: enterWeight, leave: leaveWeight });
-registerScreen('settings',  { enter: enterSettings, leave: leaveSettings });
 registerScreen('camera',    { enter: enterCamera });
 registerScreen('analysis',  { leave: () => { leaveAnalysis(); releaseAnalyzeButtons(); } });
 

@@ -511,16 +511,16 @@ for (const [width, height] of [[390, 844], [320, 640]]) {
     const overlap = parts[0].l < parts[1].r && parts[1].l < parts[0].r && parts[0].t < parts[1].b && parts[1].t < parts[0].b;
     expect(overlap, 'big weight vs unit').toBe(false);
 
-    // scroll to the end: the last entry ends above the walking lane, which ends above the dock
+    // scroll to the end: the last entry ends inside the page (the content runs to the foot of the page, no walker strip)
     await page.locator('#screen-weight .content').evaluate((c) => { c.scrollTop = c.scrollHeight; });
     const gap = await page.evaluate(() => {
       const last = [...document.querySelectorAll('#weight-list .weight-entry')].pop().getBoundingClientRect();
-      const lane = document.querySelector('#screen-weight .walker').getBoundingClientRect();
       const content = document.querySelector('#screen-weight .content').getBoundingClientRect();
-      return { lastToLane: lane.top - last.bottom, contentToLane: lane.top - content.bottom };
+      const pg = document.querySelector('#screen-weight .page').getBoundingClientRect();
+      return { lastToContentEnd: content.bottom - last.bottom, contentToPageEnd: pg.bottom - content.bottom };
     });
-    expect(gap.lastToLane, 'last entry vs walker').toBeGreaterThanOrEqual(-1);
-    expect(gap.contentToLane, 'content vs walker').toBeGreaterThanOrEqual(-1);
+    expect(gap.lastToContentEnd, 'last entry fully inside the scroll area').toBeGreaterThanOrEqual(-1);
+    expect(gap.contentToPageEnd, 'no strip reserved under the content').toBeLessThanOrEqual(1);
 
     // the add row can be reached: scroll to it, fill it, press the button
     await page.locator('#weight-val').scrollIntoViewIfNeeded();
@@ -532,43 +532,79 @@ for (const [width, height] of [[390, 844], [320, 640]]) {
   });
 }
 
-// ── 6. The walking capybara ─────────────────────────────────────────────────────────────────
-test('the walker is mounted on entering, never stacked, and gone after leaving', async ({ page }) => {
+// ── 6. The coach: a small capybara at the top left with an encouraging bubble ──────────────────────────────────────────────
+const COACH = [
+  'כל הכבוד על ההתמדה!', 'שקילה אחר שקילה, זה מצטבר', 'עבודה מצוינת, ממשיכים!', 'צעד קטן כל יום עושה הבדל גדול',
+  'מעקב עקבי הוא חצי מהדרך', 'יופי של התמדה, אני גאה בך', 'כל שקילה היא צעד קדימה', 'ממשיכים בקצב שלך, זה עובד',
+];
+
+test('the weight page has no walker; the bubble rotates with the number of entries (index = entries mod 8) and starts differently with none', async ({ page }) => {
   const guards = attachGuards(page);
   await register(page);
-  await seed(page, [70, 69.5]);
-  await page.goto('/');
-  await expect(page.locator('#screen-dashboard')).toBeVisible();
-  const all = () => page.locator('.walker').count();
-  expect(await all(), 'no walker before the screen is entered').toBe(0);
-
-  for (let round = 0; round < 3; round++) {
+  const bubble = page.locator('#weight-coach-text');
+  await openWeight(page);
+  await expect(bubble).toHaveText('בוא נתחיל לעקוב, אני איתך');
+  await expect(page.locator('.walker')).toHaveCount(0);
+  for (let n = 1; n <= 9; n++) {
+    await post(page, '/api/weight', { weight_kg: 70 + n / 10, logged_at: dayBack(n) });   // one more entry, on its own day
+    await page.reload();
+    await expect(page.locator('#screen-dashboard')).toBeVisible();
     await page.locator('#nav-weight').click();
-    await expect(page.locator('#screen-weight')).toBeVisible();
-    await expect(page.locator('#screen-weight .page > .walker')).toHaveCount(1);
-    expect(await all(), `round ${round}: one walker in the whole document`).toBe(1);
-    const sizes = await page.evaluate(() => {
-      const lane = document.querySelector('#screen-weight .walker').getBoundingClientRect();
-      const pr = document.querySelector('#screen-weight .page').getBoundingClientRect();
-      const svg = document.querySelector('#screen-weight .walker svg').getBoundingClientRect();
-      return { laneInsidePage: lane.left >= pr.left - 1 && lane.right <= pr.right + 1 && lane.bottom <= pr.bottom + 1, svgW: svg.width, svgH: svg.height };
-    });
-    expect(sizes.laneInsidePage).toBe(true);
-    expect(sizes.svgW).toBeGreaterThan(40);
-    // leave: to the diary, to the stats (which has its own walker), to the dashboard
-    await page.locator('#nav-home').click();
-    await expect(page.locator('#screen-home')).toBeVisible();
-    expect(await all(), `round ${round}: no walker left after leaving`).toBe(0);
+    const count = await page.locator('#weight-list .weight-entry').count();
+    await expect(bubble).toHaveText(COACH[count % 8]);
   }
-  await page.locator('#nav-weight').click();
-  await page.locator('#nav-stats').click();
-  await expect(page.locator('#screen-stats')).toBeVisible();
-  await expect(page.locator('#screen-weight .walker')).toHaveCount(0);
-  expect(await all(), 'only the stats walker').toBe(1);
-  await page.locator('#nav-dashboard').click();
-  expect(await all()).toBe(0);
+  // an entry added on the page changes the message at once
+  const before = await bubble.textContent();
+  await page.locator('#weight-val').fill('75.5');
+  await page.locator('#screen-weight').getByRole('button', { name: 'הוסף שקילה', exact: true }).click();
+  await expect(bubble).not.toHaveText(before);
+  // the wording never talks numbers or judges: no digit, no word for up / down / more / less
+  for (const m of COACH) expect(m).not.toMatch(/[0-9]|עלית|ירדת|השמנ|רזית|קילו/);
+  expect(await page.locator('.walker').count()).toBe(0);
   expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
 });
+
+for (const [width, height] of [[390, 844], [320, 640]]) {
+  test(`at ${width} px the small happy capybara sits at the top left with her bubble beside her, clear of the title, the big weight and the graph`, async ({ page }) => {
+    const guards = attachGuards(page);
+    await page.setViewportSize({ width, height });
+    await register(page);
+    await seed(page, [74.2, 73.9, 73.6]);
+    await withGoalWeight(page, 68.5);
+    await openWeight(page);
+    // the longest message
+    const longest = COACH.reduce((a, c) => (c.length > a.length ? c : a));
+    await page.evaluate((text) => { document.getElementById('weight-coach-text').textContent = text; }, longest);
+
+    const g = await page.evaluate(() => {
+      const box = (el) => { const r = el.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom, w: r.width }; };
+      const pet = document.querySelector('#weight-pet .pet-wrap');
+      return {
+        pet: box(pet), petSvg: box(pet.querySelector('svg')), happy: pet.classList.contains('pet--happy'), inked: !!pet.querySelector('svg.pet-inked'),
+        bubble: box(document.getElementById('weight-coach-text').parentElement),
+        title: box(document.querySelector('#screen-weight .wt-title')), big: box(document.querySelector('#screen-weight .wt-big')),
+        chart: box(document.querySelector('#weight-chart svg')),
+        page: box(document.querySelector('#screen-weight .page')), margin: box(document.querySelector('#screen-weight .margin')),
+        bubbleOverflow: (() => { const b = document.getElementById('weight-coach-text').parentElement; return b.scrollWidth > b.clientWidth + 1; })(),
+      };
+    });
+    const hit = (a, c) => a.l < c.r && c.l < a.r && a.t < c.b && c.t < a.b;
+    expect(g.happy && g.inked, 'a happy, hand-drawn capybara').toBe(true);
+    expect(g.petSvg.w, 'about 64 to 72 px wide').toBeGreaterThanOrEqual(60);
+    expect(g.petSvg.w).toBeLessThanOrEqual(76);
+    expect(g.pet.l, 'at the left of the page').toBeLessThan(g.page.l + 40);
+    expect(g.pet.l, 'bubble to the right of her').toBeLessThan(g.bubble.l);
+    for (const [name, other] of [['title', g.title], ['the big weight', g.big], ['the graph', g.chart]]) {
+      expect(hit(g.pet, other), `the capybara covers ${name}`).toBe(false);
+      expect(hit(g.bubble, other), `the bubble covers ${name}`).toBe(false);
+    }
+    expect(hit(g.pet, g.bubble), 'capybara and bubble apart').toBe(false);
+    expect(g.bubble.r, 'the bubble stays left of the margin line').toBeLessThanOrEqual(g.margin.l + 1);
+    expect(g.bubble.l).toBeGreaterThanOrEqual(g.page.l);
+    expect(g.bubbleOverflow, 'the text stays inside the bubble').toBe(false);
+    expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+  });
+}
 
 // ── 7. Signing out ──────────────────────────────────────────────────────────────────────────
 test('signing out clears the weights; the next user never sees them, even when loading theirs fails', async ({ page }) => {

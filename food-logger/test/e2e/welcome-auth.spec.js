@@ -43,6 +43,15 @@ test('welcome cover: foil title, three feature lines, the capybara in her salad 
   await expect(welcome.locator('svg.capy-logo')).toHaveCount(0);   // the old logo is gone from every screen
   await expect(welcome.locator('.walker')).toHaveCount(0);
 
+  // the credit: exactly two centred lines, the name and the Instagram link (same target as before)
+  const credit = welcome.locator('.credit');
+  await expect(credit.locator('> div')).toHaveText(['Your Personal Food Logger - By Dar Lindman', 'Instagram']);
+  const link = credit.locator('a');
+  await expect(link).toHaveAttribute('href', 'https://www.instagram.com/darlindman/');
+  await expect(link).toHaveAttribute('rel', 'noopener');
+  await expect(link).toHaveAttribute('target', '_blank');
+  expect(await credit.evaluate((el) => getComputedStyle(el).textAlign)).toBe('center');
+
   // the two buttons keep their actions
   const start = welcome.getByRole('button', { name: 'התחל עכשיו' });
   await expect(start).toHaveAttribute('data-action', 'goToAuth');
@@ -182,3 +191,30 @@ test('registration: a range of digits in the activity list keeps its order ("1�
   // the text of the rows is unchanged
   await expect(page.locator('#reg-activity-list .activity-opt[data-val="light"]')).toHaveText('פעילות קלה1–3 ימים בשבוע');
 });
+
+for (const [width, height] of [[320, 640], [360, 640], [390, 844]]) {
+  test(`at ${width}x${height} the whole welcome cover fits: nothing scrolls and every button, link and the credit lie inside the screen`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await page.goto('/');
+    await expect(page.locator('#screen-welcome')).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
+    const m = await page.evaluate(() => {
+      const screen = document.getElementById('screen-welcome');
+      const frame = document.querySelector('.phone-frame').getBoundingClientRect();
+      const boxes = {};
+      for (const [name, sel] of [['pet', '#welcome-pet'], ['title', '.foil'], ['start', '.foilbtn'], ['have', '.welcome-have'], ['credit', '.welcome-footer'], ['instagram', '.welcome-footer a']]) {
+        const r = document.querySelector(sel).getBoundingClientRect();
+        boxes[name] = { l: r.left, t: r.top, r: r.right, b: r.bottom };
+      }
+      return { overflow: screen.scrollHeight - screen.clientHeight, frame: { w: frame.width, h: frame.height, l: frame.left, t: frame.top }, boxes, vw: innerWidth, vh: innerHeight, lines: document.querySelectorAll('.welcome-footer > div').length };
+    });
+    expect(m.overflow, 'the cover is taller than the screen').toBeLessThanOrEqual(0);
+    expect(m.lines, 'the credit is two lines').toBe(2);
+    for (const [name, b] of Object.entries(m.boxes)) {
+      expect(b.t >= m.frame.t - 1 && b.b <= m.frame.t + m.frame.h + 1 && b.l >= -1 && b.r <= m.vw + 1, `${name} inside the screen: ${JSON.stringify(b)}`).toBe(true);
+    }
+    // top to bottom, nothing on top of anything else
+    const order = ['pet', 'title', 'start', 'have', 'credit'];
+    for (let i = 1; i < order.length; i++) expect(m.boxes[order[i]].t, `${order[i]} below ${order[i - 1]}`).toBeGreaterThanOrEqual(m.boxes[order[i - 1]].b - 4);
+  });
+}

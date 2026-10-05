@@ -246,8 +246,7 @@ test('welcome, auth and profile step 2 scroll on a 320x568 phone', async ({ page
     return r;
   };
 
-  const welcome = await reach('#screen-welcome', '.welcome-pet', '#screen-welcome [data-arg="login"]', 'welcome');
-  expect(welcome.scrollable, 'the welcome cover is taller than a 568 px phone').toBe(true);
+  await reach('#screen-welcome', '.welcome-pet', '#screen-welcome [data-arg="login"]', 'welcome');   // compacted for short phones: whether it still scrolls or not, every part is reachable
 
   await page.getByRole('button', { name: 'התחל עכשיו' }).click();
   await expect(page.locator('#screen-auth')).toBeVisible();

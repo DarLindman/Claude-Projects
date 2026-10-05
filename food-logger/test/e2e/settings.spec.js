@@ -175,30 +175,30 @@ test('a user with no profile sees "not set" rows, not blanks or NaN', async ({ p
   await expect(page.locator('#screen-settings')).not.toContainText('NaN');
 });
 
-test('the capybara walks on the settings page and is stopped when the page is left', async ({ page }) => {
+test('the settings page has no capybara: the content runs to the foot of the page and the credit is two centred lines', async ({ page }) => {
   await register(page);
   await openSettings(page);
-  const walker = page.locator('#screen-settings .page > .walker');
-  await expect(walker).toHaveCount(1);
-  await expect(walker.locator('svg')).toBeVisible();
-  // she walks beside the text, never over it: the lane starts below the scrolling content
-  const geometry = await page.evaluate(() => {
-    const w = document.querySelector('#screen-settings .walker').getBoundingClientRect();
-    const c = document.querySelector('#screen-settings .content').getBoundingClientRect();
-    return { walkerTop: w.top, contentBottom: c.bottom };
+  await expect(page.locator('#screen-settings .walker, #screen-settings svg.pet-inked, #screen-settings .pet-wrap')).toHaveCount(0);
+  const g = await page.evaluate(() => {
+    const content = document.querySelector('#screen-settings .content').getBoundingClientRect();
+    const pg = document.querySelector('#screen-settings .page').getBoundingClientRect();
+    const credit = document.querySelector('#screen-settings .credit');
+    const kids = [...credit.children];
+    const link = credit.querySelector('a');
+    const mid = (r) => (r.left + r.right) / 2;
+    return {
+      contentBottom: content.bottom, pageBottom: pg.bottom,
+      lines: kids.length, line1: kids[0].textContent.trim(), line2: kids[1].textContent.trim(), href: link.getAttribute('href'), rel: link.getAttribute('rel'), target: link.getAttribute('target'),
+      centred: Math.abs(mid(kids[0].getBoundingClientRect()) - mid(content)) < 40 || Math.abs(mid(link.getBoundingClientRect()) - mid(credit.getBoundingClientRect())) < 8,
+      align: getComputedStyle(credit).textAlign,
+    };
   });
-  expect(geometry.walkerTop, 'the walker is below the content area').toBeGreaterThanOrEqual(geometry.contentBottom - 1);
-
-  for (let i = 0; i < 3; i += 1) {   // enter and leave several times: always exactly one lane, none after leaving
-    await page.locator('#nav-dashboard').click();
-    await expect(page.locator('#screen-dashboard')).toBeVisible();
-    await expect(page.locator('.walker')).toHaveCount(0);
-    await page.locator('#nav-settings').click();
-    await expect(walker).toHaveCount(1);
-  }
-  await page.locator('#nav-weight').click();
-  await expect(page.locator('#screen-settings .walker')).toHaveCount(0);
-  await expect(page.locator('#screen-weight .page > .walker')).toHaveCount(1);
+  expect(g.contentBottom, 'no strip reserved at the foot').toBeGreaterThanOrEqual(g.pageBottom - 1);
+  expect(g.lines).toBe(2);
+  expect(g.line1).toBe('Your Personal Food Logger - By Dar Lindman');
+  expect(g.line2).toBe('Instagram');
+  expect([g.href, g.rel, g.target]).toEqual(['https://www.instagram.com/darlindman/', 'noopener', '_blank']);
+  expect(g.align).toBe('center');
 });
 
 test('logout from the settings page signs out, closes everything and leaves no walker on the settings page', async ({ page }) => {

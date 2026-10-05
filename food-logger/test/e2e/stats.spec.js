@@ -338,9 +338,9 @@ test('the walking capybara is mounted on entering the screen, never stacked, and
     await expect(page.locator('#screen-stats')).toBeHidden();
     w = await walkerState();
     expect(w.inStats, `after ${nav}`).toBe(0);
-    // the animations belong to the lanes that remain (the weight and settings screens have their own walker): none of them is the stats lane's
-    expect(w.walkAnims, `animations after ${nav}`).toBe(2 * w.lanes);
-    expect(w.lanes, `lanes after ${nav}`).toBe(nav === '#nav-weight' || nav === '#nav-settings' ? 1 : 0);
+    // only the stats and sign-in pages have a walker: after leaving, no lane and no walking animation is left
+    expect(w.walkAnims, `animations after ${nav}`).toBe(0);
+    expect(w.lanes, `lanes after ${nav}`).toBe(0);
   }
   // and back again
   await page.locator('#nav-stats').click();
@@ -474,6 +474,47 @@ test('at 320 px nothing overflows: the page, the chart, the headline and the tab
   await expect(page.locator('#screen-stats .walker')).toHaveCount(1);
   expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
 });
+
+for (const [width, height] of [[390, 844], [360, 640], [320, 640]]) {
+  test(`at ${width}x${height} no stats view scrolls: the navigator, headline, chart, three macro bars and the note all fit above the tabs`, async ({ page }) => {
+    const guards = attachGuards(page);
+    await page.setViewportSize({ width, height });
+    await register(page, uniqueName());
+    for (let back = 0; back < 20; back++) await meal(page, { calories: 1400 + (back % 5) * 300, day: dayBack(back) });
+    await openStats(page);
+
+    for (const tab of ['weekly', 'monthly', 'yearly']) {
+      await showTab(page, tab);
+      await expect(page.locator(`#${tab}-macro .stat-note`)).toBeVisible();   // the footnote is part of the content that must fit
+      const m = await page.evaluate((tab) => {
+        const content = document.querySelector('#screen-stats .content');
+        const cr = content.getBoundingClientRect();
+        const view = document.getElementById(`stats-${tab}`);
+        const nav = view.querySelector('.date-nav') || view.querySelector('.lbl');   // weekly has a caption instead of a month / year picker
+        const nr = nav.getBoundingClientRect();
+        const note = view.querySelector('.stat-note').getBoundingClientRect();
+        const tabTop = Math.min(...[...document.querySelectorAll('.stats-tab')].map((t) => t.getBoundingClientRect().top));
+        content.scrollTop = 10000;   // a view that does not scroll stays where it is
+        return {
+          overflow: content.scrollHeight - content.clientHeight, scrolled: content.scrollTop,
+          navTop: nr.top - cr.top, navBottom: nr.bottom, viewportH: innerHeight,
+          noteBottom: note.bottom, tabTop,
+          walker: !!document.querySelector('#screen-stats .walker') && getComputedStyle(document.querySelector('#screen-stats .walker')).display !== 'none',
+          rules: getComputedStyle(document.querySelector('#screen-stats .page > .rules')).display,
+        };
+      }, tab);
+      expect(m.overflow, `${tab}: the content is taller than its box by ${m.overflow}px`).toBeLessThanOrEqual(0);
+      expect(m.scrolled, `${tab}: nothing to scroll`).toBe(0);
+      expect(m.navTop, `${tab}: the top row stays at the top of the page`).toBeLessThan(30);
+      expect(m.navBottom, `${tab}: the top row is inside the viewport`).toBeLessThanOrEqual(m.viewportH);
+      expect(m.noteBottom, `${tab}: the note ends above the tabs`).toBeLessThanOrEqual(m.tabTop);
+      expect(m.rules, 'the ruled lines run behind the walker strip too').toBe('block');
+      // the capybara keeps her strip on a tall phone and gives it up on a short one
+      expect(m.walker, `${tab}: walker at ${height}px high`).toBe(height > 800);
+    }
+    expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+  });
+}
 
 // ── The chart renderer on its own (no data, no server): arrow paths and the goal boundary ────────────────────
 // The goal arrow is a curve, so a bounding box is too coarse: it is sampled point by point along its length
