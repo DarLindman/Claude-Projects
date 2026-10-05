@@ -589,8 +589,8 @@
 }
 .foilbtn:active { transform: translateY(1px); }
 .welcome-have { border: 0; background: none; cursor: pointer; padding: 2px 8px; font-size: 17px; color: #b79a68; }
-.welcome-footer { margin-top: 20px; font-size: 13px; color: rgba(183, 154, 104, .6); text-align: center; }
-.welcome-footer a { color: #b79a68; }
+.welcome-footer { margin-top: 20px; font-size: 13px; color: #c9b58c; text-align: center; }   /* the warm light tone of the feature lines, a little dimmer */
+.welcome-footer a { color: #e3cf9f; text-decoration: underline; text-decoration-color: rgba(227, 207, 159, .5); text-underline-offset: 3px; }
 /* a phone no taller than 760 px: the whole cover (capybara, title, three lines, both buttons and the credit) fits without scrolling */
 @media (max-height: 760px) {
   .welcome-wrap { padding: 30px 26px 16px; }
@@ -604,6 +604,14 @@
   .foilbtn { font-size: 20px; padding: 6px 30px; }
   .welcome-have { font-size: 16px; }
   .welcome-footer { margin-top: 6px; font-size: 12px; line-height: 18px; }
+}
+/* The credit's first line never wraps: the text is about 280 px wide at 13 px, so a narrower phone sets it smaller (and the settings
+   page, whose text column is only 218 px at 320, lets it run a little past the column, still left of the red margin line). */
+div.credit > div:first-child { white-space: nowrap; }
+@media (max-width: 400px) { div.credit { font-size: 11px; } }
+@media (max-width: 340px) {
+  div.credit { font-size: 10.5px; }
+  .set-brand { margin-left: -4px; margin-right: -10px; }
 }
 
 /* ════ Auth: login, registration and the profile step on one ruled page ════

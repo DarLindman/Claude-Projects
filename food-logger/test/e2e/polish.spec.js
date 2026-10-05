@@ -301,3 +301,59 @@ test('the three slips have a small graphite caption with a pen rule, well apart 
     await expect(page.locator(slip)).not.toHaveClass(/open/);
   }
 });
+
+// ── the credit: two lines on every phone, the first never wraps, readable on the leather ─────────────────────────
+
+for (const width of [320, 360, 390]) {
+  test(`at ${width} px the credit is exactly two lines on the welcome cover and on the settings page`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 640 });
+    await page.goto('/');
+    await expect(page.locator('#screen-welcome')).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
+
+    const measure = (screenSel, boundsSel) => page.evaluate(({ screenSel, boundsSel }) => {
+      const credit = document.querySelector(`${screenSel} .credit`);
+      const [first, second] = credit.children;
+      const range = document.createRange();
+      range.selectNodeContents(first);
+      const rects = [...range.getClientRects()];
+      const bounds = document.querySelector(boundsSel).getBoundingClientRect();
+      const margin = document.querySelector(`${screenSel} .margin`);
+      const limit = margin ? margin.getBoundingClientRect().left : bounds.right;
+      const fr = first.getBoundingClientRect();
+      return {
+        children: credit.children.length, text: first.textContent.trim(), lineRects: rects.length, lineH: rects[0].height, lineHeight: parseFloat(getComputedStyle(first).lineHeight),
+        left: rects[0].left, right: rects[0].right, boundsLeft: bounds.left, limit, secondTop: second.getBoundingClientRect().top, firstBottom: fr.bottom,
+        wsp: getComputedStyle(first).whiteSpace,
+      };
+    }, { screenSel, boundsSel });
+    const check = (m, where) => {
+      expect(m.children, `${where}: two lines`).toBe(2);
+      expect(m.text).toBe('Your Personal Food Logger - By Dar Lindman');
+      expect(m.lineRects, `${where}: the first line is one line`).toBe(1);
+      expect(m.lineH, `${where}: one line tall`).toBeLessThanOrEqual(m.lineHeight * 1.5);
+      expect(m.wsp).toBe('nowrap');
+      expect(m.left, `${where}: inside the left edge`).toBeGreaterThanOrEqual(m.boundsLeft);
+      expect(m.right, `${where}: left of the right limit`).toBeLessThanOrEqual(m.limit + 0.5);
+      expect(m.secondTop, `${where}: the link is under the first line`).toBeGreaterThanOrEqual(m.firstBottom - 1);
+    };
+    check(await measure('#screen-welcome', '.phone-frame'), `welcome at ${width}`);
+
+    // on the leather the credit and its link are clearly readable (contrast against the cover colour)
+    const contrast = await page.evaluate(() => {
+      const lum = (rgb) => { const [r, g, b] = rgb.match(/[\d.]+/g).slice(0, 3).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+      const ratio = (fg, bg) => { const a = lum(fg), b = lum(bg); return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05); };
+      const bg = getComputedStyle(document.querySelector('.phone-frame')).backgroundColor;
+      return { text: ratio(getComputedStyle(document.querySelector('.welcome-footer')).color, bg), link: ratio(getComputedStyle(document.querySelector('.welcome-footer a')).color, bg) };
+    });
+    expect(contrast.text, 'credit text contrast').toBeGreaterThanOrEqual(7);
+    expect(contrast.link, 'credit link contrast').toBeGreaterThanOrEqual(7);
+
+    await register(page, { profile: null });
+    await page.goto('/');
+    await expect(page.locator('#screen-dashboard')).toBeVisible();
+    await page.locator('#nav-settings').click();
+    await expect(page.locator('#screen-settings')).toBeVisible();
+    check(await measure('#screen-settings', '#screen-settings .page'), `settings at ${width}`);
+  });
+}
