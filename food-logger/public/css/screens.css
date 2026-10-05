@@ -677,25 +677,24 @@ div.credit > div:first-child { white-space: nowrap; }
 #screen-auth .page:has(#auth-step2:not([style*="none"])) > .walker { display: none; }
 
 /* ════ Home: the diary's first page ════
-   A flow layout on the 30 px rules (every block starts on a rule and is a multiple of 30 px high): date, greeting, the capybara with her bubble, the calories eaten with the red bar,
-   the streak tally, the last meal. The ribbon (top 50 px, left 46 px) sits beside the first lines, so the date keeps clear of it. */
+   ONE page, no scrolling: date, greeting, the capybara with her bubble, the calories eaten with the red bar, the streak tally, the
+   last meal and the weight line all sit above the dock on every phone. A flow layout on the 30 px rules on a tall phone; on a shorter
+   one (800, 700 px of height) the capybara, the spacing and the polaroid are compacted in steps (media queries on height), nothing is
+   removed. The ribbon hangs from the very top edge of the page, beside the first two lines, so the date and the greeting keep 50 px
+   clear of it on the left. */
 #screen-dashboard [hidden] { display: none !important; }
-#screen-dashboard .content { padding-bottom: 28px; }
+#screen-dashboard .content { padding-bottom: 12px; overflow-y: hidden; }
+#screen-dashboard .content > .ribbon { top: 0; }
 /* the greeting keeps 50 px clear of the ribbon on the left (like the date), whatever the length of the name; a name without a space wraps anywhere */
 .dash-hello { margin: 0 0 0 50px; font-size: 17px; line-height: 30px; overflow-wrap: anywhere; }
 .dash-hello strong { font-weight: 400; color: var(--ink); overflow-wrap: anywhere; }
-.dash-top { display: flex; gap: 10px; align-items: flex-start; min-height: 150px; margin-top: 30px; }
+.dash-top { display: flex; gap: 10px; align-items: flex-start; min-height: 130px; margin-top: 12px; }
 .dash-bubble { position: relative; flex: 1 1 0; min-width: 100px; margin-top: 0; overflow-wrap: anywhere; }
-.dash-pet { flex: 0 1 132px; min-width: 80px; margin-left: -8px; }
+.dash-pet { flex: 0 1 120px; min-width: 80px; margin-left: -8px; }
 .dash-pet .pet-wrap { display: block; }
 .dash-pet svg { width: 100%; height: auto; }
-/* a user with no meal at all: the sleeping capybara and her first-meal prompt sit lower on the page (two rules down), so the page does not look empty above a lonely 0 */
-#screen-dashboard.is-fresh .dash-top { margin-top: 90px; }
-/* a 320 px phone: a smaller capybara gives the bubble room for a whole user name (a longer one wraps inside it, never out of it) */
-@media (max-width: 340px) {
-  .dash-pet { flex-basis: 84px; min-width: 70px; }
-  .dash-bubble { min-width: 110px; }
-}
+/* a user with no meal at all: the sleeping capybara and her first-meal prompt sit a little lower on the page, so it does not look empty above a lonely 0 */
+#screen-dashboard.is-fresh .dash-top { margin-top: 30px; }
 .eat { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; min-height: 60px; margin-top: 0; }
 .eat .n { font: 400 46px/60px var(--font-text); color: var(--red); }
 .eat .of { font: 400 17px/30px var(--font-text); color: var(--graphite); }
@@ -710,8 +709,9 @@ div.credit > div:first-child { white-space: nowrap; }
 }
 .dash-streak { margin-top: 0; }
 .dash-streak-line { line-height: 30px; }
-.dash-tally { min-height: 60px; }
-.dash-last { position: relative; height: 180px; margin-top: 30px; }
+.dash-tally { min-height: 0; }
+.dash-tally .tally { height: 54px; width: auto; max-width: 100%; }
+.dash-last { position: relative; height: 170px; margin-top: 10px; }
 .dash-polaroid { right: 0; top: 8px; width: 120px; transform: rotate(-3deg); animation: polaroid-drop var(--dur-slow) var(--ease-spring) both; }
 .dash-polaroid .tape { top: -9px; left: 30px; transform: rotate(-6deg); }
 .dash-polaroid .cp { font-size: 14px; }
@@ -723,6 +723,63 @@ div.credit > div:first-child { white-space: nowrap; }
 .dash-meal .circ { font-size: 20px; line-height: 34px; margin-top: 4px; }
 .dash-kcal { font: 400 15px/20px var(--font-text); color: var(--graphite); }
 .dash-weight { margin-top: 0; }
+/* a phone no taller than 800 px */
+@media (max-height: 800px) {
+  .dash-top { min-height: 96px; margin-top: 6px; }
+  .dash-pet { flex-basis: 104px; }
+  .dash-bubble { font-size: 16px; line-height: 22px; }
+  .eat { min-height: 48px; }
+  .eat .n { font-size: 40px; line-height: 48px; }
+  .ink2 { height: 24px; }
+  .dash-tally .tally { height: 40px; }
+  .dash-last { height: 150px; margin-top: 8px; }
+  .dash-polaroid { width: 108px; }
+  .dash-meal { width: calc(100% - 128px); top: 10px; }
+  .dash-meal-name { font-size: 19px; line-height: 26px; max-height: 78px; }
+  #screen-dashboard.is-fresh .dash-top { margin-top: 18px; }
+}
+/* a phone no taller than 700 px (640 and below): the capybara and the polaroid shrink first */
+@media (max-height: 700px) {
+  #screen-dashboard .content { padding-top: 8px; }
+  .page-date { font-size: 22px; line-height: 28px; }
+  .dash-hello { font-size: 16px; line-height: 26px; }
+  .dash-top { min-height: 88px; margin-top: 4px; }
+  .dash-pet { flex-basis: 84px; min-width: 70px; }
+  .dash-bubble { font-size: 15px; line-height: 20px; padding: 4px 10px; }
+  .eat { min-height: 40px; }
+  .eat .n { font-size: 34px; line-height: 40px; }
+  .eat .of { font-size: 16px; line-height: 26px; }
+  .ink2 { height: 22px; }
+  .dash-streak-line { line-height: 26px; font-size: 16px; }
+  .dash-tally .tally { height: 34px; }
+  .dash-last { height: 120px; margin-top: 6px; }
+  .dash-polaroid { width: 90px; top: 6px; padding: 6px 6px 28px; }
+  .dash-polaroid .cp { font-size: 12px; bottom: 4px; }
+  .dash-meal { width: calc(100% - 108px); top: 6px; }
+  .dash-meal-name { font-size: 17px; line-height: 22px; -webkit-line-clamp: 2; line-clamp: 2; max-height: 44px; }
+  .dash-meal .circ { font-size: 17px; line-height: 28px; margin-top: 2px; }
+  .dash-kcal { font-size: 13px; line-height: 16px; }
+  .dash-weight { font-size: 15px; line-height: 24px; }
+  #screen-dashboard.is-fresh .dash-top { margin-top: 12px; }
+}
+/* a 320 px phone: the capybara is a little smaller still, so the bubble keeps room for a whole user name */
+@media (max-width: 340px) {
+  .dash-pet { flex-basis: 76px; min-width: 64px; }
+  .dash-bubble { min-width: 110px; }
+  .page-date { font-size: 20px; }
+  .dash-hello { font-size: 15px; line-height: 24px; }
+}
+@media (max-width: 340px) and (max-height: 700px) {
+  .dash-bubble { font-size: 14px; line-height: 18px; }
+  .dash-top { min-height: 76px; }
+  .eat { min-height: 36px; }
+  .eat .n { font-size: 32px; line-height: 36px; }
+  .dash-last { height: 118px; }
+  .ink2 { height: 20px; }
+  .dash-streak-line { line-height: 24px; }
+  .dash-polaroid { width: 82px; }
+  .dash-meal { width: calc(100% - 100px); }
+}
 @keyframes polaroid-drop {
   from { opacity: 0; transform: translateY(-14px) rotate(-7deg); }
   to   { opacity: 1; transform: translateY(0) rotate(-3deg); }
