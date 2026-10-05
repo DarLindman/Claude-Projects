@@ -357,3 +357,47 @@ for (const width of [320, 360, 390]) {
     check(await measure('#screen-settings', '#screen-settings .page'), `settings at ${width}`);
   });
 }
+
+// ── the pen rule runs under the whole slip title, also when it wraps ───────────────────────────────────────────────
+
+for (const width of WIDTHS) {
+  test(`at ${width} px the pen rule under each slip title spans the whole title text`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await register(page);
+    expect((await post(page, '/api/food', { meal_type: 'lunch', food_name: 'חזה עוף', calories: 480, protein_g: 40, carbs_g: 50, fat_g: 12, fiber_g: 5, logged_at: `${localNow().date}T12:30:00` })).status()).toBe(200);
+    await page.goto('/');
+    const covers = (titleSel) => page.evaluate((titleSel) => {
+      const title = document.querySelector(titleSel);
+      const range = document.createRange();
+      range.selectNodeContents(title);
+      const text = range.getBoundingClientRect();
+      const tb = title.getBoundingClientRect();
+      const cs = getComputedStyle(title, '::after');
+      // the rule is absolutely placed: its box is the title's padding box between its left and right offsets
+      const left = tb.left + parseFloat(cs.left || 0), width = parseFloat(cs.width);
+      const overlap = Math.max(0, Math.min(left + width, text.right) - Math.max(left, text.left));
+      return { coverage: overlap / text.width, textW: text.width, ruleW: width, bottomGap: tb.bottom - text.bottom, ruleH: parseFloat(cs.borderBottomWidth) };
+    }, titleSel);
+
+    await page.locator('#nav-home').click();
+    await page.locator('#meal-list .meal-item-row').first().getByRole('button', { name: 'ערוך' }).click();
+    await expect(page.locator('#edit-modal')).toHaveClass(/open/);
+    await page.evaluate(() => Promise.all(document.getAnimations().filter((x) => x.effect.getComputedTiming().iterations !== Infinity).map((x) => x.finished.catch(() => {}))));
+    const results = { 'עריכת מנה': await covers('#edit-title') };
+    await page.locator('#edit-modal-close').click();
+    await page.locator('#nav-settings').click();
+    for (const [button, slip, title, name] of [['פרופיל גוף ויעד', '#modal-profile', '#mp-title', 'פרופיל גוף ויעד'], ['שינוי סיסמה', '#modal-change-pass', '#cp-title', 'שינוי סיסמה']]) {
+      await page.locator('#screen-settings').getByRole('button', { name: button }).click();
+      await expect(page.locator(slip)).toHaveClass(/open/);
+      await page.evaluate(() => Promise.all(document.getAnimations().filter((x) => x.effect.getComputedTiming().iterations !== Infinity).map((x) => x.finished.catch(() => {}))));
+      results[name] = await covers(title);
+      await page.locator(`${slip} .modal-close`).click();
+      await expect(page.locator(slip)).not.toHaveClass(/open/);
+    }
+    for (const [name, r] of Object.entries(results)) {
+      expect(r.coverage, `${name}: the rule (${r.ruleW}px) covers the text (${r.textW}px)`).toBeGreaterThanOrEqual(0.95);
+      expect(r.ruleW, `${name}: the rule is at least as wide as the text`).toBeGreaterThanOrEqual(r.textW * 0.95);
+      expect(r.ruleH).toBeGreaterThan(0);
+    }
+  });
+}

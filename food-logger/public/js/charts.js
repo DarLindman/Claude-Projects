@@ -45,13 +45,13 @@ export function renderStatMacros(elId, rows, footnote, divisor) {
 // ════════════════════════════════════════════════════
 // Hand-drawn bar chart (the stats screen)
 // ════════════════════════════════════════════════════
-// One SVG, viewBox 248 x 194 (it scales with the page). Time runs right to left like the page: the first row is the
-// rightmost column. The goal label and its arrow sit ABOVE the plot (the plot starts at PLOT_TOP, so no bar can
+// One SVG, viewBox 248 x 194 (it scales with the page). Time runs left to right, like the weight graph: the first row (the
+// oldest) is the leftmost column and the newest the rightmost. The goal label and its arrow sit ABOVE the plot (the plot starts at PLOT_TOP, so no bar can
 // reach the label); the scale always includes the goal and the largest value, so no bar leaves the plot. A day over the
 // goal is red; a day without data is a short pencil dash on the baseline; future days draw nothing.
 const W = 248, BASE = 170, PLOT_TOP = 48, LABEL_Y = 188, GOAL_LABEL_Y = 15, VIEW_H = 194;
 
-export function renderBarChart(rows, { getValue, getLabel, isToday = () => false, isFuture = () => false, showLabel = () => true, recommended = 0, labelSize = 16, stagger = false }) {
+export function renderBarChart(rows, { getValue, getLabel, isToday = () => false, isFuture = () => false, showLabel = () => true, recommended = 0, labelSize = 16 }) {
   const n = rows.length;
   const slot = W / Math.max(n, 1);
   const bw = r1(Math.min(22, slot * 0.64));
@@ -60,7 +60,7 @@ export function renderBarChart(rows, { getValue, getLabel, isToday = () => false
   const top = Math.max(...vals, goal, 1);
   const scale = (BASE - PLOT_TOP) / top;
   const yOf = (v) => BASE - v * scale;
-  const cx = (i) => W - slot * (i + 0.5);
+  const cx = (i) => slot * (i + 0.5);
 
   const bars = rows.map((r, i) => {
     if (isFuture(r)) return '';
@@ -95,15 +95,12 @@ export function renderBarChart(rows, { getValue, getLabel, isToday = () => false
     goalText = html`<text class="goal-label" x="${lx}" y="${GOAL_LABEL_Y}" text-anchor="middle" font-size="16">יעד <tspan>${formatNumber(goal)}</tspan></text>`;
   }
 
-  // stagger: the labels sit on two alternating baselines (every other one a line lower), so twelve short names never touch
-  const rowGap = stagger ? Math.round(labelSize * 1.4) + 4 : 0;   // a text box is about 1.3 times its font size tall
-  const viewH = VIEW_H + rowGap;
   const labels = rows.map((r, i) => (showLabel(r, i)
-    ? html`<text class="${isToday(r) ? 'chart-day today' : 'chart-day'}" x="${r1(cx(i))}" y="${LABEL_Y + (i % 2 ? rowGap : 0)}" text-anchor="middle" font-size="${labelSize}">${getLabel(r)}</text>`
+    ? html`<text class="${isToday(r) ? 'chart-day today' : 'chart-day'}" x="${r1(cx(i))}" y="${LABEL_Y}" text-anchor="middle" font-size="${labelSize}">${getLabel(r)}</text>`
     : ''));
 
   // the invisible frame keeps the filtered group's box from collapsing to a line (an empty chart is only dashes)
-  return html`<svg viewBox="0 0 ${W} ${viewH}" overflow="visible" xmlns="http://www.w3.org/2000/svg">
+  return html`<svg viewBox="0 0 ${W} ${VIEW_H}" overflow="visible" xmlns="http://www.w3.org/2000/svg">
     <g class="chart-ink" filter="url(#wobS)" stroke-width="${n > 12 ? 1.4 : 2}" stroke-linejoin="round" stroke-linecap="round">
       <rect class="chart-frame" x="0" y="${PLOT_TOP - 2}" width="${W}" height="${BASE - PLOT_TOP + 2}" fill="none" stroke="none"/>
       ${goalInk}

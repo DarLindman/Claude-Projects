@@ -77,17 +77,17 @@ test('diary, edit-and-save and streak around local midnight', async ({ page }) =
   await expect(page.locator('#screen-stats')).toBeVisible();
   await expect(page.locator('#weekly-chart .bar')).toHaveCount(1);
   await expect(page.locator('#weekly-macro .stat-note')).toHaveText('ממוצע יומי על בסיס יום אחד');
-  // time runs right to left: today is the leftmost day letter and yesterday the one next to it; the bar stands over yesterday's letter
+  // time runs left to right: today is the rightmost day letter and yesterday the one next to it; the bar stands over yesterday's letter
   const cols = await page.evaluate(() => {
     const mid = (el) => { const r = el.getBoundingClientRect(); return (r.left + r.right) / 2; };
     const days = [...document.querySelectorAll('#weekly-chart .chart-day')].map((t) => ({ x: mid(t), today: t.classList.contains('today') })).sort((p, q) => p.x - q.x);
     return { days, bar: mid(document.querySelector('#weekly-chart .bar')) };
   });
   expect(cols.days).toHaveLength(7);
-  expect(cols.days[0].today).toBe(true);
+  expect(cols.days[6].today).toBe(true);
   expect(cols.days.filter((d) => d.today)).toHaveLength(1);
-  expect(Math.abs(cols.bar - cols.days[1].x)).toBeLessThan(3);   // over yesterday
-  expect(Math.abs(cols.bar - cols.days[0].x)).toBeGreaterThan(10); // not over today
+  expect(Math.abs(cols.bar - cols.days[5].x)).toBeLessThan(3);   // over yesterday
+  expect(Math.abs(cols.bar - cols.days[6].x)).toBeGreaterThan(10); // not over today
 
   expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
 });

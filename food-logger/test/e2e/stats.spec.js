@@ -133,12 +133,12 @@ test('weekly: the goal label and its arrow stay above every bar; days over the g
   }
   // the days without data are pencil dashes, 7 columns in all
   expect(g.ticks + g.bars.length).toBe(7);
-  // seven day letters, today's red and at the left end (time runs right to left)
+  // seven day letters, today's red and at the right end (time runs left to right, like the weight graph)
   expect(g.days).toHaveLength(7);
   for (const d of g.days) expect(d.text).toMatch(/^[א-ת]׳$/);
   const todayLabels = g.days.filter((d) => d.today);
   expect(todayLabels).toHaveLength(1);
-  expect(todayLabels[0].l).toBe(Math.min(...g.days.map((d) => d.l)));
+  expect(todayLabels[0].l).toBe(Math.max(...g.days.map((d) => d.l)));
   const letter = await page.evaluate(() => ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'][new Date().getDay()] + '׳');
   expect(todayLabels[0].text).toBe(letter);
   // inside the svg
@@ -273,13 +273,17 @@ test('all three views open, share the tab strip (the active tab raised) and keep
   await expect(page.locator('#yearly-chart .bar')).toHaveCount(1);
   g = await chartGeometry(page, '#yearly-chart');
   expect(g.days).toHaveLength(12);
-  // the twelve month names keep a visible gap (at least 2 px on every side) at 390 px and at 320 px
+  // the twelve month names keep a visible gap (at least 2 px on every side) at 390 px and at 320 px, all on ONE baseline
   const apart = (p, q, gap) => p.l - gap >= q.r || q.l - gap >= p.r || p.t - gap >= q.b || q.t - gap >= p.b;
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 });
     g = await chartGeometry(page, '#yearly-chart');
     expect(g.days).toHaveLength(12);
     for (let i = 0; i < g.days.length; i++) for (let j = i + 1; j < g.days.length; j++) expect(apart(g.days[i], g.days[j], 2), `month labels ${g.days[i].text} / ${g.days[j].text} at ${width}px`).toBe(true);
+    const baselines = await page.locator('#yearly-chart .chart-day').evaluateAll((els) => els.map((e) => e.getAttribute('y')));
+    expect(new Set(baselines).size, `one row of month names at ${width}px (baselines ${baselines})`).toBe(1);
+    const px = await page.locator('#yearly-chart .chart-day').first().evaluate((el) => parseFloat(getComputedStyle(el).fontSize) * (el.getBoundingClientRect().width / el.getBBox().width || 1));
+    expect(px, 'the month names are not smaller than 9.5 px').toBeGreaterThanOrEqual(9.4);
   }
   await page.setViewportSize({ width: 390, height: 844 });
   expect(g.days.filter((d) => d.today)).toHaveLength(1);
@@ -516,6 +520,42 @@ for (const [width, height] of [[390, 844], [360, 640], [320, 640]]) {
   });
 }
 
+test('time runs left to right in all three views: the oldest column, letter, day number and month is at the left, the newest at the right', async ({ page }) => {
+  const guards = attachGuards(page);
+  await register(page, uniqueName());
+  // a week of meals that grow day by day: the oldest day is the lowest bar
+  for (let back = 0; back < 7; back++) await meal(page, { calories: 800 + (6 - back) * 250, day: dayBack(back) });
+  await openStats(page);
+
+  const byX = (page, sel) => page.evaluate((sel) => [...document.querySelectorAll(sel)].map((el) => { const r = el.getBoundingClientRect(); return { x: (r.left + r.right) / 2, h: r.height, text: el.textContent.trim() }; }).sort((a, b) => a.x - b.x), sel);
+
+  // weekly: bars grow towards the right, the letters follow the calendar from six days ago to today
+  const bars = await byX(page, '#weekly-chart .bar');
+  expect(bars).toHaveLength(7);
+  for (let i = 1; i < bars.length; i++) expect(bars[i].h, `bar ${i} is taller than the one on its left (newer days are bigger)`).toBeGreaterThan(bars[i - 1].h);
+  const letters = (await byX(page, '#weekly-chart .chart-day')).map((l) => l.text);
+  const expected = await page.evaluate(() => { const L = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש']; return Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - (6 - i)); return L[d.getDay()] + '׳'; }); });
+  expect(letters).toEqual(expected);
+  const today = await page.evaluate(() => { const t = document.querySelector('#weekly-chart .chart-day.today').getBoundingClientRect(); const all = [...document.querySelectorAll('#weekly-chart .chart-day')].map((e) => e.getBoundingClientRect().right); return t.right === Math.max(...all); });
+  expect(today, 'today is the rightmost letter').toBe(true);
+
+  // monthly: day 1 at the left, the day numbers grow to the right
+  await showTab(page, 'monthly');
+  const days = (await byX(page, '#monthly-chart .chart-day')).map((l) => Number(l.text));
+  expect(days.length).toBeGreaterThan(4);
+  expect(days[0]).toBe(1);
+  for (let i = 1; i < days.length; i++) expect(days[i]).toBeGreaterThan(days[i - 1]);
+
+  // yearly: January at the left, December at the right
+  await showTab(page, 'yearly');
+  const months = (await byX(page, '#yearly-chart .chart-day')).map((l) => l.text);
+  expect(months).toEqual(['ינו׳', 'פבר׳', 'מרץ', 'אפר׳', 'מאי', 'יוני', 'יולי', 'אוג׳', 'ספט׳', 'אוק׳', 'נוב׳', 'דצמ׳']);
+  // and the goal arrow still never touches a bar in this orientation (the dedicated arrow tests below run on the same renderer)
+  const g = await chartGeometry(page, '#yearly-chart');
+  for (const arrow of g.arrows) for (const bar of g.bars) expect(intersects(arrow, bar)).toBe(false);
+  expectNoGuardEvents(guards, [SIGNED_OUT_ME]);
+});
+
 // ── The chart renderer on its own (no data, no server): arrow paths and the goal boundary ────────────────────
 // The goal arrow is a curve, so a bounding box is too coarse: it is sampled point by point along its length
 // (getPointAtLength) against every bar rect, in svg units.
@@ -577,7 +617,7 @@ for (const [name, c] of Object.entries(ARROW_CASES)) {
 test('a day exactly at the goal is not over it: no red class, the plain fill; one more is red', async ({ page }) => {
   const r = await renderChart(page, { vals: [2000, 2001, 1999], recommended: 2000 });
   expect(r.bars).toHaveLength(3);
-  // columns run right to left: the first value is the rightmost bar
+  // columns run left to right: the first value is the leftmost bar
   const byValue = Object.fromEntries([2000, 2001, 1999].map((v, i) => [v, r.bars[i]]));
   expect(byValue[2000].over).toBe(false);
   expect(byValue[2000].fill).toBe('rgb(217, 168, 80)');

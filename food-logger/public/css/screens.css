@@ -265,6 +265,8 @@
 
 /* the bar chart: ink-outlined bars, red over the goal, the dashed goal line with its label above the plot */
 .stat-chart { margin-top: 6px; }
+/* the yearly chart borrows 10 px of the page on each side (it still stops short of the red margin line), so its twelve month names fit one line with a gap */
+#yearly-chart { width: calc(100% + 20px); margin-left: -10px; margin-right: -10px; }
 .stat-chart svg { display: block; width: 100%; height: auto; }
 .chart-ink { fill: none; stroke: #2b1f16; }
 .chart-ink .bar { fill: #d9a850; }
@@ -379,8 +381,8 @@
   position: relative; flex: 1 1 auto; min-width: 0; padding-bottom: 8px; font: 400 17px/24px var(--font-text); letter-spacing: .06em;
   color: var(--graphite); overflow-wrap: anywhere;
 }
-.modal-title::after {
-  content: ''; position: absolute; inset-inline-start: 0; bottom: 0; width: 36px; height: 5px;
+.modal-title::after {   /* the pen rule runs under the whole title block (under its last line when the title wraps) */
+  content: ''; position: absolute; inset-inline: 0; bottom: 0; height: 5px;
   border-bottom: 2.5px solid var(--red); border-radius: 50%; transform: rotate(-1.5deg);
 }
 .modal-close {
