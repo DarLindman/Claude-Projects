@@ -337,3 +337,30 @@ test('IMAGE_MODEL set to a Haiku 5 id: valid image request (no temperature, no t
   assert.deepEqual(Object.keys(off), ['model', 'max_tokens', 'system', 'messages']);
   for (const c of [dflt, medium, off]) for (const key of ['temperature', 'thinking', 'fallbacks']) assert.equal(key in c, false, key);
 });
+
+test('a repair reply cut by max_tokens or refused is no repair: the name comes from cleaning or the fallback, never the partial text', async () => {
+  for (const stop of ['max_tokens', 'refusal']) {
+    for (const model of [HAIKU45, HAIKU55]) {
+      const fake = fakeAnthropic();
+      fake.repairReply = () => ({ content: [{ type: 'text', text: 'פסטה ברוטב עג' }], stop_reason: stop });
+      const dish = await ensureHebrewDishName(fake, 'pasta pomodoro', { model, log: () => {} });
+      assert.deepEqual(dish, { name: 'מנה', action: 'fallback' }, `${stop} ${model}`);
+      assert.equal(fake.calls.length, 1);
+
+      const typed = fakeAnthropic();
+      typed.repairReply = () => ({ content: [{ type: 'text', text: 'פסטה בשר חלקי' }], stop_reason: stop });
+      const user = await ensureHebrewDishName(typed, 'pasta בשר', { model, mode: 'userText', maxWords: Infinity, maxChars: 200, requireHebrewLetter: false, log: () => {} });
+      assert.equal(user.action, 'cleaned', `${stop} ${model}`);
+      assert.equal(user.name, 'בשר');
+    }
+  }
+});
+
+test('a repair reply with stop_reason end_turn (or none) is used as before', async () => {
+  for (const stop of ['end_turn', undefined]) {
+    const fake = fakeAnthropic();
+    fake.repairReply = () => ({ content: [{ type: 'text', text: 'פסטה' }], ...(stop ? { stop_reason: stop } : {}) });
+    const r = await ensureHebrewDishName(fake, 'pasta', { log: () => {} });
+    assert.deepEqual(r, { name: 'פסטה', action: 'repaired' });
+  }
+});

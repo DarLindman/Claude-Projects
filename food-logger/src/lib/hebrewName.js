@@ -145,6 +145,9 @@ async function repairName(anthropic, name, userText, model) {
       system: userText ? REPAIR_TEXT_SYSTEM_PROMPT : REPAIR_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: name }],
     });
+    // A cut or refused reply is no repair (the caller falls through to careful cleaning), so a
+    // partial name never reaches the user.
+    if (res?.stop_reason === 'max_tokens' || res?.stop_reason === 'refusal') return null;
     // The first text block (a Haiku 5 reply can start with a thinking block).
     const text = replyText(res);
     if (typeof text !== 'string') return null;

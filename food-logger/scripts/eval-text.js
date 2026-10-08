@@ -19,16 +19,27 @@ const path = require('node:path');
 const { MODEL, createAnthropic } = require('../src/lib/anthropic');
 const { analyzeText } = require('../src/lib/analysis');
 const { REPAIR_PROMPT_PREFIX } = require('../src/lib/hebrewName');
+const { isHaiku5Plus } = require('../src/lib/modelRules');
 const { TEXT_INPUTS } = require('./eval/textInputs');
 const { renderReport, summarize } = require('./eval/textReport');
 
 const DEFAULT_MODELS = [MODEL, 'claude-haiku-5-5'];
 
-// ESTIMATE ONLY, not a price list: one text call is roughly 1,800 input tokens (system prompt,
-// reply template, the text) and 300-600 output tokens (more on a model that thinks) at about
-// $1 / $5 per million tokens, so about $0.004 to $0.006; 0.006 is a deliberately conservative
-// round figure per call, repair calls included. Check the Anthropic price page.
-const ESTIMATED_COST_PER_CALL_USD = 0.006;
+// ESTIMATE ONLY, not a price list. One text call is taken as 1,800 input tokens (system prompt,
+// reply template, the text) and 600 output tokens, at per-model rates in USD per million tokens:
+// Haiku 4.5 $1 in / $5 out; Haiku 5.5 $0.10 in / $0.50 out, with about 30% more tokens for the
+// same text. Any other id (unknown prices) is estimated at the Haiku 4.5 rates. Repair calls are
+// smaller but counted at the same rate (an upper bound); a parse retry is not counted.
+// Check the Anthropic price page before relying on it.
+const ESTIMATED_INPUT_TOKENS = 1800;
+const ESTIMATED_OUTPUT_TOKENS = 600;
+const HAIKU45_RATES = { inUsdPerMTok: 1, outUsdPerMTok: 5, tokenFactor: 1 };
+const HAIKU55_RATES = { inUsdPerMTok: 0.10, outUsdPerMTok: 0.50, tokenFactor: 1.3 };
+const ratesFor = (model) => (isHaiku5Plus(model) ? HAIKU55_RATES : HAIKU45_RATES);
+function estimatedCallCostUsd(model) {
+  const r = ratesFor(model);
+  return (ESTIMATED_INPUT_TOKENS * r.inUsdPerMTok + ESTIMATED_OUTPUT_TOKENS * r.outUsdPerMTok) * r.tokenFactor / 1e6;
+}
 
 const ROOT = path.join(__dirname, '..');
 const MAX_RUNS = 10;
@@ -140,10 +151,13 @@ async function run(options = {}, deps = {}) {
   const calls = inputs.length * runs * models.length;
   // the guard makes at most one repair call per run, and only for a text with Latin letters
   const repairable = inputs.filter((t) => LATIN.test(t)).length;
-  const maxCalls = calls + repairable * runs * models.length;
-  const plan = { inputs: inputs.length, runs, models, calls, maxCalls, estimatedCostUsd: Number((maxCalls * ESTIMATED_COST_PER_CALL_USD).toFixed(2)) };
+  const maxCallsPerModel = inputs.length * runs + repairable * runs;
+  const maxCalls = maxCallsPerModel * models.length;
+  const costByModel = Object.fromEntries(models.map((m) => [m, maxCallsPerModel * estimatedCallCostUsd(m)]));
+  const estimatedCostUsd = Number(Object.values(costByModel).reduce((a, b) => a + b, 0).toFixed(2));
+  const plan = { inputs: inputs.length, runs, models, calls, maxCalls, estimatedCostUsd };
   d.log(`${inputs.length} texts x ${runs} runs x ${models.length} models (${models.join(', ')}) = ${calls} API calls (up to ${maxCalls} with name-repair calls; a parse retry would add more).`);
-  d.log(`Estimated cost: up to about $${plan.estimatedCostUsd.toFixed(2)} (estimate at $${ESTIMATED_COST_PER_CALL_USD} per call; see the constant in scripts/eval-text.js).`);
+  d.log(`Estimated cost: up to about $${plan.estimatedCostUsd.toFixed(2)} (per model: ${models.map((m) => `${m} $${costByModel[m].toFixed(2)}`).join(', ')}; per-model rates in scripts/eval-text.js).`);
   d.log(`The texts are sent to the Anthropic API (${models.join(', ')}) and nowhere else. Results go to ${outDir}.`);
   if (!options.yes) {
     d.log('Nothing was sent. Add --yes to run it for real (every real run costs money and needs the owner\'s approval).');
@@ -197,6 +211,6 @@ async function main() {
   process.exitCode = result.exitCode;
 }
 
-module.exports = { run, parseArgs, evaluateOne, ESTIMATED_COST_PER_CALL_USD, DEFAULT_MODELS };
+module.exports = { run, parseArgs, evaluateOne, estimatedCallCostUsd, DEFAULT_MODELS };
 
 if (require.main === module) main();

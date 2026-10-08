@@ -24,7 +24,8 @@ const isSonnet5 = (model) => typeof model === 'string' && model.startsWith('clau
 // max_tokens. Legacy Haiku: 1500 for the image analysis (the items plus room for
 // visual_description, scale_reference and draft_name), 1200 for the text analysis, 40 / 400 for
 // the name repair (a dish name / a user text). Haiku 5 and later: room for adaptive thinking
-// at low effort. Other models: 6000 (Sonnet can spend many thinking tokens, which count against
+// at low effort (4000; name repair 2000, whatever the text). Other models: 6000 (name repair
+// 2000 too: main only ever repaired names on Haiku 4.5, so there is no older behaviour to keep) (Sonnet can spend many thinking tokens, which count against
 // the cap that once cut a JSON answer off at 1500; it is only a cap, what is billed is what the
 // model writes).
 const HAIKU_IMAGE_MAX_TOKENS = 1500;

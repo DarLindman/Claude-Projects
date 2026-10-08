@@ -9,7 +9,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { fakeAnthropic } = require('../helpers/fakeAnthropic');
-const { run, parseArgs, DEFAULT_MODELS, ESTIMATED_COST_PER_CALL_USD } = require('../../scripts/eval-text');
+const { run, parseArgs, DEFAULT_MODELS, estimatedCallCostUsd } = require('../../scripts/eval-text');
 const { TEXT_INPUTS } = require('../../scripts/eval/textInputs');
 const { renderReport } = require('../../scripts/eval/textReport');
 const { REPAIR_PROMPT_PREFIX } = require('../../src/lib/hebrewName');
@@ -55,7 +55,8 @@ test('a dry run prints the call count and an estimated cost, never builds a clie
   assert.equal(clients, 0);
   assert.equal(result.plan.calls, TEXT_INPUTS.length * 2 * 2);
   assert.ok(result.plan.maxCalls >= result.plan.calls);
-  assert.equal(result.plan.estimatedCostUsd, Number((result.plan.maxCalls * ESTIMATED_COST_PER_CALL_USD).toFixed(2)));
+  const perModel = result.plan.maxCalls / 2;
+  assert.equal(result.plan.estimatedCostUsd, Number((perModel * (estimatedCallCostUsd('claude-haiku-4-5-20251001') + estimatedCallCostUsd('claude-haiku-5-5'))).toFixed(2)));
   const text = lines.join('\n');
   assert.match(text, new RegExp(`= ${result.plan.calls} API calls`));
   assert.match(text, /Estimated cost: up to about \$/);
@@ -159,4 +160,12 @@ test('the report escapes everything that comes from an AI or an error', () => {
   });
   assert.ok(!/<script>alert|<img src=x|<b>x<\/b>|<svg onload/.test(html));
   assert.ok(html.includes('&lt;script&gt;'));
+});
+
+test('per-model cost rates: Haiku 4.5 $1/$5, Haiku 5.5 $0.10/$0.50 with 30% more tokens, unknown ids at the Haiku 4.5 rates', () => {
+  const h45 = (1800 * 1 + 600 * 5) / 1e6;
+  assert.ok(Math.abs(estimatedCallCostUsd('claude-haiku-4-5-20251001') - h45) < 1e-12);
+  assert.ok(Math.abs(estimatedCallCostUsd('claude-haiku-5-5') - ((1800 * 0.1 + 600 * 0.5) * 1.3) / 1e6) < 1e-12);
+  assert.equal(estimatedCallCostUsd('claude-something-new'), estimatedCallCostUsd('claude-haiku-4-5-20251001'));
+  assert.ok(estimatedCallCostUsd('claude-haiku-5-5') < estimatedCallCostUsd('claude-haiku-4-5-20251001') / 5);
 });
