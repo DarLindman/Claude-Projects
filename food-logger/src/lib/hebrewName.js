@@ -12,6 +12,8 @@
 // translation that must keep every other word, and there is no word limit.
 
 const { MODEL } = require('./anthropic');
+const { temperatureFor, repairMaxTokensFor, textRequestOptionsFor } = require('./modelRules');
+const { replyText } = require('./aiReply');
 
 const DEFAULT_DISH_NAME = 'מנה';
 const REPAIR_PROMPT_PREFIX = 'You are a Hebrew food-name editor.';
@@ -133,16 +135,18 @@ function keepsTheOtherWords(original, repaired) {
 }
 
 // One small repair call. Any failure or malformed reply is "no repair" (null).
-async function repairName(anthropic, name, userText) {
+async function repairName(anthropic, name, userText, model) {
   try {
     const res = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: userText ? 400 : 40,
-      temperature: 0,
+      model,
+      max_tokens: repairMaxTokensFor(model, userText),
+      ...(temperatureFor(model) === null ? {} : { temperature: temperatureFor(model) }),
+      ...textRequestOptionsFor(model),
       system: userText ? REPAIR_TEXT_SYSTEM_PROMPT : REPAIR_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: name }],
     });
-    const text = res?.content?.[0]?.text;
+    // The first text block (a Haiku 5 reply can start with a thinking block).
+    const text = replyText(res);
     if (typeof text !== 'string') return null;
     const line = text.trim().split(/\r?\n/)[0].trim();
     if (userText) return normalizeSpaces(HAS_QUOTE_EDGE.test(name) ? line : line.replace(QUOTE_EDGES, ''));
@@ -160,7 +164,7 @@ function logLine(action, name) {
 }
 
 async function ensureHebrewDishName(anthropic, original, options = {}) {
-  const { maxWords = DISH_MAX_WORDS, maxChars = DISH_MAX_CHARS, requireHebrewLetter = true, mode = 'dish', log = console.warn } = options;
+  const { maxWords = DISH_MAX_WORDS, maxChars = DISH_MAX_CHARS, requireHebrewLetter = true, mode = 'dish', log = console.warn, model = MODEL } = options;
   const userText = mode === 'userText';
   const limits = { maxWords, maxChars, requireHebrewLetter, punctuation: !userText };
   const finish = (result) => {
@@ -182,7 +186,7 @@ async function ensureHebrewDishName(anthropic, original, options = {}) {
   // Ask the AI only when there is foreign script and something recoverable in it.
   if (userText ? FOREIGN_LETTER.test(name) : foreign && RECOVERABLE.test(name)) {
     const source = userText ? stripUnsafe(tidy) : name;
-    const repaired = await repairName(anthropic, source, userText);
+    const repaired = await repairName(anthropic, source, userText, model);
     const accepted = userText
       ? repaired && !hasForeignText(repaired) && keepsTheOtherWords(source, repaired)
       : repaired && !findForeignScript(repaired);

@@ -38,10 +38,10 @@ const haikuImageRequest = (model) => ({
 });
 
 // ─── The temperature rule ─────────────────────────────────────────────────────
-test('temperatureFor: 0 for a claude-haiku id, null (omitted) for every other model', () => {
+test('temperatureFor: 0 for a Haiku 1-4 id, null (omitted) for every other model (Haiku 5 and later reject it)', () => {
   assert.equal(temperatureFor('claude-haiku-4-5-20251001'), 0);
-  assert.equal(temperatureFor('claude-haiku-9'), 0);
-  for (const m of [SONNET, 'claude-opus-5-5', 'claude-3-haiku-20240307', 'claude-fable-1']) {
+  assert.equal(temperatureFor('claude-haiku-3'), 0);
+  for (const m of ['claude-haiku-5-5', 'claude-haiku-9', SONNET, 'claude-opus-5-5', 'claude-3-haiku-20240307', 'claude-fable-1']) {
     assert.equal(temperatureFor(m), null, m);
   }
 });
@@ -53,7 +53,7 @@ test('analyzeImage without a model is the Haiku request of today, byte for byte'
   assert.equal(JSON.stringify(call), JSON.stringify(haikuImageRequest(MODEL)));
 });
 
-test('analyzeImage on a non-Haiku model omits temperature; on any claude-haiku id it sends 0', async () => {
+test('analyzeImage on a non-Haiku model omits temperature; on a Haiku 1-4 id it sends 0', async () => {
   const sonnet = fakeAnthropic();
   await analyzeImage(sonnet, { imageBase64: JPEG_BASE64, mimeType: 'image/jpeg', model: SONNET });
   const s = sonnet.calls.find((c) => !isRepairCall(c));
@@ -67,8 +67,8 @@ test('analyzeImage on a non-Haiku model omits temperature; on any claude-haiku i
   }));
 
   const haiku = fakeAnthropic();
-  await analyzeImage(haiku, { imageBase64: JPEG_BASE64, mimeType: 'image/jpeg', model: 'claude-haiku-5-0' });
-  assert.equal(JSON.stringify(haiku.calls.find((c) => !isRepairCall(c))), JSON.stringify(haikuImageRequest('claude-haiku-5-0')));
+  await analyzeImage(haiku, { imageBase64: JPEG_BASE64, mimeType: 'image/jpeg', model: 'claude-haiku-4-0' });
+  assert.equal(JSON.stringify(haiku.calls.find((c) => !isRepairCall(c))), JSON.stringify(haikuImageRequest('claude-haiku-4-0')));
 });
 
 test('an explicit temperature wins over the rule: null omits, a number is sent', async () => {
@@ -194,7 +194,7 @@ test('IMAGE_MODEL=claude-haiku-4-5-20251001 gives the Haiku request of today, by
   }
 });
 
-test('text analysis stays on MODEL at temperature 0 whatever the image model', async () => {
+test('text analysis defaults to MODEL (Haiku 4.5) at temperature 0 whatever the image model', async () => {
   const res = await analyzeTextReq();
   assert.equal(res.status, 200);
   const call = ctx.anthropic.calls[0];

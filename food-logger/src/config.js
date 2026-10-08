@@ -4,6 +4,7 @@ const NODE_ENVS = ['development', 'test', 'production'];
 const DEFAULT_ORIGIN = 'http://localhost:3000';
 const MIN_JWT_SECRET_LENGTH = 32;
 const DEFAULT_IMAGE_MODEL = 'claude-sonnet-5-5';
+const DEFAULT_TEXT_MODEL = 'claude-haiku-4-5-20251001';
 const DEFAULT_IMAGE_EFFORT = 'low';
 const IMAGE_EFFORTS = ['low', 'medium', 'high', 'off'];
 const MODEL_ID = /^claude-[A-Za-z0-9._-]+$/;
@@ -99,7 +100,7 @@ function loadConfig(env = process.env) {
 
   const databaseCa = read(env, 'DATABASE_CA');
 
-  // The model of the image analysis (text analysis stays on Haiku). Unlike the values
+  // The model of the image analysis. Unlike the values
   // above, a set-but-blank IMAGE_MODEL is an error, not the default: it is a typo to fix.
   // The value is not echoed, in case a secret was pasted into the wrong variable.
   let imageModel = DEFAULT_IMAGE_MODEL;
@@ -109,6 +110,19 @@ function loadConfig(env = process.env) {
       imageModel = m;
     } else {
       errors.push(`IMAGE_MODEL must be a Claude model id such as ${DEFAULT_IMAGE_MODEL} or claude-haiku-4-5-20251001 (lowercase "claude-" then letters, digits, ".", "_" or "-")`);
+    }
+  }
+
+  // The model of the text analysis and of the Hebrew name-repair call (default Haiku 4.5), with
+  // the same rules as IMAGE_MODEL: a set-but-blank value is an error, the value is not echoed.
+  // The request rules per model family are in src/lib/modelRules.js.
+  let textModel = DEFAULT_TEXT_MODEL;
+  if (env.TEXT_MODEL !== undefined && env.TEXT_MODEL !== null) {
+    const m = String(env.TEXT_MODEL).trim();
+    if (MODEL_ID.test(m)) {
+      textModel = m;
+    } else {
+      errors.push(`TEXT_MODEL must be a Claude model id such as ${DEFAULT_TEXT_MODEL} or claude-haiku-5-5 (lowercase "claude-" then letters, digits, ".", "_" or "-"; a set but blank value is an error: delete the variable to use the default)`);
     }
   }
 
@@ -139,6 +153,7 @@ function loadConfig(env = process.env) {
     trustProxy,
     databaseCa,
     imageModel,
+    textModel,
     imageEffort,
     isProd,
   });
@@ -159,4 +174,10 @@ function deployWarnings(config, env = process.env) {
   return warnings;
 }
 
-module.exports = { loadConfig, deployWarnings };
+// The startup log line: what the deploy actually runs with (never secrets); a wrong ORIGIN or
+// NODE_ENV otherwise shows up only as 403s, a wrong model id only as 502s.
+function startupLine(config) {
+  return `config: nodeEnv=${config.nodeEnv} origin=${config.origin} trustProxy=${config.trustProxy} imageModel=${config.imageModel} imageEffort=${config.imageEffort} textModel=${config.textModel}`;
+}
+
+module.exports = { loadConfig, deployWarnings, startupLine };

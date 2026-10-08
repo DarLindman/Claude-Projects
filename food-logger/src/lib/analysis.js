@@ -8,6 +8,9 @@ const {
 } = require('./prompts');
 const { replyText, blockTypes, stopReasonOf, extractJson, isPlainObject } = require('./aiReply');
 const { reconcileItems } = require('./nutrition');
+const {
+  temperatureFor, maxTokensFor, textMaxTokensFor, requestOptionsFor, textRequestOptionsFor,
+} = require('./modelRules');
 
 // Thrown when the model's reply cannot be turned into nutrition items. Like any other AI
 // failure, the routes map it to 502 AI_UNAVAILABLE (the details only go to the log).
@@ -21,34 +24,8 @@ class AnalysisParseError extends Error {
   }
 }
 
-// The per-model request rules of the image analysis, in one place. Haiku (an id starting
-// with claude-haiku) keeps its request exactly as it always was: temperature 0 and
-// max_tokens 1500 (the items plus room for visual_description, scale_reference and
-// draft_name). Every other
-// model gets no temperature (null omits the field; newer models reject it with a 400,
-// "temperature is deprecated for this model") and max_tokens 6000: Sonnet can spend thinking
-// tokens before its answer (many without the low-latency fields, IMAGE_EFFORT=off; far fewer
-// at the default effort low, see requestOptionsFor) and they count against max_tokens, which
-// once cut the JSON answer off at 1500. It is only a cap; what is billed is what the model writes.
-const isHaiku = (model) => model.startsWith('claude-haiku');
-const temperatureFor = (model) => (isHaiku(model) ? 0 : null);
-const maxTokensFor = (model) => (isHaiku(model) ? 1500 : 6000);
-
-// Low-latency options of the Sonnet 5 image request. Sonnet 5.5 spends many hidden thinking
-// tokens before answering (about 8-17 s per photo); `thinking: { type: 'between_tools' }`
-// with `output_config: { effort }` (low, medium or high; GA, no beta header) cuts that.
-// Only an id starting with claude-sonnet-5 gets them: Haiku, Opus and Fable reject these
-// fields with a 400, so every other model gets {}. `effort` undefined means the default
-// (low); null or 'off' sends nothing (the rollback, IMAGE_EFFORT=off). Never combined with
-// `thinking: disabled` or `budget_tokens` (rejected by these models).
-const EFFORTS = ['low', 'medium', 'high'];
-function requestOptionsFor(model, effort) {
-  if (typeof model !== 'string' || !model.startsWith('claude-sonnet-5')) return {};
-  if (effort === null || effort === 'off') return {};
-  const level = effort === undefined ? 'low' : effort;
-  if (!EFFORTS.includes(level)) throw new TypeError(`effort must be one of ${EFFORTS.join('|')}, off or null`);
-  return { thinking: { type: 'between_tools' }, output_config: { effort: level } };
-}
+// The per-model request rules (temperature, max_tokens, effort fields) live in modelRules.js;
+// temperatureFor, maxTokensFor and requestOptionsFor are the image side and stay exported here.
 
 // The JSON of a reply, or an AnalysisParseError. The reply describes the user's meal, so it
 // is never logged or put in the error: a failure logs (under `tag`) only its kind, the
@@ -164,10 +141,11 @@ function replyItems(checked) {
 // request goes to MODEL. `temperature` defaults to temperatureFor(model); an explicit value
 // wins (the evaluation tool): null omits the field, a number from 0 to 1 is sent.
 // `effort` (config.imageEffort in production) goes through requestOptionsFor(model, effort):
-// undefined is the default (low), null omits the Sonnet 5 low-latency fields.
+// undefined is the default (low), null omits the Sonnet 5 / Haiku 5 effort fields.
+// `repairModel` (config.textModel in production, default MODEL) is the model of the name-repair call.
 // `prompts` ({ system, user }) replaces IMAGE_SYSTEM_PROMPT and IMAGE_USER_MESSAGE; it is for
 // the evaluation tool only and production never passes it.
-async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL, temperature, effort, prompts }) {
+async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL, temperature, effort, prompts, repairModel = MODEL }) {
   if (typeof model !== 'string' || !model.trim()) throw new TypeError('model must be a non-empty string');
   if (temperature === undefined) temperature = temperatureFor(model);
   if (temperature !== null && !(typeof temperature === 'number' && Number.isFinite(temperature) && temperature >= 0 && temperature <= 1)) {
@@ -209,17 +187,23 @@ async function analyzeImage(anthropic, { imageBase64, mimeType, model = MODEL, t
   items.forEach(item => { item.name = cleanDishName(item.name); });
   const checked = checkItems('analyze', items);
   const totals = sumItems(checked);
-  const { name: foodName } = await ensureHebrewDishName(anthropic, parsed.dish_name, {});
+  const { name: foodName } = await ensureHebrewDishName(anthropic, parsed.dish_name, { model: repairModel });
   return { foodName, ...totals, items: replyItems(checked) };
 }
 
 // ─── Analyze food text ────────────────────────────────────────────────────────
-async function analyzeText(anthropic, text) {
+// `model` is the configured text model (config.textModel in production, TEXT_MODEL); without
+// it the request goes to MODEL. The name-repair call uses the same model. Request rules:
+// modelRules.js (Haiku 4.5: temperature 0, max_tokens 1200; Haiku 5: no temperature, effort low).
+async function analyzeText(anthropic, text, { model = MODEL } = {}) {
+  if (typeof model !== 'string' || !model.trim()) throw new TypeError('model must be a non-empty string');
+  const temperature = temperatureFor(model);
   const items = await withParseRetry('analyze-text', async () => {
     const message = await callModel(anthropic, 'analyze-text', 'text', {
-      model: MODEL,
-      max_tokens: 1200,
-      temperature: 0,
+      model,
+      max_tokens: textMaxTokensFor(model),
+      ...(temperature === null ? {} : { temperature }),
+      ...textRequestOptionsFor(model),
       system: TEXT_SYSTEM_PROMPT,
       messages: [{
         role: 'user',
@@ -235,7 +219,7 @@ async function analyzeText(anthropic, text) {
   // The shown name is what the user typed: only non-Hebrew letters are translated, the
   // rest (punctuation, emoji, digits) stays; no word limit, at most the food-name limit
   // of 200 characters, and a text without letters (such as "100") stays as typed.
-  const { name: foodName } = await ensureHebrewDishName(anthropic, text.trim(), { mode: 'userText', maxWords: Infinity, maxChars: 200, requireHebrewLetter: false });
+  const { name: foodName } = await ensureHebrewDishName(anthropic, text.trim(), { mode: 'userText', maxWords: Infinity, maxChars: 200, requireHebrewLetter: false, model });
   return { foodName, ...totals, items: replyItems(checked) };
 }
 
@@ -249,5 +233,7 @@ module.exports = {
   isImageAnswer,
   temperatureFor,
   maxTokensFor,
+  textMaxTokensFor,
   requestOptionsFor,
+  textRequestOptionsFor,
 };
