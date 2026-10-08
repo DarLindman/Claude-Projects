@@ -14,7 +14,8 @@
 // `fake.usage`, when set, is returned as the `usage` of the image and text responses.
 // `fake.imageContent` / `fake.textContent`, when set, are returned as the response's
 // `content` array as is (any block shapes, for the reply-parsing tests); they win over
-// imageReply / textReply.
+// imageReply / textReply. `fake.textStopReason`, when set, is the stop_reason of the text
+// response (default end_turn).
 const { REPAIR_PROMPT_PREFIX } = require('../../src/lib/hebrewName');
 
 // analysis.js logs one numbers-only usage line per model call (console.info). Every test
@@ -55,6 +56,7 @@ function fakeAnthropic() {
     imageContent: undefined,
     textReply: undefined,
     textContent: undefined,
+    textStopReason: undefined,
     usage: undefined,
     messages: {
       async create(args) {
@@ -73,8 +75,8 @@ function fakeAnthropic() {
             : JSON.stringify({ visual_description: 'grilled chicken with white rice', scale_reference: 'fork about 19 cm; plate about 26 cm', draft_name: 'עוף עם אורז לבן', dish_name: 'עוף עם אורז', items: IMAGE_ITEMS });
           return { ...reply(text), stop_reason: fake.imageStopReason ?? 'end_turn', ...usage };
         }
-        if (fake.textContent !== undefined) return { content: fake.textContent, stop_reason: 'end_turn', ...usage };
-        return { ...reply(fake.textReply !== undefined ? fake.textReply : JSON.stringify(TEXT_ITEMS)), ...usage };
+        if (fake.textContent !== undefined) return { content: fake.textContent, stop_reason: fake.textStopReason ?? 'end_turn', ...usage };
+        return { ...reply(fake.textReply !== undefined ? fake.textReply : JSON.stringify(TEXT_ITEMS)), ...(fake.textStopReason === undefined ? {} : { stop_reason: fake.textStopReason }), ...usage };
       },
     },
   };

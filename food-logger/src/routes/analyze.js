@@ -29,12 +29,14 @@ async function callAi(req, fn) {
   }
 }
 
-// `imageModel` is config.imageModel (IMAGE_MODEL); the text analysis stays on MODEL.
+// `imageModel` is config.imageModel (IMAGE_MODEL); `textModel` is config.textModel (TEXT_MODEL), the
+// model of the text analysis and of the name-repair calls of both analyses.
 // `imageEffort` is config.imageEffort (IMAGE_EFFORT: low, medium, high or off); off is passed
 // to analyzeImage as null (no low-latency fields).
-module.exports = function analyzeRoutes({ anthropic, auth, analyzeLimiter, analyzeIpLimiter, imageModel, imageEffort }) {
+module.exports = function analyzeRoutes({ anthropic, auth, analyzeLimiter, analyzeIpLimiter, imageModel, imageEffort, textModel }) {
   if (typeof imageModel !== 'string' || !imageModel) throw new TypeError('analyzeRoutes needs imageModel');
   if (typeof imageEffort !== 'string' || !imageEffort) throw new TypeError('analyzeRoutes needs imageEffort');
+  if (typeof textModel !== 'string' || !textModel) throw new TypeError('analyzeRoutes needs textModel');
   const effort = imageEffort === 'off' ? null : imageEffort;
   const router = express.Router();
 
@@ -45,13 +47,13 @@ module.exports = function analyzeRoutes({ anthropic, auth, analyzeLimiter, analy
     const mimeType = detectImageType(bytes);
     if (!mimeType) throw new AppError(400, 'IMAGE_INVALID');
     const imageBase64 = bytes.toString('base64');
-    res.json(await callAi(req, () => analyzeImage(anthropic, { imageBase64, mimeType, model: imageModel, effort })));
+    res.json(await callAi(req, () => analyzeImage(anthropic, { imageBase64, mimeType, model: imageModel, effort, repairModel: textModel })));
   }));
 
   // ─── Analyze food text ──────────────────────────────────────────────────────
   router.post('/analyze-text', auth, analyzeLimiter, analyzeIpLimiter, jsonText, validate({ body: textBody }), asyncHandler(async (req, res) => {
     const { text } = req.valid.body;
-    res.json(await callAi(req, () => analyzeText(anthropic, text)));
+    res.json(await callAi(req, () => analyzeText(anthropic, text, { model: textModel })));
   }));
 
   return router;
